@@ -13,8 +13,6 @@ Working with multiple identities (personal + work, or several clients) means com
 
 ```bash
 uvx aparta        # first run drops you straight into the interactive wizard
-# not on PyPI yet? run straight from GitHub:
-uvx --from git+https://github.com/lucascarvalhal/aparta aparta
 ```
 
 Pick your AI agents, describe each context (folder, git e-mail, SSH key, gh/gcloud accounts — aparta lists what is already logged in), review the summary, confirm once. Done. `aparta doctor` verifies everything afterwards.
@@ -39,12 +37,6 @@ O **aparta** automatiza a solução manual conhecida: blocos `[includeIf "gitdir
 uvx aparta          # roda sem instalar (recomendado para começar)
 pip install aparta  # ou instale de vez
 ```
-
-> Enquanto o pacote não está no PyPI, use a instalação direto do GitHub:
->
-> ```bash
-> uvx --from git+https://github.com/lucascarvalhal/aparta aparta
-> ```
 
 Rodar `aparta` sem argumentos na primeira vez abre o **wizard interativo**; com perfis já configurados, abre um menu (novo perfil / apply / doctor / list).
 
