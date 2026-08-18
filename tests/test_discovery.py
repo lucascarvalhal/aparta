@@ -152,6 +152,18 @@ def test_suggestions_from_gitconfig_extrai_ssh_key(tmp_path: Path):
     assert s.ssh_key == "~/.ssh/id_ed25519_eneva"
 
 
+def test_suggestions_from_gitconfig_extrai_ssh_alias(tmp_path: Path):
+    gitconfig = tmp_path / ".gitconfig"
+    gitconfig.write_text('[includeIf "gitdir:~/pessoal/"]\n    path = .gitconfig-pessoal\n')
+    (tmp_path / ".gitconfig-pessoal").write_text(
+        "[user]\n    email = eu@gmail.com\n"
+        '[url "git@github.com-pessoal:"]\n'
+        "    insteadOf = https://github.com/\n"
+    )
+    s = suggestions_from_gitconfig(gitconfig)[0]
+    assert s.ssh_alias == "github.com-pessoal"
+
+
 def test_gh_user_from_config_dir(tmp_path: Path):
     from aparta.discovery import gh_user_from_config_dir
 

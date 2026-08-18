@@ -2,7 +2,46 @@
 
 from pathlib import Path
 
-from aparta.wizard import list_ssh_keys, parse_gh_accounts
+from aparta.wizard import list_ssh_host_aliases, list_ssh_keys, parse_gh_accounts
+
+SSH_CONFIG = """\
+Host *
+    AddKeysToAgent yes
+
+Host github.com-pessoal
+    HostName github.com
+    IdentityFile ~/.ssh/github_pessoal
+
+Host github.com-eneva
+    HostName github.com
+    IdentityFile ~/.ssh/id_ed25519_eneva
+
+Host meu-servidor
+    HostName 10.0.0.5
+    User root
+
+# alias == hostname não é apelido
+Host github.com
+    IdentityFile ~/.ssh/id_ed25519
+"""
+
+
+def test_list_ssh_host_aliases(tmp_path: Path):
+    config = tmp_path / "config"
+    config.write_text(SSH_CONFIG)
+    aliases = list_ssh_host_aliases(config)
+    assert [a["alias"] for a in aliases] == [
+        "github.com-pessoal",
+        "github.com-eneva",
+        "meu-servidor",
+    ]
+    assert aliases[0]["hostname"] == "github.com"
+    assert aliases[0]["identity"] == "~/.ssh/github_pessoal"
+    assert aliases[2]["identity"] == ""  # sem IdentityFile
+
+
+def test_list_ssh_host_aliases_sem_config(tmp_path: Path):
+    assert list_ssh_host_aliases(tmp_path / "nao-existe") == []
 
 
 def test_list_ssh_keys_pairs_only(tmp_path: Path):

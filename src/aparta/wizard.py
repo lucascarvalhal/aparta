@@ -53,6 +53,42 @@ def list_ssh_keys(ssh_dir: Path | None = None) -> list[str]:
     return keys
 
 
+def list_ssh_host_aliases(config: Path | None = None) -> list[dict[str, str]]:
+    """Atalhos de host do ~/.ssh/config: [{alias, hostname, identity}].
+
+    Só entram blocos com HostName definido e alias diferente do host real
+    (apelidos de verdade, ex.: github.com-pessoal → github.com); curingas
+    (*, ?) são ignorados.
+    """
+    config = config or Path.home() / ".ssh" / "config"
+    if not config.exists():
+        return []
+    aliases: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for raw in config.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r"(?i)^Host\s+(.+)", line)
+        if m:
+            name = m.group(1).split()[0]
+            current = None
+            if "*" not in name and "?" not in name:
+                current = {"alias": name, "hostname": "", "identity": ""}
+                aliases.append(current)
+            continue
+        if current is None:
+            continue
+        m = re.match(r"(?i)^HostName\s+(\S+)", line)
+        if m:
+            current["hostname"] = m.group(1)
+            continue
+        m = re.match(r"(?i)^IdentityFile\s+(\S+)", line)
+        if m:
+            current["identity"] = m.group(1)
+    return [a for a in aliases if a["hostname"] and a["alias"] != a["hostname"]]
+
+
 def parse_gh_accounts(status_output: str) -> list[str]:
     """Extrai usuários logados da saída de `gh auth status` (todas as contas)."""
     return list(dict.fromkeys(re.findall(r"Logged in to \S+ account (\S+)", status_output)))
@@ -236,6 +272,55 @@ def _choose_from(
     return "" if answer == SKIP else answer
 
 
+def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
+    """Pergunta o atalho SSH dos remotes, listando os Hosts do ~/.ssh/config.
+
+    Com o atalho, o gitconfig do perfil reescreve URLs do GitHub (https e
+    git@) para git@<atalho>:, garantindo a chave certa em qualquer clone.
+    """
+    import questionary
+
+    NO_ALIAS = "(não usar — conectar direto com a chave escolhida)"
+    aliases = list_ssh_host_aliases()
+    if not aliases:
+        return (
+            questionary.text(
+                "Atalho SSH dos remotes (Host do ~/.ssh/config; vazio = usar a chave direta):",
+                default=suggested,
+            ).ask()
+            or ""
+        ).strip()
+
+    key_resolved = str(Path(ssh_key).expanduser())
+    default = suggested or next(
+        (
+            a["alias"]
+            for a in aliases
+            if a["identity"] and str(Path(a["identity"]).expanduser()) == key_resolved
+        ),
+        "",
+    )
+    choices = [
+        questionary.Choice(
+            f"{a['alias']}  (→ {a['hostname']}"
+            + (f", chave {Path(a['identity']).name}" if a["identity"] else "")
+            + ")",
+            value=a["alias"],
+        )
+        for a in aliases
+    ] + [questionary.Choice(NO_ALIAS, value="")]
+    default_choice = next((c for c in choices if c.value == default and default), None)
+    answer = questionary.select(
+        "Atalho SSH para os remotes deste perfil (reescreve as URLs do GitHub "
+        "para usar a chave certa):",
+        choices=choices,
+        default=default_choice,
+    ).ask()
+    if answer is None:
+        raise KeyboardInterrupt
+    return answer
+
+
 def _ask_context(
     agents: list[str],
     existing_names: list[str],
@@ -287,13 +372,7 @@ def _ask_context(
         ssh_key = generate_ssh_key(name, dry_run=dry_run)
         generated_key = bool(ssh_key)
     if ssh_key:
-        ssh_alias = (
-            questionary.text(
-                "Alias de host SSH p/ reescrever remotes https (vazio = não reescrever):",
-                default="",
-            ).ask()
-            or ""
-        ).strip()
+        ssh_alias = _ask_ssh_alias(ssh_key, suggestion.ssh_alias if suggestion else "")
 
     gh_accounts = list_gh_accounts()
     if not gh_accounts:

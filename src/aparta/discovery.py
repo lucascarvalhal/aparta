@@ -45,6 +45,7 @@ class ContextSuggestion:
     gh_config: str = ""  # ex.: "gh-pessoal" (dir detectado em env de agente)
     gcloud_config: str = ""  # ex.: "pessoal" (CLOUDSDK_ACTIVE_CONFIG_NAME)
     ssh_key: str = ""  # do core.sshCommand do gitconfig incluído
+    ssh_alias: str = ""  # do bloco [url "git@<alias>:"] insteadOf
     gh_user: str = ""  # do hosts.yml do gh_config
     gcloud_account: str = ""  # da configuração nomeada do gcloud
     source: str = "repos"  # "gitconfig" | "repos"
@@ -89,6 +90,7 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
         root = Path(gitdir.rstrip("/")).expanduser()
         email = ""
         ssh_key = ""
+        ssh_alias = ""
         included = Path(include_path).expanduser()
         if not included.is_absolute():
             included = gitconfig.parent / included
@@ -98,12 +100,15 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
             email = m.group(1) if m else ""
             m = re.search(r"sshCommand\s*=\s*ssh\s+-i\s+(\S+)", text)
             ssh_key = m.group(1) if m else ""
+            m = re.search(r'\[url "git@([^:"]+):"\]', text)
+            ssh_alias = m.group(1) if m else ""
         suggestions.append(
             ContextSuggestion(
                 name=root.name,
                 root=_tilde(root),
                 git_email=email,
                 ssh_key=ssh_key,
+                ssh_alias=ssh_alias,
                 source="gitconfig",
             )
         )
