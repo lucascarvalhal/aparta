@@ -259,7 +259,15 @@ def run_wizard(dry_run: bool = False) -> None:
                 for s in suggestions
             ],
         ).ask()
-        for s in chosen or []:
+        for i, s in enumerate(chosen or [], start=1):
+            console.print(
+                Panel(
+                    _suggestion_label(s)
+                    + "\n[dim]Enter aceita os valores sugeridos; edite o que quiser.[/dim]",
+                    title=f"Grupo {i}/{len(chosen)} — {s.root}",
+                    border_style="cyan",
+                )
+            )
             profile = _ask_context(
                 agents, list(profiles) + [p.name for p in new_profiles], suggestion=s
             )
