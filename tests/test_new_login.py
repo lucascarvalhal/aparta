@@ -71,6 +71,28 @@ def test_login_gcloud_usa_config_nomeada(monkeypatch):
     assert login_call[1] == "novo"  # login preso à config do perfil
 
 
+def test_generate_ssh_key_dry_run_nao_cria(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    assert wizard.generate_ssh_key("novo", dry_run=True) == ""
+    assert not (tmp_path / ".ssh" / "id_ed25519_novo").exists()
+
+
+def test_generate_ssh_key_cria_par_de_chaves(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    key = wizard.generate_ssh_key("novo")
+    assert key == str(tmp_path / ".ssh" / "id_ed25519_novo")
+    assert Path(key).exists() and Path(key + ".pub").exists()
+
+
+def test_generate_ssh_key_reusa_existente(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    ssh_dir = tmp_path / ".ssh"
+    ssh_dir.mkdir(mode=0o700)
+    (ssh_dir / "id_ed25519_novo").write_text("chave existente")
+    assert wizard.generate_ssh_key("novo") == str(ssh_dir / "id_ed25519_novo")
+    assert (ssh_dir / "id_ed25519_novo").read_text() == "chave existente"
+
+
 def test_apply_gh_com_dir_ja_existente_sem_config_global(tmp_path, monkeypatch):
     """Login feito pelo wizard cria gh-<perfil>; apply não pode exigir ~/.config/gh."""
     dst = tmp_path / ".config" / "gh-novo"

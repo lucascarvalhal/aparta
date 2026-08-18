@@ -2,13 +2,14 @@
 
 Fluxo:
 1. Escolha dos agentes de IA (checkbox multi-seleção, vindos do registry).
-2. Descoberta: varredura do disco (discovery.discover) sugere grupos de
-   projetos já em uso, com nome/pasta/e-mail pré-preenchidos.
-3. Por grupo: nome → pasta raiz → e-mail git → chave SSH (lista ~/.ssh)
-   → conta gh (lista `gh auth status` + opção de logar conta nova no config
-   dir do perfil) → conta gcloud (idem, na configuração nomeada do perfil).
-4. Repos soltos (fora das raízes) podem ser adotados por um perfil:
-   include.path local no .git/config, sem mover a pasta.
+2. Modo: "detectar o que já uso" (varredura via discovery.discover, sugestões
+   pré-preenchidas com nome/pasta/e-mail/chave/contas) ou "começar do zero".
+3. Por perfil: nome → pasta raiz → e-mail git → chave SSH (lista ~/.ssh +
+   gerar nova com ssh-keygen e oferta de enviar via `gh ssh-key add`)
+   → conta gh (contas logadas + conectar nova no config dir do perfil)
+   → conta gcloud (idem, na configuração nomeada do perfil).
+4. No modo detectar, repos soltos (fora das raízes) podem ser adotados por um
+   perfil: include.path local no .git/config, sem mover a pasta.
 5. Resumo rico de tudo que será feito + confirmação única + apply automático
    (ou só salvar sem aplicar).
 """
@@ -32,7 +33,9 @@ from .profiles import Profile, load_profiles, profiles_path, save_profiles
 console = Console()
 
 SKIP = "(pular)"
-NEW_LOGIN = "(logar nova conta agora...)"
+NEW_GH_LOGIN = "(conectar nova conta do GitHub...)"
+NEW_GCLOUD_LOGIN = "(conectar nova conta Google...)"
+NEW_SSH_KEY = "(gerar nova chave SSH para este perfil...)"
 
 
 # ---------------------------------------------------------------- descoberta
@@ -151,6 +154,67 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
     return account
 
 
+def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
+    """Gera ~/.ssh/id_ed25519_<perfil> (ed25519, sem passphrase) e mostra a
+    chave pública. Retorna o caminho da chave privada ('' se falhou/dry-run)."""
+    key = Path.home() / ".ssh" / f"id_ed25519_{profile_name}"
+    if dry_run:
+        console.print(f"[yellow]--dry-run[/yellow] ssh-keygen -t ed25519 -f {key}")
+        return ""
+    if key.exists():
+        console.print(f"[dim]{key} já existe; usando a existente.[/dim]")
+        return str(key)
+    key.parent.mkdir(mode=0o700, exist_ok=True)
+    try:
+        r = subprocess.run(
+            ["ssh-keygen", "-t", "ed25519", "-f", str(key), "-N", "",
+             "-C", f"{profile_name} (gerada pelo aparta)"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        console.print("[red]ssh-keygen não encontrado.[/red]")
+        return ""
+    if r.returncode != 0:
+        console.print(f"[red]ssh-keygen falhou:[/red] {r.stderr.strip()}")
+        return ""
+    console.print(f"[green]chave criada:[/green] {key}")
+    console.print(Panel(key.with_suffix(".pub").read_text().strip(), title="Chave pública"))
+    return str(key)
+
+
+def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
+    """Oferece enviar a chave pública recém-criada para a conta gh via API."""
+    import questionary
+
+    if not questionary.confirm(
+        f"Enviar esta chave para a conta GitHub '{gh_user}' agora? (gh ssh-key add)",
+        default=True,
+    ).ask():
+        console.print(
+            f"[dim]Depois: gh ssh-key add {ssh_key}.pub --title {profile_name}[/dim]"
+        )
+        return
+    env = dict(os.environ)
+    profile_gh_dir = Path.home() / ".config" / f"gh-{profile_name}"
+    if profile_gh_dir.exists():
+        env["GH_CONFIG_DIR"] = str(profile_gh_dir)
+    r = subprocess.run(
+        ["gh", "ssh-key", "add", f"{ssh_key}.pub", "--title", f"{profile_name}-aparta"],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0:
+        console.print(
+            f"[yellow]Não consegui enviar ({r.stderr.strip().splitlines()[-1] if r.stderr.strip() else 'falhou'}).[/yellow]\n"
+            f"[dim]Manual: gh ssh-key add {ssh_key}.pub --title {profile_name} "
+            "(o token precisa do escopo admin:public_key — gh auth refresh -s admin:public_key)[/dim]"
+        )
+    else:
+        console.print(f"[green]gh:[/green] chave adicionada à conta '{gh_user}'.")
+
+
 # ------------------------------------------------------------------- wizard
 
 def _choose_from(
@@ -213,12 +277,15 @@ def _ask_context(
     ssh_key = ""
     ssh_alias = ""
     suggested_key = str(Path(suggestion.ssh_key).expanduser()) if suggestion and suggestion.ssh_key else ""
-    if ssh_keys:
-        ssh_key = _choose_from(
-            "Chave SSH específica deste perfil:", ssh_keys, default=suggested_key
-        )
-    else:
-        ssh_key = (questionary.path("Chave SSH (vazio = pular):", default="").ask() or "").strip()
+    ssh_key = _choose_from(
+        "Chave SSH específica deste perfil:",
+        ssh_keys + [NEW_SSH_KEY],
+        default=suggested_key,
+    )
+    generated_key = False
+    if ssh_key == NEW_SSH_KEY:
+        ssh_key = generate_ssh_key(name, dry_run=dry_run)
+        generated_key = bool(ssh_key)
     if ssh_key:
         ssh_alias = (
             questionary.text(
@@ -233,21 +300,23 @@ def _ask_context(
         console.print("[dim]Nenhuma conta gh logada ainda (gh auth status).[/dim]")
     gh_user = _choose_from(
         "Conta do GitHub CLI para este perfil:",
-        gh_accounts + [NEW_LOGIN],
+        gh_accounts + [NEW_GH_LOGIN],
         default=suggestion.gh_user if suggestion else "",
     )
-    if gh_user == NEW_LOGIN:
+    if gh_user == NEW_GH_LOGIN:
         gh_user = login_new_gh_account(name, dry_run=dry_run)
+    if gh_user and generated_key:
+        offer_upload_ssh_key(ssh_key, gh_user, name)
 
     gcloud_accounts = list_gcloud_accounts()
     if not gcloud_accounts:
         console.print("[dim]Nenhuma conta gcloud logada ainda (gcloud auth list).[/dim]")
     gcloud_account = _choose_from(
         "Conta gcloud para este perfil:",
-        gcloud_accounts + [NEW_LOGIN],
+        gcloud_accounts + [NEW_GCLOUD_LOGIN],
         default=suggestion.gcloud_account if suggestion else "",
     )
-    if gcloud_account == NEW_LOGIN:
+    if gcloud_account == NEW_GCLOUD_LOGIN:
         gcloud_account = login_new_gcloud_account(name, dry_run=dry_run)
     gcloud_project = ""
     if gcloud_account:
@@ -376,12 +445,35 @@ def run_wizard(dry_run: bool = False) -> None:
     if agents is None:
         return
 
-    # Passo 2: descoberta — varre o disco e sugere grupos prontos
+    # Passo 2: modo — detectar o que já existe ou começar do zero
+    mode = questionary.select(
+        "Como você quer começar?",
+        choices=[
+            questionary.Choice(
+                "🔍 Detectar o que já uso — varre contas logadas, chaves e projetos existentes",
+                value="scan",
+            ),
+            questionary.Choice(
+                "✨ Começar do zero — conectar contas e criar chaves passo a passo",
+                value="zero",
+            ),
+        ],
+    ).ask()
+    if mode is None:
+        return
+
+    # Passo 3: descoberta — varre o disco e sugere grupos prontos
     profiles = load_profiles()
     new_profiles: list[Profile] = []
 
-    console.print("[dim]Procurando projetos existentes no disco...[/dim]")
-    suggestions = [s for s in discover() if s.name not in profiles]
+    suggestions: list[ContextSuggestion] = []
+    if mode == "scan":
+        console.print("[dim]Procurando projetos existentes no disco...[/dim]")
+        suggestions = [s for s in discover() if s.name not in profiles]
+        if not suggestions:
+            console.print(
+                "[yellow]Nada detectado — vamos criar seu primeiro perfil do zero.[/yellow]"
+            )
     if suggestions:
         console.print(
             f"Encontrei [bold]{len(suggestions)}[/bold] grupo(s) de projetos já em uso:"
@@ -411,7 +503,7 @@ def run_wizard(dry_run: bool = False) -> None:
             if profile is not None:
                 new_profiles.append(profile)
 
-    # Passo 3: grupos manuais (primeiro obrigatório se nada foi descoberto)
+    # Grupos manuais (primeiro obrigatório se nada foi descoberto/selecionado)
     while True:
         if new_profiles and not questionary.confirm(
             "Configurar outro grupo de projetos?", default=False
@@ -431,10 +523,11 @@ def run_wizard(dry_run: bool = False) -> None:
         console.print("[yellow]Nenhum contexto configurado.[/yellow]")
         return
 
-    # Passo 4: repos soltos — fora das raízes dos perfis — podem ser adotados
-    _adopt_loose_repos(list(profiles.values()) + new_profiles)
+    # Repos soltos — fora das raízes dos perfis — podem ser adotados (só no scan)
+    if mode == "scan":
+        _adopt_loose_repos(list(profiles.values()) + new_profiles)
 
-    # Passo 5: resumo + confirmação única
+    # Resumo + confirmação única
     _summary(new_profiles)
     action = questionary.select(
         "Como prosseguir?",
