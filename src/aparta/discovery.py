@@ -44,6 +44,9 @@ class ContextSuggestion:
     repo_count: int = 0
     gh_config: str = ""  # ex.: "gh-pessoal" (dir detectado em env de agente)
     gcloud_config: str = ""  # ex.: "pessoal" (CLOUDSDK_ACTIVE_CONFIG_NAME)
+    ssh_key: str = ""  # do core.sshCommand do gitconfig incluído
+    gh_user: str = ""  # do hosts.yml do gh_config
+    gcloud_account: str = ""  # da configuração nomeada do gcloud
     source: str = "repos"  # "gitconfig" | "repos"
 
 
@@ -85,17 +88,22 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
     for gitdir, include_path in parse_includeifs(gitconfig.read_text()):
         root = Path(gitdir.rstrip("/")).expanduser()
         email = ""
+        ssh_key = ""
         included = Path(include_path).expanduser()
         if not included.is_absolute():
             included = gitconfig.parent / included
         if included.exists():
-            m = re.search(r"email\s*=\s*(\S+)", included.read_text())
+            text = included.read_text()
+            m = re.search(r"email\s*=\s*(\S+)", text)
             email = m.group(1) if m else ""
+            m = re.search(r"sshCommand\s*=\s*ssh\s+-i\s+(\S+)", text)
+            ssh_key = m.group(1) if m else ""
         suggestions.append(
             ContextSuggestion(
                 name=root.name,
                 root=_tilde(root),
                 git_email=email,
+                ssh_key=ssh_key,
                 source="gitconfig",
             )
         )
@@ -200,6 +208,44 @@ def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
     return suggestions
 
 
+def gh_user_from_config_dir(dirname: str, config_root: Path | None = None) -> str:
+    """Usuário ativo de um config dir do gh (ex.: gh-pessoal), via hosts.yml."""
+    config_root = config_root or Path.home() / ".config"
+    hosts = config_root / dirname / "hosts.yml"
+    if not hosts.exists():
+        return ""
+    m = re.search(r"^\s*user:\s*(\S+)", hosts.read_text(), re.M)
+    return m.group(1) if m else ""
+
+
+def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str:
+    """Conta de uma configuração nomeada do gcloud (arquivo config_<name>)."""
+    gcloud_dir = gcloud_dir or Path.home() / ".config" / "gcloud"
+    cfg = gcloud_dir / "configurations" / f"config_{name}"
+    if not cfg.exists():
+        return ""
+    m = re.search(r"^account\s*=\s*(\S+)", cfg.read_text(), re.M)
+    return m.group(1) if m else ""
+
+
+def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> None:
+    """Resolve usuário gh e conta gcloud a partir dos configs no disco.
+
+    Sem gh_config/gcloud_config detectados por env, tenta a convenção de
+    nomes do próprio aparta (gh-<name> e config_<name>).
+    """
+    config_root = config_root or Path.home() / ".config"
+    gh_dir = s.gh_config or f"gh-{s.name}"
+    if (config_root / gh_dir).exists():
+        s.gh_config = gh_dir
+        s.gh_user = s.gh_user or gh_user_from_config_dir(gh_dir, config_root)
+    gcloud_name = s.gcloud_config or s.name
+    account = gcloud_account_from_config(gcloud_name, config_root / "gcloud")
+    if account:
+        s.gcloud_config = gcloud_name
+        s.gcloud_account = s.gcloud_account or account
+
+
 def loose_repos(
     profile_roots: list[Path | str],
     scan_roots: list[str] | None = None,
@@ -218,6 +264,7 @@ def loose_repos(
 def discover(
     scan_roots: list[str] | None = None,
     gitconfig: Path | None = None,
+    config_root: Path | None = None,
 ) -> list[ContextSuggestion]:
     """Sugestões de contexto: includeIf do gitconfig primeiro, depois varredura.
 
@@ -247,4 +294,6 @@ def discover(
     ordered = sorted(
         by_root.values(), key=lambda s: (s.source != "gitconfig", -s.repo_count)
     )
+    for s in ordered:
+        _enrich_accounts(s, config_root)
     return ordered

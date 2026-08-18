@@ -153,12 +153,20 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
 
 # ------------------------------------------------------------------- wizard
 
-def _choose_from(question: str, options: list[str], allow_manual: bool = True) -> str:
-    """Select com opção de pular; retorna '' quando pulado."""
+def _choose_from(
+    question: str,
+    options: list[str],
+    allow_manual: bool = True,
+    default: str = "",
+) -> str:
+    """Select com opção de pular; retorna '' quando pulado. `default` (se
+    estiver entre as opções) começa selecionado — Enter direto confirma."""
     import questionary
 
     choices = options + ([SKIP] if SKIP not in options else [])
-    answer = questionary.select(question, choices=choices).ask()
+    answer = questionary.select(
+        question, choices=choices, default=default if default in choices else None
+    ).ask()
     if answer is None:
         raise KeyboardInterrupt
     return "" if answer == SKIP else answer
@@ -173,7 +181,9 @@ def _ask_context(
     import questionary
 
     name = questionary.text(
-        "Nome deste grupo de projetos (vira o nome do perfil — ex.: pessoal, trabalho, cliente-x):",
+        f"Nome do perfil para {suggestion.root}:"
+        if suggestion
+        else "Nome do novo perfil (ex.: pessoal, trabalho, cliente-x):",
         default=suggestion.name if suggestion else "",
         validate=lambda v: bool(v.strip()) or "obrigatório",
     ).ask()
@@ -202,8 +212,11 @@ def _ask_context(
     ssh_keys = list_ssh_keys()
     ssh_key = ""
     ssh_alias = ""
+    suggested_key = str(Path(suggestion.ssh_key).expanduser()) if suggestion and suggestion.ssh_key else ""
     if ssh_keys:
-        ssh_key = _choose_from("Chave SSH específica deste contexto:", ssh_keys)
+        ssh_key = _choose_from(
+            "Chave SSH específica deste perfil:", ssh_keys, default=suggested_key
+        )
     else:
         ssh_key = (questionary.path("Chave SSH (vazio = pular):", default="").ask() or "").strip()
     if ssh_key:
@@ -219,7 +232,9 @@ def _ask_context(
     if not gh_accounts:
         console.print("[dim]Nenhuma conta gh logada ainda (gh auth status).[/dim]")
     gh_user = _choose_from(
-        "Conta do GitHub CLI para este grupo:", gh_accounts + [NEW_LOGIN]
+        "Conta do GitHub CLI para este perfil:",
+        gh_accounts + [NEW_LOGIN],
+        default=suggestion.gh_user if suggestion else "",
     )
     if gh_user == NEW_LOGIN:
         gh_user = login_new_gh_account(name, dry_run=dry_run)
@@ -228,7 +243,9 @@ def _ask_context(
     if not gcloud_accounts:
         console.print("[dim]Nenhuma conta gcloud logada ainda (gcloud auth list).[/dim]")
     gcloud_account = _choose_from(
-        "Conta gcloud para este grupo:", gcloud_accounts + [NEW_LOGIN]
+        "Conta gcloud para este perfil:",
+        gcloud_accounts + [NEW_LOGIN],
+        default=suggestion.gcloud_account if suggestion else "",
     )
     if gcloud_account == NEW_LOGIN:
         gcloud_account = login_new_gcloud_account(name, dry_run=dry_run)
@@ -255,10 +272,10 @@ def _suggestion_label(s: ContextSuggestion) -> str:
     parts = [f"{s.root} ({s.repo_count} repo{'s' if s.repo_count != 1 else ''}"]
     if s.git_email:
         parts.append(f", {s.git_email}")
-    if s.gh_config:
-        parts.append(f", {s.gh_config}")
-    if s.gcloud_config:
-        parts.append(f", gcloud:{s.gcloud_config}")
+    if s.gh_user or s.gh_config:
+        parts.append(f", gh:{s.gh_user or s.gh_config}")
+    if s.gcloud_account or s.gcloud_config:
+        parts.append(f", gcloud:{s.gcloud_account or s.gcloud_config}")
     if s.source == "gitconfig":
         parts.append(", já no ~/.gitconfig")
     return "".join(parts) + ")"
