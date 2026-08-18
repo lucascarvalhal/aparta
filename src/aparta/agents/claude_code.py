@@ -1,0 +1,52 @@
+"""Adapter Claude Code: campo "env" em .claude/settings.local.json (merge, nunca substitui)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from ..fsutil import SafeWriter
+from .base import AgentAdapter
+
+
+def merge_settings_env(existing_text: str, env: dict[str, str]) -> str:
+    """Faz merge do objeto env preservando todo o resto do JSON."""
+    data = json.loads(existing_text) if existing_text.strip() else {}
+    if not isinstance(data, dict):
+        raise ValueError("settings.local.json não contém um objeto JSON")
+    current_env = data.get("env", {})
+    if not isinstance(current_env, dict):
+        current_env = {}
+    data["env"] = {**current_env, **env}
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+class ClaudeCodeAdapter(AgentAdapter):
+    name = "claude-code"
+
+    def settings_path(self, repo: Path) -> Path:
+        return repo / ".claude" / "settings.local.json"
+
+    def detect(self, repo: Path) -> bool:
+        # Claude Code funciona em qualquer repo; consideramos sempre aplicável.
+        return True
+
+    def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
+        path = self.settings_path(repo)
+        existing = path.read_text() if path.exists() else ""
+        merged = merge_settings_env(existing, env)
+        return writer.write_text(path, merged)
+
+    def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
+        path = self.settings_path(repo)
+        if not path.exists():
+            return False, "settings.local.json ausente"
+        try:
+            data = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return False, "settings.local.json inválido"
+        current = data.get("env", {})
+        missing = [k for k, v in env.items() if current.get(k) != v]
+        if missing:
+            return False, f"env divergente: {', '.join(missing)}"
+        return True, "env ok"
