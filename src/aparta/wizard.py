@@ -344,7 +344,7 @@ def _ask_context(
             return None
 
     root = questionary.path(
-        "Pasta raiz dos projetos deste grupo:",
+        "Pasta raiz dos projetos deste perfil:",
         default=suggestion.root if suggestion else f"~/{name}",
     ).ask()
     if root is None:
@@ -589,7 +589,7 @@ def run_wizard(dry_run: bool = False) -> None:
     # Grupos manuais (primeiro obrigatório se nada foi descoberto/selecionado)
     while True:
         if new_profiles and not questionary.confirm(
-            "Configurar outro grupo de projetos?", default=False
+            "Configurar outro perfil?", default=False
         ).ask():
             break
         profile = _ask_context(
