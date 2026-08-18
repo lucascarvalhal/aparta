@@ -1,4 +1,4 @@
-"""CLI do aparta: init, apply, doctor, list — com --dry-run global."""
+"""CLI do aparta: sem argumentos cai no wizard/menu; comandos init, apply, doctor, list."""
 
 from __future__ import annotations
 
@@ -9,27 +9,33 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
-from .agents import ADAPTERS, get_adapters
+from .agents import get_adapters
 from .backends.gcloud import apply_gcloud
 from .backends.gh import apply_gh
 from .backends.git import apply_git
 from .doctor import check_profile, find_repos
 from .fsutil import SafeWriter
-from .profiles import Profile, load_profiles, profiles_path, save_profiles
+from .profiles import Profile, load_profiles, profiles_path
 
 app = typer.Typer(
     name="aparta",
     help="Isola contas de desenvolvimento (git, gh, gcloud) por pasta de projeto "
     "e injeta variáveis de ambiente nos agentes de IA de terminal.",
-    no_args_is_help=True,
 )
 console = Console()
 
 _state = {"dry_run": False}
 
 
+def default_action(profiles_file: Path | None = None) -> str:
+    """Roteamento do `aparta` sem argumentos: 'wizard' na primeira execução, senão 'menu'."""
+    profiles_file = profiles_file or profiles_path()
+    return "menu" if profiles_file.exists() else "wizard"
+
+
 @app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Mostra o diff do que seria alterado, sem aplicar nada."
     ),
@@ -39,93 +45,64 @@ def main(
         console.print(f"aparta {__version__}")
         raise typer.Exit()
     _state["dry_run"] = dry_run
+    if ctx.invoked_subcommand is None:
+        if default_action() == "wizard":
+            _run_wizard()
+        else:
+            _run_menu()
 
 
 def _writer() -> SafeWriter:
     return SafeWriter(dry_run=_state["dry_run"])
 
 
-@app.command()
-def init() -> None:
-    """Wizard interativo: cria ou edita um perfil/contexto."""
+def _run_wizard() -> None:
+    from .wizard import run_wizard
+
+    try:
+        run_wizard(dry_run=_state["dry_run"])
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Cancelado.[/yellow]")
+        raise typer.Exit(1)
+
+
+def _run_menu() -> None:
     import questionary
 
-    profiles = load_profiles()
-    console.print("[bold]aparta init[/bold] — vamos configurar um perfil.\n")
-
-    name = questionary.text("Nome do perfil (ex.: pessoal, trabalho):").ask()
-    if not name:
-        raise typer.Exit(1)
-    name = name.strip()
-    if name in profiles and not questionary.confirm(
-        f"Perfil '{name}' já existe. Sobrescrever?", default=False
-    ).ask():
-        raise typer.Exit(1)
-
-    root = questionary.path(
-        "Pasta raiz dos projetos deste perfil:", default=f"~/{name}"
-    ).ask()
-    git_email = questionary.text("E-mail do git para esses repositórios:").ask()
-    git_name = questionary.text("Nome do git (vazio = manter o global):", default="").ask()
-    ssh_key = questionary.path(
-        "Chave SSH específica (vazio = nenhuma):", default=""
-    ).ask()
-    ssh_alias = ""
-    if ssh_key:
-        ssh_alias = questionary.text(
-            "Alias de host SSH para reescrever remotes https (vazio = não reescrever):",
-            default="",
+    while True:
+        choice = questionary.select(
+            "aparta — o que você quer fazer?",
+            choices=[
+                questionary.Choice("Novo perfil (wizard)", value="init"),
+                questionary.Choice("Aplicar um perfil (apply)", value="apply"),
+                questionary.Choice("Validar tudo (doctor)", value="doctor"),
+                questionary.Choice("Listar perfis (list)", value="list"),
+                questionary.Choice("Sair", value="quit"),
+            ],
         ).ask()
-    gh_user = questionary.text("Usuário do GitHub CLI (vazio = não isolar gh):", default="").ask()
-    gcloud_account = questionary.text(
-        "Conta gcloud (vazio = não isolar gcloud):", default=""
-    ).ask()
-    gcloud_project = ""
-    if gcloud_account:
-        gcloud_project = questionary.text("Projeto gcloud padrão (opcional):", default="").ask()
-    agents = questionary.checkbox(
-        "Agentes que devem receber as variáveis de ambiente:",
-        choices=[
-            questionary.Choice(n, checked=(n == "claude-code")) for n in ADAPTERS
-        ],
-    ).ask()
-
-    if None in (root, git_email):
-        raise typer.Exit(1)
-
-    profile = Profile(
-        name=name,
-        root=root.strip(),
-        git_email=git_email.strip(),
-        git_name=(git_name or "").strip(),
-        ssh_key=(ssh_key or "").strip(),
-        ssh_alias=(ssh_alias or "").strip(),
-        gh_user=(gh_user or "").strip(),
-        gcloud_account=(gcloud_account or "").strip(),
-        gcloud_project=(gcloud_project or "").strip(),
-        agents=agents or [],
-    )
-    profiles[name] = profile
-    save_profiles(profiles, _writer())
-    if not _state["dry_run"]:
-        console.print(
-            f"\n[green]Perfil '{name}' salvo em {profiles_path()}.[/green] "
-            f"Rode [bold]aparta apply {name}[/bold] para aplicar."
-        )
+        if choice in (None, "quit"):
+            return
+        if choice == "init":
+            _run_wizard()
+        elif choice == "apply":
+            profiles = load_profiles()
+            name = questionary.select("Qual perfil?", choices=list(profiles)).ask()
+            if name:
+                _apply_profile(profiles[name], _writer())
+        elif choice == "doctor":
+            for p in load_profiles().values():
+                check_profile(p)
+        elif choice == "list":
+            _print_profiles()
 
 
 @app.command()
-def apply(
-    profile_name: str = typer.Argument(..., help="Nome do perfil a aplicar."),
-) -> None:
-    """Aplica um perfil: gitconfigs, gh config dir, gcloud config e env nos repos."""
-    profiles = load_profiles()
-    profile = profiles.get(profile_name)
-    if not profile:
-        console.print(f"[red]Perfil '{profile_name}' não encontrado.[/red] Rode `aparta init`.")
-        raise typer.Exit(1)
+def init() -> None:
+    """Wizard interativo: escolhe agentes, configura contextos e aplica."""
+    _run_wizard()
 
-    writer = _writer()
+
+def _apply_profile(profile: Profile, writer: SafeWriter) -> None:
     console.print(f"[bold]Aplicando perfil '{profile.name}'[/bold] (raiz: {profile.root_path})\n")
 
     apply_git(profile, writer)
@@ -154,6 +131,19 @@ def apply(
 
 
 @app.command()
+def apply(
+    profile_name: str = typer.Argument(..., help="Nome do perfil a aplicar."),
+) -> None:
+    """Aplica um perfil: gitconfigs, gh config dir, gcloud config e env nos repos."""
+    profiles = load_profiles()
+    profile = profiles.get(profile_name)
+    if not profile:
+        console.print(f"[red]Perfil '{profile_name}' não encontrado.[/red] Rode `aparta init`.")
+        raise typer.Exit(1)
+    _apply_profile(profile, _writer())
+
+
+@app.command()
 def doctor(
     profile_name: str = typer.Argument(
         None, help="Perfil a validar (vazio = todos)."
@@ -164,18 +154,16 @@ def doctor(
     if not profiles:
         console.print("[yellow]Nenhum perfil configurado. Rode `aparta init`.[/yellow]")
         raise typer.Exit(1)
-    selected = [profiles[profile_name]] if profile_name else list(profiles.values())
     if profile_name and profile_name not in profiles:
         console.print(f"[red]Perfil '{profile_name}' não encontrado.[/red]")
         raise typer.Exit(1)
+    selected = [profiles[profile_name]] if profile_name else list(profiles.values())
 
     ok = all([check_profile(p) for p in selected])
     raise typer.Exit(0 if ok else 1)
 
 
-@app.command("list")
-def list_profiles() -> None:
-    """Lista os perfis configurados."""
+def _print_profiles() -> None:
     profiles = load_profiles()
     if not profiles:
         console.print("[yellow]Nenhum perfil configurado. Rode `aparta init`.[/yellow]")
@@ -191,6 +179,12 @@ def list_profiles() -> None:
         gcloud = p.gcloud_account + (f" / {p.gcloud_project}" if p.gcloud_project else "")
         table.add_row(p.name, p.root, p.git_email, p.gh_user or "—", gcloud or "—", ", ".join(p.agents) or "—")
     console.print(table)
+
+
+@app.command("list")
+def list_profiles() -> None:
+    """Lista os perfis configurados."""
+    _print_profiles()
 
 
 if __name__ == "__main__":
