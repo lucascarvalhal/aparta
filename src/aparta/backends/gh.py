@@ -25,7 +25,9 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
     src = home / ".config" / "gh"
     dst = home / ".config" / f"gh-{profile.name}"
 
-    if not src.exists():
+    # dst já existente (ex.: login feito pelo wizard direto no dir do perfil)
+    # dispensa a cópia; a config global só é necessária para clonar a sessão.
+    if not dst.exists() and not src.exists():
         console.print("[yellow]aviso:[/yellow] ~/.config/gh não existe — rode `gh auth login` antes.")
         return
 

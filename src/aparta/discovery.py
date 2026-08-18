@@ -200,6 +200,21 @@ def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
     return suggestions
 
 
+def loose_repos(
+    profile_roots: list[Path | str],
+    scan_roots: list[str] | None = None,
+) -> list[Path]:
+    """Repos nas raízes de varredura que não estão sob nenhuma raiz de perfil."""
+    roots = [Path(r).expanduser() for r in (scan_roots or DEFAULT_SCAN_ROOTS)]
+    covered = [Path(p).expanduser() for p in profile_roots]
+    out: set[Path] = set()
+    for root in roots:
+        for repo in find_repos(root):
+            if not any(repo == c or c in repo.parents for c in covered):
+                out.add(repo)
+    return sorted(out)
+
+
 def discover(
     scan_roots: list[str] | None = None,
     gitconfig: Path | None = None,

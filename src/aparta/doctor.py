@@ -41,7 +41,9 @@ def check_profile(profile: Profile) -> bool:
     table.add_column("Detalhe", overflow="fold")
 
     all_ok = True
-    repos = find_repos(profile.root_path)
+    repos = find_repos(profile.root_path) + [
+        p for p in (Path(r).expanduser() for r in profile.adopted_repos) if p.exists()
+    ]
 
     # git: e-mail resolvido em cada repo
     if not repos:

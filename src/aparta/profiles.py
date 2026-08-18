@@ -41,6 +41,9 @@ class Profile:
     gcloud_account: str = ""
     gcloud_project: str = ""
     agents: list[str] = field(default_factory=lambda: ["claude-code"])
+    # repos fora da pasta raiz que pertencem a este perfil (identidade aplicada
+    # localmente no .git/config de cada um, sem mover a pasta)
+    adopted_repos: list[str] = field(default_factory=list)
 
     @property
     def root_path(self) -> Path:

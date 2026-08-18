@@ -5,13 +5,17 @@ Fluxo:
 2. Descoberta: varredura do disco (discovery.discover) sugere grupos de
    projetos já em uso, com nome/pasta/e-mail pré-preenchidos.
 3. Por grupo: nome → pasta raiz → e-mail git → chave SSH (lista ~/.ssh)
-   → conta gh (lista `gh auth status`) → conta gcloud (lista `gcloud auth list`).
-4. Resumo rico de tudo que será feito + confirmação única + apply automático
+   → conta gh (lista `gh auth status` + opção de logar conta nova no config
+   dir do perfil) → conta gcloud (idem, na configuração nomeada do perfil).
+4. Repos soltos (fora das raízes) podem ser adotados por um perfil:
+   include.path local no .git/config, sem mover a pasta.
+5. Resumo rico de tudo que será feito + confirmação única + apply automático
    (ou só salvar sem aplicar).
 """
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -28,6 +32,7 @@ from .profiles import Profile, load_profiles, profiles_path, save_profiles
 console = Console()
 
 SKIP = "(pular)"
+NEW_LOGIN = "(logar nova conta agora...)"
 
 
 # ---------------------------------------------------------------- descoberta
@@ -75,6 +80,77 @@ def list_gcloud_accounts() -> list[str]:
     return [line.strip() for line in r.stdout.splitlines() if line.strip()]
 
 
+# -------------------------------------------------------------- login novo
+
+def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
+    """`gh auth login` interativo já dentro de ~/.config/gh-<perfil>.
+
+    A conta nova nasce isolada no config dir do perfil — a config global do gh
+    não é tocada. Retorna o usuário logado ('' se falhou/cancelou/dry-run).
+    """
+    dst = Path.home() / ".config" / f"gh-{profile_name}"
+    if dry_run:
+        console.print(f"[yellow]--dry-run[/yellow] GH_CONFIG_DIR={dst} gh auth login")
+        return ""
+    dst.mkdir(parents=True, exist_ok=True)
+    env = dict(os.environ, GH_CONFIG_DIR=str(dst))
+    try:
+        r = subprocess.run(["gh", "auth", "login"], env=env)  # interativo, herda o TTY
+    except FileNotFoundError:
+        console.print("[red]gh não encontrado no PATH.[/red]")
+        return ""
+    if r.returncode != 0:
+        console.print("[yellow]Login cancelado ou falhou; pulando gh.[/yellow]")
+        return ""
+    status = subprocess.run(
+        ["gh", "auth", "status"], env=env, capture_output=True, text=True, timeout=30
+    )
+    accounts = parse_gh_accounts(status.stdout + status.stderr)
+    if accounts:
+        console.print(f"[green]gh:[/green] '{accounts[0]}' logado em {dst}")
+        return accounts[0]
+    return ""
+
+
+def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
+    """`gcloud auth login` interativo dentro da configuração nomeada do perfil.
+
+    A configuração é criada com --no-activate antes, e o login roda com
+    CLOUDSDK_ACTIVE_CONFIG_NAME apontando para ela — a conta ativa da sua
+    configuração global não muda. Retorna a conta logada ('' se falhou).
+    """
+    if dry_run:
+        console.print(
+            f"[yellow]--dry-run[/yellow] CLOUDSDK_ACTIVE_CONFIG_NAME={profile_name} gcloud auth login"
+        )
+        return ""
+    try:
+        subprocess.run(
+            ["gcloud", "config", "configurations", "create", profile_name, "--no-activate"],
+            capture_output=True,
+            text=True,
+        )  # "already exists" é ok — o login abaixo só usa a config
+        env = dict(os.environ, CLOUDSDK_ACTIVE_CONFIG_NAME=profile_name)
+        r = subprocess.run(["gcloud", "auth", "login"], env=env)  # interativo
+        if r.returncode != 0:
+            console.print("[yellow]Login cancelado ou falhou; pulando gcloud.[/yellow]")
+            return ""
+        active = subprocess.run(
+            ["gcloud", "config", "get", "account"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        console.print("[red]gcloud não encontrado no PATH.[/red]")
+        return ""
+    account = active.stdout.strip()
+    if account:
+        console.print(f"[green]gcloud:[/green] '{account}' na configuração '{profile_name}'")
+    return account
+
+
 # ------------------------------------------------------------------- wizard
 
 def _choose_from(question: str, options: list[str], allow_manual: bool = True) -> str:
@@ -92,6 +168,7 @@ def _ask_context(
     agents: list[str],
     existing_names: list[str],
     suggestion: ContextSuggestion | None = None,
+    dry_run: bool = False,
 ) -> Profile | None:
     import questionary
 
@@ -139,23 +216,27 @@ def _ask_context(
         ).strip()
 
     gh_accounts = list_gh_accounts()
-    if gh_accounts:
-        gh_user = _choose_from("Conta do GitHub CLI para este contexto:", gh_accounts)
-    else:
-        console.print("[dim]Nenhuma conta gh detectada (gh auth status). Pulando gh.[/dim]")
-        gh_user = ""
+    if not gh_accounts:
+        console.print("[dim]Nenhuma conta gh logada ainda (gh auth status).[/dim]")
+    gh_user = _choose_from(
+        "Conta do GitHub CLI para este grupo:", gh_accounts + [NEW_LOGIN]
+    )
+    if gh_user == NEW_LOGIN:
+        gh_user = login_new_gh_account(name, dry_run=dry_run)
 
     gcloud_accounts = list_gcloud_accounts()
-    gcloud_account = ""
+    if not gcloud_accounts:
+        console.print("[dim]Nenhuma conta gcloud logada ainda (gcloud auth list).[/dim]")
+    gcloud_account = _choose_from(
+        "Conta gcloud para este grupo:", gcloud_accounts + [NEW_LOGIN]
+    )
+    if gcloud_account == NEW_LOGIN:
+        gcloud_account = login_new_gcloud_account(name, dry_run=dry_run)
     gcloud_project = ""
-    if gcloud_accounts:
-        gcloud_account = _choose_from("Conta gcloud para este contexto:", gcloud_accounts)
-        if gcloud_account:
-            gcloud_project = (
-                questionary.text("Projeto gcloud padrão (opcional):", default="").ask() or ""
-            ).strip()
-    else:
-        console.print("[dim]Nenhuma conta gcloud detectada (gcloud auth list). Pulando gcloud.[/dim]")
+    if gcloud_account:
+        gcloud_project = (
+            questionary.text("Projeto gcloud padrão (opcional):", default="").ask() or ""
+        ).strip()
 
     return Profile(
         name=name,
@@ -183,6 +264,36 @@ def _suggestion_label(s: ContextSuggestion) -> str:
     return "".join(parts) + ")"
 
 
+def _adopt_loose_repos(all_profiles: list[Profile]) -> None:
+    """Oferece repos fora das raízes dos perfis para adoção (identidade local,
+    sem mover pastas). Altera all_profiles in-place via adopted_repos."""
+    import questionary
+
+    from .discovery import loose_repos
+
+    already = {r for p in all_profiles for r in p.adopted_repos}
+    loose = [r for r in loose_repos([p.root for p in all_profiles]) if str(r) not in already]
+    if not loose:
+        return
+    console.print(
+        f"\nEncontrei [bold]{len(loose)}[/bold] repositório(s) fora das pastas dos "
+        "perfis. Você pode adotá-los: eles ficam onde estão e recebem a identidade "
+        "do perfil só no próprio repo."
+    )
+    remaining = [str(r) for r in loose]
+    for p in all_profiles:
+        if not remaining:
+            break
+        chosen = questionary.checkbox(
+            f"Quais destes pertencem a '{p.name}'? (Enter = nenhum)",
+            choices=remaining,
+        ).ask()
+        if chosen is None:
+            return
+        p.adopted_repos.extend(chosen)
+        remaining = [r for r in remaining if r not in chosen]
+
+
 def _summary(new_profiles: list[Profile]) -> None:
     table = Table(title="Resumo — o que o aparta vai fazer", show_lines=True)
     table.add_column("Contexto", style="bold")
@@ -196,6 +307,12 @@ def _summary(new_profiles: list[Profile]) -> None:
         ]
         if p.ssh_alias:
             actions.append(f"git: reescrever remotes https via alias git@{p.ssh_alias}:")
+        if p.adopted_repos:
+            actions.append(
+                f"git: adotar {len(p.adopted_repos)} repo(s) fora da raiz "
+                "(include.path local, sem mover): "
+                + ", ".join(Path(r).name for r in p.adopted_repos)
+            )
         if p.gh_user:
             actions.append(
                 f"gh: copiar ~/.config/gh → ~/.config/gh-{p.name} e ativar '{p.gh_user}'"
@@ -269,7 +386,10 @@ def run_wizard(dry_run: bool = False) -> None:
                 )
             )
             profile = _ask_context(
-                agents, list(profiles) + [p.name for p in new_profiles], suggestion=s
+                agents,
+                list(profiles) + [p.name for p in new_profiles],
+                suggestion=s,
+                dry_run=dry_run,
             )
             if profile is not None:
                 new_profiles.append(profile)
@@ -280,7 +400,9 @@ def run_wizard(dry_run: bool = False) -> None:
             "Configurar outro grupo de projetos?", default=False
         ).ask():
             break
-        profile = _ask_context(agents, list(profiles) + [p.name for p in new_profiles])
+        profile = _ask_context(
+            agents, list(profiles) + [p.name for p in new_profiles], dry_run=dry_run
+        )
         if profile is not None:
             new_profiles.append(profile)
         elif new_profiles:
@@ -292,7 +414,10 @@ def run_wizard(dry_run: bool = False) -> None:
         console.print("[yellow]Nenhum contexto configurado.[/yellow]")
         return
 
-    # Passo 4: resumo + confirmação única
+    # Passo 4: repos soltos — fora das raízes dos perfis — podem ser adotados
+    _adopt_loose_repos(list(profiles.values()) + new_profiles)
+
+    # Passo 5: resumo + confirmação única
     _summary(new_profiles)
     action = questionary.select(
         "Como prosseguir?",

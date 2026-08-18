@@ -111,7 +111,9 @@ def _apply_profile(profile: Profile, writer: SafeWriter) -> None:
 
     env = profile.env()
     if env:
-        repos = find_repos(profile.root_path)
+        repos = find_repos(profile.root_path) + [
+            Path(r).expanduser() for r in profile.adopted_repos
+        ]
         if not repos:
             console.print(f"[yellow]Nenhum repositório git encontrado em {profile.root_path}.[/yellow]")
         adapters = get_adapters(profile.agents)
