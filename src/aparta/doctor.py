@@ -10,34 +10,10 @@ from rich.console import Console
 from rich.table import Table
 
 from .agents import get_adapters
+from .discovery import find_repos  # noqa: F401 — reexportado (cli importa daqui)
 from .profiles import Profile
 
 console = Console()
-
-
-def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
-    """Encontra repositórios git (diretórios com .git) sob root, com profundidade limitada."""
-    repos: list[Path] = []
-    if not root.exists():
-        return repos
-    if (root / ".git").exists():
-        return [root]
-
-    def walk(d: Path, depth: int) -> None:
-        if depth > max_depth:
-            return
-        try:
-            children = sorted(p for p in d.iterdir() if p.is_dir() and not p.name.startswith("."))
-        except PermissionError:
-            return
-        for child in children:
-            if (child / ".git").exists():
-                repos.append(child)
-            else:
-                walk(child, depth + 1)
-
-    walk(root, 1)
-    return repos
 
 
 def _run(args: list[str], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess:

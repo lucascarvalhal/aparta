@@ -2,9 +2,11 @@
 
 Fluxo:
 1. Escolha dos agentes de IA (checkbox multi-seleção, vindos do registry).
-2. Por contexto: nome → pasta raiz → e-mail git → chave SSH (lista ~/.ssh)
+2. Descoberta: varredura do disco (discovery.discover) sugere grupos de
+   projetos já em uso, com nome/pasta/e-mail pré-preenchidos.
+3. Por grupo: nome → pasta raiz → e-mail git → chave SSH (lista ~/.ssh)
    → conta gh (lista `gh auth status`) → conta gcloud (lista `gcloud auth list`).
-3. Resumo rico de tudo que será feito + confirmação única + apply automático
+4. Resumo rico de tudo que será feito + confirmação única + apply automático
    (ou só salvar sem aplicar).
 """
 
@@ -19,6 +21,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from .agents import ADAPTERS
+from .discovery import ContextSuggestion, discover
 from .fsutil import SafeWriter
 from .profiles import Profile, load_profiles, profiles_path, save_profiles
 
@@ -85,11 +88,16 @@ def _choose_from(question: str, options: list[str], allow_manual: bool = True) -
     return "" if answer == SKIP else answer
 
 
-def _ask_context(agents: list[str], existing_names: list[str]) -> Profile | None:
+def _ask_context(
+    agents: list[str],
+    existing_names: list[str],
+    suggestion: ContextSuggestion | None = None,
+) -> Profile | None:
     import questionary
 
     name = questionary.text(
-        "Nome do contexto (ex.: pessoal, trabalho):",
+        "Nome deste grupo de projetos (vira o nome do perfil — ex.: pessoal, trabalho, cliente-x):",
+        default=suggestion.name if suggestion else "",
         validate=lambda v: bool(v.strip()) or "obrigatório",
     ).ask()
     if name is None:
@@ -99,12 +107,16 @@ def _ask_context(agents: list[str], existing_names: list[str]) -> Profile | None
         if not questionary.confirm(f"'{name}' já existe. Sobrescrever?", default=False).ask():
             return None
 
-    root = questionary.path("Pasta raiz dos projetos deste contexto:", default=f"~/{name}").ask()
+    root = questionary.path(
+        "Pasta raiz dos projetos deste grupo:",
+        default=suggestion.root if suggestion else f"~/{name}",
+    ).ask()
     if root is None:
         return None
 
     git_email = questionary.text(
         "E-mail do git para esses repositórios:",
+        default=suggestion.git_email if suggestion else "",
         validate=lambda v: "@" in v or "informe um e-mail válido",
     ).ask()
     if git_email is None:
@@ -156,6 +168,19 @@ def _ask_context(agents: list[str], existing_names: list[str]) -> Profile | None
         gcloud_project=gcloud_project,
         agents=agents,
     )
+
+
+def _suggestion_label(s: ContextSuggestion) -> str:
+    parts = [f"{s.root} ({s.repo_count} repo{'s' if s.repo_count != 1 else ''}"]
+    if s.git_email:
+        parts.append(f", {s.git_email}")
+    if s.gh_config:
+        parts.append(f", {s.gh_config}")
+    if s.gcloud_config:
+        parts.append(f", gcloud:{s.gcloud_config}")
+    if s.source == "gitconfig":
+        parts.append(", já no ~/.gitconfig")
+    return "".join(parts) + ")"
 
 
 def _summary(new_profiles: list[Profile]) -> None:
@@ -217,21 +242,49 @@ def run_wizard(dry_run: bool = False) -> None:
     if agents is None:
         return
 
-    # Passo 2: contextos
+    # Passo 2: descoberta — varre o disco e sugere grupos prontos
     profiles = load_profiles()
     new_profiles: list[Profile] = []
+
+    console.print("[dim]Procurando projetos existentes no disco...[/dim]")
+    suggestions = [s for s in discover() if s.name not in profiles]
+    if suggestions:
+        console.print(
+            f"Encontrei [bold]{len(suggestions)}[/bold] grupo(s) de projetos já em uso:"
+        )
+        chosen = questionary.checkbox(
+            "Quais devem virar perfis? (as respostas vêm pré-preenchidas)",
+            choices=[
+                questionary.Choice(_suggestion_label(s), value=s, checked=True)
+                for s in suggestions
+            ],
+        ).ask()
+        for s in chosen or []:
+            profile = _ask_context(
+                agents, list(profiles) + [p.name for p in new_profiles], suggestion=s
+            )
+            if profile is not None:
+                new_profiles.append(profile)
+
+    # Passo 3: grupos manuais (primeiro obrigatório se nada foi descoberto)
     while True:
+        if new_profiles and not questionary.confirm(
+            "Configurar outro grupo de projetos?", default=False
+        ).ask():
+            break
         profile = _ask_context(agents, list(profiles) + [p.name for p in new_profiles])
         if profile is not None:
             new_profiles.append(profile)
-        if not questionary.confirm("Configurar outro contexto?", default=False).ask():
+        elif new_profiles:
+            break
+        elif not questionary.confirm("Tentar novamente?", default=True).ask():
             break
 
     if not new_profiles:
         console.print("[yellow]Nenhum contexto configurado.[/yellow]")
         return
 
-    # Passo 3: resumo + confirmação única
+    # Passo 4: resumo + confirmação única
     _summary(new_profiles)
     action = questionary.select(
         "Como prosseguir?",

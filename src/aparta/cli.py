@@ -187,5 +187,33 @@ def list_profiles() -> None:
     _print_profiles()
 
 
+@app.command()
+def scan() -> None:
+    """Varre o disco e sugere grupos de projetos (somente leitura, nada é alterado)."""
+    from .discovery import discover
+
+    console.print("[dim]Varrendo raízes comuns e ~/.gitconfig...[/dim]")
+    suggestions = discover()
+    if not suggestions:
+        console.print(
+            "[yellow]Nenhum grupo de projetos encontrado nas pastas comuns "
+            "(~/projects, ~/dev, ...).[/yellow]"
+        )
+        return
+    table = Table(title="Grupos de projetos detectados")
+    table.add_column("Nome sugerido", style="bold")
+    table.add_column("Pasta")
+    table.add_column("Repos", justify="right")
+    table.add_column("Git e-mail")
+    table.add_column("gh / gcloud")
+    table.add_column("Origem")
+    for s in suggestions:
+        accounts = " / ".join(x for x in (s.gh_config, s.gcloud_config) if x) or "—"
+        source = "~/.gitconfig" if s.source == "gitconfig" else "varredura"
+        table.add_row(s.name, s.root, str(s.repo_count), s.git_email or "—", accounts, source)
+    console.print(table)
+    console.print("Use [bold]aparta init[/bold] para transformá-los em perfis.")
+
+
 if __name__ == "__main__":
     app()
