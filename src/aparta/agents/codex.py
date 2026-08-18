@@ -27,6 +27,7 @@ def merge_codex_env(existing_text: str, env: dict[str, str]) -> str:
 
 class CodexAdapter(AgentAdapter):
     name = "codex"
+    display_name = "Codex CLI"
 
     def config_path(self, repo: Path) -> Path:
         return repo / ".codex" / "config.toml"

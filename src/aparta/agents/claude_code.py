@@ -23,6 +23,7 @@ def merge_settings_env(existing_text: str, env: dict[str, str]) -> str:
 
 class ClaudeCodeAdapter(AgentAdapter):
     name = "claude-code"
+    display_name = "Claude Code"
 
     def settings_path(self, repo: Path) -> Path:
         return repo / ".claude" / "settings.local.json"

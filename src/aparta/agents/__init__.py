@@ -1,17 +1,22 @@
-"""Adapters de agentes de IA de terminal."""
+"""Adapters de agentes de IA de terminal.
+
+Todos os módulos deste pacote são importados automaticamente; qualquer
+subclasse de AgentAdapter com `name` definido entra no REGISTRY sozinha.
+Adicionar um agente novo = criar um arquivo aqui.
+"""
 
 from __future__ import annotations
 
-from .base import AgentAdapter
-from .claude_code import ClaudeCodeAdapter
-from .codex import CodexAdapter
-from .direnv import DirenvAdapter
+import importlib
+import pkgutil
 
-ADAPTERS: dict[str, type[AgentAdapter]] = {
-    ClaudeCodeAdapter.name: ClaudeCodeAdapter,
-    CodexAdapter.name: CodexAdapter,
-    DirenvAdapter.name: DirenvAdapter,
-}
+from .base import REGISTRY, AgentAdapter
+
+for _mod in pkgutil.iter_modules(__path__):
+    if _mod.name != "base":
+        importlib.import_module(f"{__name__}.{_mod.name}")
+
+ADAPTERS: dict[str, type[AgentAdapter]] = REGISTRY
 
 
 def get_adapters(names: list[str]) -> list[AgentAdapter]:

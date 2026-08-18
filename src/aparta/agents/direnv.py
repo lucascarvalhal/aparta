@@ -27,6 +27,7 @@ def merge_envrc(existing_text: str, env: dict[str, str]) -> str:
 
 class DirenvAdapter(AgentAdapter):
     name = "direnv"
+    display_name = "direnv (genérico)"
 
     def envrc_path(self, repo: Path) -> Path:
         return repo / ".envrc"
