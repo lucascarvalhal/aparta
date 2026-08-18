@@ -176,15 +176,19 @@ def test_gh_user_from_config_dir(tmp_path: Path):
     assert gh_user_from_config_dir("gh-inexistente", tmp_path) == ""
 
 
-def test_gcloud_account_from_config(tmp_path: Path):
-    from aparta.discovery import gcloud_account_from_config
+def test_gcloud_config_values(tmp_path: Path):
+    from aparta.discovery import gcloud_account_from_config, gcloud_config_values
 
     (tmp_path / "configurations").mkdir(parents=True)
     (tmp_path / "configurations" / "config_eneva").write_text(
         "[core]\naccount = lucas@sysmanager.com.br\nproject = data-lake\n"
     )
+    assert gcloud_config_values("eneva", tmp_path) == (
+        "lucas@sysmanager.com.br",
+        "data-lake",
+    )
     assert gcloud_account_from_config("eneva", tmp_path) == "lucas@sysmanager.com.br"
-    assert gcloud_account_from_config("nada", tmp_path) == ""
+    assert gcloud_config_values("nada", tmp_path) == ("", "")
 
 
 def test_discover_enriquece_contas_por_convencao(tmp_path: Path):

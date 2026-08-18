@@ -48,6 +48,7 @@ class ContextSuggestion:
     ssh_alias: str = ""  # do bloco [url "git@<alias>:"] insteadOf
     gh_user: str = ""  # do hosts.yml do gh_config
     gcloud_account: str = ""  # da configuração nomeada do gcloud
+    gcloud_project: str = ""  # idem (linha project = ...)
     source: str = "repos"  # "gitconfig" | "repos"
 
 
@@ -223,14 +224,21 @@ def gh_user_from_config_dir(dirname: str, config_root: Path | None = None) -> st
     return m.group(1) if m else ""
 
 
-def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str:
-    """Conta de uma configuração nomeada do gcloud (arquivo config_<name>)."""
+def gcloud_config_values(name: str, gcloud_dir: Path | None = None) -> tuple[str, str]:
+    """(conta, projeto) de uma configuração nomeada do gcloud (config_<name>)."""
     gcloud_dir = gcloud_dir or Path.home() / ".config" / "gcloud"
     cfg = gcloud_dir / "configurations" / f"config_{name}"
     if not cfg.exists():
-        return ""
-    m = re.search(r"^account\s*=\s*(\S+)", cfg.read_text(), re.M)
-    return m.group(1) if m else ""
+        return "", ""
+    text = cfg.read_text()
+    account = re.search(r"^account\s*=\s*(\S+)", text, re.M)
+    project = re.search(r"^project\s*=\s*(\S+)", text, re.M)
+    return (account.group(1) if account else ""), (project.group(1) if project else "")
+
+
+def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str:
+    """Conta de uma configuração nomeada do gcloud (arquivo config_<name>)."""
+    return gcloud_config_values(name, gcloud_dir)[0]
 
 
 def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> None:
@@ -245,10 +253,11 @@ def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> N
         s.gh_config = gh_dir
         s.gh_user = s.gh_user or gh_user_from_config_dir(gh_dir, config_root)
     gcloud_name = s.gcloud_config or s.name
-    account = gcloud_account_from_config(gcloud_name, config_root / "gcloud")
+    account, project = gcloud_config_values(gcloud_name, config_root / "gcloud")
     if account:
         s.gcloud_config = gcloud_name
         s.gcloud_account = s.gcloud_account or account
+        s.gcloud_project = s.gcloud_project or project
 
 
 def loose_repos(

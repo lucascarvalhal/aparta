@@ -400,7 +400,11 @@ def _ask_context(
     gcloud_project = ""
     if gcloud_account:
         gcloud_project = (
-            questionary.text("Projeto gcloud padrão (opcional):", default="").ask() or ""
+            questionary.text(
+                "ID do projeto no GCP para este perfil (ex.: meu-projeto-123; vazio = definir depois):",
+                default=suggestion.gcloud_project if suggestion else "",
+            ).ask()
+            or ""
         ).strip()
 
     return Profile(
