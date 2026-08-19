@@ -7,12 +7,10 @@ import subprocess
 from pathlib import Path
 
 from ..i18n import _
-from rich.console import Console
+from . import Note
 
 from ..fsutil import SafeWriter, tilde
 from ..profiles import Profile
-
-console = Console()
 
 
 def context_gitconfig_path(profile: Profile, home: Path) -> Path:
@@ -81,7 +79,7 @@ def remove_includeif(gitconfig_text: str, gitdir: str) -> str:
     return pattern.sub("", gitconfig_text)
 
 
-def apply_git(profile: Profile, writer: SafeWriter, home: Path | None = None) -> None:
+def apply_git(profile: Profile, writer: SafeWriter, home: Path | None = None) -> list[Note]:
     """Write ~/.gitconfig-<profile> and merge its includeIf into ~/.gitconfig."""
     home = home or Path.home()
     ctx_path = context_gitconfig_path(profile, home)
@@ -94,20 +92,21 @@ def apply_git(profile: Profile, writer: SafeWriter, home: Path | None = None) ->
     if merged != existing:
         writer.write_text(gitconfig, merged)
 
-    apply_adopted_git(profile, writer, home)
+    return apply_adopted_git(profile, writer, home)
 
 
-def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = None) -> None:
+def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = None) -> list[Note]:
     """Adopted repos (outside root): the local .git/config includes the
     profile's gitconfig, inheriting e-mail/key/insteadOf without moving."""
+    notes: list[Note] = []
     if not profile.adopted_repos:
-        return
+        return notes
     home = home or Path.home()
     include = str(context_gitconfig_path(profile, home))
     for raw in profile.adopted_repos:
         repo = Path(raw).expanduser()
         if not (repo / ".git").exists():
-            console.print(_("[yellow]warning:[/yellow] {repo} is not a git repository; skipping.", repo=repo))
+            notes.append(Note("warn", _("[yellow]warning:[/yellow] {repo} is not a git repository; skipping.", repo=repo)))
             continue
         current = subprocess.run(
             ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
@@ -118,9 +117,10 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
         if include in current.stdout.splitlines():
             continue  # already adopted
         if writer.dry_run:
-            console.print(
-                f"[yellow]--dry-run[/yellow] git -C {repo} config --local --add include.path {include}"
-            )
+            notes.append(Note(
+                "info",
+                f"[yellow]--dry-run[/yellow] git -C {repo} config --local --add include.path {include}",
+            ))
             continue
         r = subprocess.run(
             ["git", "-C", str(repo), "config", "--local", "--add", "include.path", include],
@@ -129,6 +129,7 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
             timeout=30,
         )
         if r.returncode != 0:
-            console.print(_("[red]adopting {repo} failed:[/red] {error}", repo=repo, error=r.stderr.strip()))
+            notes.append(Note("error", _("[red]adopting {repo} failed:[/red] {error}", repo=repo, error=r.stderr.strip())))
         else:
-            console.print(_("[green]git:[/green] {repo} adopted by profile '{name}'", repo=repo.name, name=profile.name))
+            notes.append(Note("info", _("[green]git:[/green] {repo} adopted by profile '{name}'", repo=repo.name, name=profile.name)))
+    return notes

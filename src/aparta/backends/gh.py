@@ -12,17 +12,16 @@ import subprocess
 from pathlib import Path
 
 from ..i18n import _
-from rich.console import Console
+from . import Note
 
 from ..fsutil import SafeWriter
 from ..profiles import Profile, gh_config_dir
 
-console = Console()
 
-
-def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> None:
+def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> list[Note]:
+    notes: list[Note] = []
     if not profile.gh_user:
-        return
+        return notes
     home = home or Path.home()
     src = home / ".config" / "gh"
     dst = gh_config_dir(profile.name, home / ".config")
@@ -30,20 +29,21 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
     # an existing dst (e.g. wizard logged in straight into the profile dir)
     # needs no copy; the global config is only used to clone a session
     if not dst.exists() and not src.exists():
-        console.print(_("[yellow]warning:[/yellow] ~/.config/gh does not exist, run `gh auth login` first."))
-        return
+        notes.append(Note("warn", _("[yellow]warning:[/yellow] ~/.config/gh does not exist, run `gh auth login` first.")))
+        return notes
 
     if writer.dry_run:
         if not dst.exists():
-            console.print(_("[yellow]--dry-run[/yellow] would copy {src} -> {dst}", src=src, dst=dst))
-        console.print(
-            f"[yellow]--dry-run[/yellow] GH_CONFIG_DIR={dst} gh auth switch --user {profile.gh_user}"
-        )
-        return
+            notes.append(Note("info", _("[yellow]--dry-run[/yellow] would copy {src} -> {dst}", src=src, dst=dst)))
+        notes.append(Note(
+            "info",
+            f"[yellow]--dry-run[/yellow] GH_CONFIG_DIR={dst} gh auth switch --user {profile.gh_user}",
+        ))
+        return notes
 
     if not dst.exists():
         shutil.copytree(src, dst)
-        console.print(_("[green]created:[/green] {dst}", dst=dst))
+        notes.append(Note("info", _("[green]created:[/green] {dst}", dst=dst)))
 
     result = subprocess.run(
         ["gh", "auth", "switch", "--user", profile.gh_user],
@@ -53,6 +53,7 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
         timeout=30,
     )
     if result.returncode != 0:
-        console.print(_("[red]gh auth switch failed:[/red] {error}", error=result.stderr.strip()))
+        notes.append(Note("error", _("[red]gh auth switch failed:[/red] {error}", error=result.stderr.strip())))
     else:
-        console.print(_("[green]gh:[/green] active user in {dst}: {user}", dst=dst.name, user=profile.gh_user))
+        notes.append(Note("info", _("[green]gh:[/green] active user in {dst}: {user}", dst=dst.name, user=profile.gh_user)))
+    return notes

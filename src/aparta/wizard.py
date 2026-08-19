@@ -347,12 +347,10 @@ def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
     return answer
 
 
-def _ask_context(
-    agents: list[str],
-    existing_names: list[str],
-    suggestion: ContextSuggestion | None = None,
-    dry_run: bool = False,
-) -> Profile | None:
+def _ask_identity(
+    existing_names: list[str], suggestion: ContextSuggestion | None
+) -> tuple[str, str, str] | None:
+    """Name, root folder and git e-mail; None when the user cancelled."""
     import questionary
 
     name = questionary.text(
@@ -383,62 +381,99 @@ def _ask_context(
     ).ask()
     if git_email is None:
         return None
+    return name, root.strip(), git_email.strip()
 
-    ssh_keys = list_ssh_keys()
-    ssh_alias = ""
-    suggested_key = str(Path(suggestion.ssh_key).expanduser()) if suggestion and suggestion.ssh_key else ""
+
+def _ask_ssh(
+    name: str, suggestion: ContextSuggestion | None, dry_run: bool
+) -> tuple[str, str, bool]:
+    """(ssh_key, ssh_alias, key_was_generated)."""
+    suggested_key = (
+        str(Path(suggestion.ssh_key).expanduser())
+        if suggestion and suggestion.ssh_key
+        else ""
+    )
     ssh_key = _choose_from(
         _("Dedicated SSH key for this profile:"),
-        ssh_keys,
+        list_ssh_keys(),
         sentinels=(NEW_SSH_KEY, SKIP),
         default=suggested_key,
     )
-    generated_key = False
+    generated = False
     if ssh_key == NEW_SSH_KEY:
         ssh_key = generate_ssh_key(name, dry_run=dry_run)
-        generated_key = bool(ssh_key)
+        generated = bool(ssh_key)
+    ssh_alias = ""
     if ssh_key:
         ssh_alias = _ask_ssh_alias(ssh_key, suggestion.ssh_alias if suggestion else "")
+    return ssh_key, ssh_alias, generated
 
-    gh_accounts = list_gh_accounts()
-    if not gh_accounts:
+
+def _ask_gh(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> str:
+    accounts = list_gh_accounts()
+    if not accounts:
         console.print(_("[dim]No gh account logged in yet (gh auth status).[/dim]"))
     gh_user = _choose_from(
         _("GitHub CLI account for this profile:"),
-        gh_accounts,
+        accounts,
         sentinels=(NEW_GH_LOGIN, SKIP),
         default=suggestion.gh_user if suggestion else "",
     )
     if gh_user == NEW_GH_LOGIN:
         gh_user = login_new_gh_account(name, dry_run=dry_run)
-    if gh_user and generated_key:
-        offer_upload_ssh_key(ssh_key, gh_user, name)
+    return gh_user
 
-    gcloud_accounts = list_gcloud_accounts()
-    if not gcloud_accounts:
+
+def _ask_gcloud(
+    name: str, suggestion: ContextSuggestion | None, dry_run: bool
+) -> tuple[str, str]:
+    import questionary
+
+    accounts = list_gcloud_accounts()
+    if not accounts:
         console.print(_("[dim]No gcloud account logged in yet (gcloud auth list).[/dim]"))
-    gcloud_account = _choose_from(
+    account = _choose_from(
         _("gcloud account for this profile:"),
-        gcloud_accounts,
+        accounts,
         sentinels=(NEW_GCLOUD_LOGIN, SKIP),
         default=suggestion.gcloud_account if suggestion else "",
     )
-    if gcloud_account == NEW_GCLOUD_LOGIN:
-        gcloud_account = login_new_gcloud_account(name, dry_run=dry_run)
-    gcloud_project = ""
-    if gcloud_account:
-        gcloud_project = (
+    if account == NEW_GCLOUD_LOGIN:
+        account = login_new_gcloud_account(name, dry_run=dry_run)
+    project = ""
+    if account:
+        project = (
             questionary.text(
                 _("GCP project id for this profile (e.g. my-project-123; empty = set later):"),
                 default=suggestion.gcloud_project if suggestion else "",
             ).ask()
             or ""
         ).strip()
+    return account, project
+
+
+def _ask_context(
+    agents: list[str],
+    existing_names: list[str],
+    suggestion: ContextSuggestion | None = None,
+    dry_run: bool = False,
+) -> Profile | None:
+    """One profile end to end: identity, SSH, gh, gcloud."""
+    identity = _ask_identity(existing_names, suggestion)
+    if identity is None:
+        return None
+    name, root, git_email = identity
+
+    ssh_key, ssh_alias, generated_key = _ask_ssh(name, suggestion, dry_run)
+    gh_user = _ask_gh(name, suggestion, dry_run)
+    if gh_user and generated_key:
+        offer_upload_ssh_key(ssh_key, gh_user, name)
+    gcloud_account, gcloud_project = _ask_gcloud(name, suggestion, dry_run)
 
     return Profile(
         name=name,
-        root=root.strip(),
-        git_email=git_email.strip(),
+        root=root,
+        git_email=git_email,
         ssh_key=ssh_key,
         ssh_alias=ssh_alias,
         gh_user=gh_user,

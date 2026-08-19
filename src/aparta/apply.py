@@ -13,6 +13,7 @@ from .i18n import _
 from rich.console import Console
 
 from .agents import get_adapters
+from .backends import Note
 from .backends.gcloud import apply_gcloud
 from .backends.gh import apply_gh
 from .backends.git import apply_git
@@ -22,7 +23,7 @@ from .profiles import Profile
 
 console = Console()
 
-BACKENDS: list[Callable[[Profile, SafeWriter], None]] = [
+BACKENDS: list[Callable[[Profile, SafeWriter], "list[Note]"]] = [
     apply_git,
     apply_gh,
     apply_gcloud,
@@ -34,7 +35,8 @@ def apply_profile(profile: Profile, writer: SafeWriter) -> None:
     console.print(_("[bold]Applying profile '{name}'[/bold] (root: {root})", name=profile.name, root=profile.root_path) + "\n")
 
     for backend in BACKENDS:
-        backend(profile, writer)
+        for note in backend(profile, writer):
+            console.print(note.text)
 
     env = profile.env()
     if not env:
