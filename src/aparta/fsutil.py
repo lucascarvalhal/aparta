@@ -64,6 +64,39 @@ class SafeWriter:
         console.print(f"[green]{_('written:')}[/green] {label}")
         return True
 
+    def remove_file(self, path: Path, label: str | None = None) -> bool:
+        """Remove a file, keeping a backup copy. True if removed (or would)."""
+        label = label or str(path)
+        if not path.exists():
+            return False
+        if self.dry_run:
+            console.print(f"[yellow]--dry-run[/yellow] rm {label}")
+            self.changes.append(f"[dry-run] rm {label}")
+            return True
+        bak = backup_path(path)
+        shutil.copy2(path, bak)
+        console.print(f"[dim]{_('backup:')} {bak}[/dim]")
+        path.unlink()
+        self.changes.append(label)
+        console.print(f"[red]{_('removed:')}[/red] {label}")
+        return True
+
+    def remove_dir(self, path: Path, label: str | None = None) -> bool:
+        """Remove a directory by renaming it to a backup. True if removed."""
+        label = label or str(path)
+        if not path.exists():
+            return False
+        if self.dry_run:
+            console.print(f"[yellow]--dry-run[/yellow] rm -r {label}")
+            self.changes.append(f"[dry-run] rm -r {label}")
+            return True
+        bak = backup_path(path)
+        path.rename(bak)
+        console.print(f"[dim]{_('backup:')} {bak}[/dim]")
+        self.changes.append(label)
+        console.print(f"[red]{_('removed:')}[/red] {label}")
+        return True
+
     def _show_diff(self, label: str, old: str, new: str) -> None:
         diff = difflib.unified_diff(
             old.splitlines(keepends=True),

@@ -56,6 +56,22 @@ class CodexAdapter(AgentAdapter):
         missing = missing_keys(current if isinstance(current, dict) else {}, env)
         return (not missing, _("env ok") if not missing else _("env mismatch: {keys}", keys=", ".join(missing)))
 
+    def remove_env(self, repo: Path, keys: list[str], writer: SafeWriter) -> bool:
+        path = self.config_path(repo)
+        if not path.exists():
+            return False
+        try:
+            data = tomllib.loads(path.read_text())
+        except tomllib.TOMLDecodeError:
+            return False
+        env = data.get("env", {})
+        if not isinstance(env, dict) or not any(k in env for k in keys):
+            return False
+        for k in keys:
+            env.pop(k, None)
+        data["env"] = env
+        return writer.write_text(path, tomli_w.dumps(data))
+
     def read_env(self, repo: Path) -> dict[str, str]:
         path = self.config_path(repo)
         if not path.exists():

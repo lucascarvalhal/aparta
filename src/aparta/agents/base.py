@@ -47,6 +47,13 @@ def parse_env_lines(text: str) -> dict[str, str]:
     return env
 
 
+def remove_env_lines(existing_text: str, keys: list[str]) -> str:
+    """Drop the lines that define any of the given variables."""
+    pattern = re.compile(rf"^\s*(export\s+)?({'|'.join(re.escape(k) for k in keys)})=")
+    lines = [line for line in existing_text.splitlines() if not pattern.match(line)]
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
 def missing_keys(current: dict[str, str], expected: dict[str, str]) -> list[str]:
     """Expected variables absent or divergent in `current`."""
     return [k for k, v in expected.items() if current.get(k) != v]
@@ -75,6 +82,10 @@ class AgentAdapter(ABC):
     @abstractmethod
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         """Return (ok, message): are the expected variables in place?"""
+
+    def remove_env(self, repo: Path, keys: list[str], writer: SafeWriter) -> bool:
+        """Remove the given variables from the agent's config; True if changed."""
+        return False
 
     def read_env(self, repo: Path) -> dict[str, str]:
         """Env this agent's config already defines for the repo.

@@ -59,6 +59,18 @@ class OpencodeAdapter(AgentAdapter):
         missing = missing_keys(parse_plugin_env(path.read_text()), env)
         return (not missing, _("env ok") if not missing else _("missing: {keys}", keys=", ".join(missing)))
 
+    def remove_env(self, repo: Path, keys: list[str], writer: SafeWriter) -> bool:
+        path = self.plugin_path(repo)
+        if not path.exists():
+            return False
+        current = parse_plugin_env(path.read_text())
+        remaining = {k: v for k, v in current.items() if k not in keys}
+        if remaining == current:
+            return False
+        if remaining:
+            return writer.write_text(path, render_plugin(remaining))
+        return writer.remove_file(path)
+
     def read_env(self, repo: Path) -> dict[str, str]:
         path = self.plugin_path(repo)
         return parse_plugin_env(path.read_text()) if path.exists() else {}

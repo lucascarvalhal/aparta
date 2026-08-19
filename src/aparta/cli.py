@@ -187,6 +187,38 @@ def scan(
     console.print(_("Use [bold]aparta init[/bold] to turn them into profiles."))
 
 
+@app.command()
+def remove(
+    ctx: typer.Context,
+    profile_name: str = typer.Argument(..., help=_("Name of the profile to remove.")),
+    yes: bool = typer.Option(False, "--yes", "-y", help=_("Do not ask for confirmation.")),
+) -> None:
+    """Remove a profile and undo the configuration it applied."""
+    from .profiles import save_profiles
+    from .remove import remove_profile
+
+    profiles = load_profiles()
+    profile = profiles.get(profile_name)
+    if not profile:
+        console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
+        raise typer.Exit(1)
+    if not yes:
+        import questionary
+
+        confirmed = questionary.confirm(
+            _("Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?", name=profile_name),
+            default=False,
+        ).ask()
+        if not confirmed:
+            console.print(_("[yellow]Cancelled.[/yellow]"))
+            raise typer.Exit(0)
+    writer = SafeWriter(dry_run=ctx.obj["dry_run"])
+    remove_profile(profile, writer)
+    if not ctx.obj["dry_run"]:
+        del profiles[profile_name]
+        save_profiles(profiles, writer)
+
+
 @app.command("help")
 def show_help() -> None:
     """Show every command and what it does."""
@@ -198,6 +230,7 @@ def show_help() -> None:
     table.add_row("aparta init", _("Guided wizard: pick agents, detect or create profiles, apply."))
     table.add_row("aparta scan \\[folders]", _("Read-only: find git repos and suggest profile groups (default: your home)."))
     table.add_row("aparta apply <profile>", _("Re-apply a profile: gitconfigs, gh, gcloud and agent env in the repos."))
+    table.add_row("aparta remove <profile>", _("Remove a profile and undo what it applied (backups kept)."))
     table.add_row("aparta doctor \\[profile]", _("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
     table.add_row("aparta list", _("List configured profiles."))
     table.add_row("aparta help", _("This screen."))

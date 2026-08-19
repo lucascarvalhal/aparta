@@ -53,6 +53,24 @@ class AntigravityAdapter(AgentAdapter):
         existing = path.read_text() if path.exists() else ""
         return writer.write_text(path, merge_vscode_settings(existing, env))
 
+    def remove_env(self, repo: Path, keys: list[str], writer: SafeWriter) -> bool:
+        path = self.settings_path(repo)
+        if not path.exists():
+            return False
+        try:
+            data = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return False
+        changed = False
+        for platform_key in _PLATFORM_KEYS:
+            env = data.get(platform_key)
+            if isinstance(env, dict):
+                for k in keys:
+                    changed |= env.pop(k, None) is not None
+        if not changed:
+            return False
+        return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         path = self.settings_path(repo)
         if not path.exists():

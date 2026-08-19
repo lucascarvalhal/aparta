@@ -72,6 +72,15 @@ def merge_includeif(gitconfig_text: str, gitdir: str, include_path: str) -> str:
     return gitconfig_text + sep + block
 
 
+def remove_includeif(gitconfig_text: str, gitdir: str) -> str:
+    """Drop the includeIf block for this gitdir, preserving everything else."""
+    pattern = re.compile(
+        r'\[includeIf\s+"gitdir:' + re.escape(gitdir) + r'"\]\s*\n(\s*path\s*=.*\n?)?',
+        re.IGNORECASE,
+    )
+    return pattern.sub("", gitconfig_text)
+
+
 def apply_git(profile: Profile, writer: SafeWriter, home: Path | None = None) -> None:
     """Write ~/.gitconfig-<profile> and merge its includeIf into ~/.gitconfig."""
     home = home or Path.home()

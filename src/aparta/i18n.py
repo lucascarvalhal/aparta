@@ -103,6 +103,13 @@ CATALOG: dict[str, dict[str, str]] = {
         "Check the real state: e-mail per repo, gh auth, gcloud config, agent env.": "Valida o estado real: e-mail por repo, auth do gh, config do gcloud, env dos agentes.",
         "List configured profiles.": "Lista os perfis configurados.",
         "This screen.": "Esta tela.",
+        "Name of the profile to remove.": "Nome do perfil a remover.",
+        "Do not ask for confirmation.": "Não pedir confirmação.",
+        "Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?": "Remover '{name}' e desfazer gitconfig, gh, gcloud e env dos agentes?",
+        "[bold]Removing profile '{name}'[/bold]": "[bold]Removendo perfil '{name}'[/bold]",
+        "[green]Profile '{name}' removed. Backups were kept for every touched file.[/green]": "[green]Perfil '{name}' removido. Backups foram mantidos de cada arquivo tocado.[/green]",
+        "Remove a profile and undo what it applied (backups kept).": "Remove um perfil e desfaz o que ele aplicou (backups mantidos).",
+        "removed:": "removido:",
         "Global flags: [bold]--dry-run[/bold] previews every change as a diff, [bold]--version[/bold] prints the version. Language: [bold]APARTA_LANG=en|pt[/bold].": "Flags globais: [bold]--dry-run[/bold] mostra cada mudança como diff, [bold]--version[/bold] imprime a versão. Idioma: [bold]APARTA_LANG=pt|en[/bold].",
         "More detail per command: [bold]aparta <command> --help[/bold].": "Mais detalhe por comando: [bold]aparta <comando> --help[/bold].",
         # fsutil / apply
