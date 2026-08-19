@@ -76,7 +76,7 @@ pip install aparta    # pip puro, instala no ambiente ativo
 npx aparta-cli        # para quem vive no mundo Node (precisa do uv ou do pipx)
 ```
 
-Para atualizar depois: `uv tool upgrade aparta` (ou o equivalente da ferramenta que você escolheu). E se quiser autocompletar no shell: `aparta --install-completion`.
+Para atualizar depois é só rodar `aparta update`: ele descobre como o aparta foi instalado e executa o upgrade certo. O aparta também avisa quando sai versão nova (verificado no máximo uma vez por dia), e a primeira execução do assistente pergunta se você prefere atualizações automáticas ou manuais; `APARTA_UPDATES=off` desliga a verificação de vez. E se quiser autocompletar no shell: `aparta --install-completion`.
 
 ## Idiomas
 

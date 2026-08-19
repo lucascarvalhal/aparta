@@ -76,7 +76,7 @@ pip install aparta    # plain pip, goes into the active environment
 npx aparta-cli        # Node ecosystem launcher (needs uv or pipx installed)
 ```
 
-Upgrading later: `uv tool upgrade aparta` (or the equivalent in your chosen tool). Shell autocompletion: `aparta --install-completion`.
+Upgrading later: just run `aparta update`, it detects how aparta was installed and runs the right upgrade. aparta also tells you when a new version is out (checked at most once a day), and the wizard's first run asks whether you prefer automatic or manual updates; `APARTA_UPDATES=off` disables the check entirely. Shell autocompletion: `aparta --install-completion`.
 
 ## Languages
 

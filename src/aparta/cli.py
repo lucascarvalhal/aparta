@@ -44,6 +44,10 @@ def main(
         console.print(f"aparta {__version__}")
         raise typer.Exit()
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
+    if ctx.invoked_subcommand != "update":
+        from .updates import notify_or_autoupdate
+
+        notify_or_autoupdate()
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
             _run_wizard(dry_run, verbose)
@@ -222,6 +226,21 @@ def remove(
         save_profiles(profiles, writer)
 
 
+@app.command()
+def update() -> None:
+    """Update aparta to the latest release."""
+    from . import __version__
+    from .updates import check_for_update, run_update
+
+    latest = check_for_update(force=True)
+    if not latest:
+        console.print(_("[green]You are already on the latest version ({current}).[/green]", current=__version__))
+        return
+    console.print(_("Updating {current} -> {latest}...", current=__version__, latest=latest))
+    if not run_update():
+        raise typer.Exit(1)
+
+
 @app.command("help")
 def show_help() -> None:
     """Show every command and what it does."""
@@ -236,6 +255,7 @@ def show_help() -> None:
     table.add_row("aparta remove <profile>", _("Remove a profile and undo what it applied (backups kept)."))
     table.add_row("aparta doctor \\[profile]", _("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
     table.add_row("aparta list", _("List configured profiles."))
+    table.add_row("aparta update", _("Update aparta to the latest release."))
     table.add_row("aparta help", _("This screen."))
     console.print(table)
     console.print(

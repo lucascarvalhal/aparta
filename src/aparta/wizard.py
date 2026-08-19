@@ -654,11 +654,37 @@ def _ask_language() -> bool:
     return True
 
 
+def _ask_update_mode() -> bool:
+    """First-run choice between automatic and manual updates; False = cancelled."""
+    import os
+
+    import questionary
+
+    from .updates import set_update_mode, update_mode_saved
+
+    if os.environ.get("APARTA_UPDATES") or update_mode_saved():
+        return True
+    choice = questionary.select(
+        _("How do you want to receive aparta updates?"),
+        choices=[
+            questionary.Choice(_("Automatic: update by itself when a new version is out"), value="auto"),
+            questionary.Choice(_("Manual: just remind me to run `aparta update`"), value="manual"),
+        ],
+        qmark="",
+    ).ask()
+    if choice is None:
+        return False
+    set_update_mode(choice)
+    return True
+
+
 def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
     """Full wizard. Raises KeyboardInterrupt/returns early when cancelled."""
     import questionary
 
     if not _ask_language():
+        return
+    if not _ask_update_mode():
         return
 
     console.print(

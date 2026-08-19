@@ -8,8 +8,15 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.5.0] - 2026-08-19
+
 ### Adicionado
 
+- `aparta update`: autoatualização que detecta como o aparta foi instalado
+  (uv tool, pipx, pip ou uvx/npx efêmero) e roda o upgrade certo. O aparta
+  avisa quando sai versão nova (verificado no máximo uma vez por dia,
+  `APARTA_UPDATES=off` desliga) e o assistente pergunta se as atualizações
+  devem ser automáticas ou manuais.
 - Suporte a AWS: os perfis ganham um `aws_profile` escolhido entre os seus
   perfis nomeados de `~/.aws` (ou criado via `aws configure`), injetado nos
   agentes como `AWS_PROFILE` e conferido pelo `aparta doctor`.
@@ -137,7 +144,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...v0.4.2

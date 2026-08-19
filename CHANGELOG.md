@@ -8,8 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-19
+
 ### Added
 
+- `aparta update`: self-update that detects the install method (uv tool,
+  pipx, pip or ephemeral uvx/npx) and runs the matching upgrade. aparta
+  announces new releases (checked at most once a day, `APARTA_UPDATES=off`
+  disables it) and the wizard asks whether updates should be automatic or
+  manual.
 - AWS support: profiles get an `aws_profile` selected from your existing
   `~/.aws` named profiles (or created via `aws configure`), injected into
   agents as `AWS_PROFILE` and checked by `aparta doctor`.
@@ -131,7 +138,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...v0.4.2
