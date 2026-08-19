@@ -58,7 +58,7 @@ One command, one interactive wizard:
 
 ## Installation
 
-Requires Python ≥ 3.10. `gh` and `gcloud` are optional, aparta selects credentials for the tools you use; it never logs in for you (unless you ask it to, in the wizard).
+Works on macOS, Linux and Windows through WSL. Requires Python ≥ 3.10. `gh` and `gcloud` are optional, aparta selects credentials for the tools you use; it never logs in for you (unless you ask it to, in the wizard).
 
 **Recommended:** install it as a permanent tool with [uv](https://docs.astral.sh/uv/), it is fast, isolated from your projects, and trivial to upgrade:
 
@@ -136,7 +136,6 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 ## Roadmap
 
 - More agents as they gain per-project config support
-- Windows-native support (WSL works today)
 
 ## Contributing
 

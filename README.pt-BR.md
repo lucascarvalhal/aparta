@@ -58,7 +58,7 @@ Um comando abre um assistente interativo que te guia do começo ao fim:
 
 ## Instalação
 
-Você só precisa de Python 3.10 ou mais novo. O `gh` e o `gcloud` são opcionais: o aparta organiza as credenciais das ferramentas que você já usa, ele nunca faz login sozinho (a não ser que você peça, dentro do assistente).
+Funciona no macOS, no Linux e no Windows via WSL. Você só precisa de Python 3.10 ou mais novo. O `gh` e o `gcloud` são opcionais: o aparta organiza as credenciais das ferramentas que você já usa, ele nunca faz login sozinho (a não ser que você peça, dentro do assistente).
 
 **Nossa recomendação:** instale como ferramenta permanente com o [uv](https://docs.astral.sh/uv/). É rápido, fica isolado dos seus projetos e atualizar é um comando:
 
@@ -138,7 +138,6 @@ Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o
 ## Roadmap
 
 - Mais agentes, conforme forem ganhando suporte a configuração por projeto
-- Suporte nativo a Windows (no WSL já funciona)
 
 ## Contribuindo
 
