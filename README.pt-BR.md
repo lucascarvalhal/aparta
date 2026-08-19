@@ -13,93 +13,94 @@
   <a href="README.md">English</a> | <b>Português (Brasil)</b>
 </p>
 
-O **aparta** isola suas contas de desenvolvimento, git, GitHub CLI, gcloud, chaves SSH, por pasta de projeto, e faz seus agentes de IA de terminal (Claude Code, Codex, Gemini CLI, Antigravity) usarem a identidade certa, sempre.
+O **aparta** cuida de uma coisa só, e cuida bem: cada pasta de projeto usa a conta certa. git, GitHub CLI, gcloud, chave SSH e até seus agentes de IA de terminal (Claude Code, Codex, Gemini CLI, Antigravity) passam a assumir a identidade correta sozinhos, sem você precisar lembrar de trocar nada.
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.pt-BR.gif" alt="aparta demo" width="900">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.pt-BR.gif" alt="demonstração do aparta" width="900">
 
 ## Por que o aparta existe?
 
-Quem trabalha com mais de uma identidade, emprego, freela, clientes, open source, conhece o roteiro:
+Se você trabalha com mais de uma conta, seja emprego e projetos pessoais, seja uma carteira de clientes, você provavelmente já viveu pelo menos uma dessas cenas:
 
-- Você commita no repositório de um cliente e só depois percebe que o commit saiu **com o seu e-mail pessoal** (ou pior: seu projeto pessoal saiu com o e-mail da empresa). Reescrever histórico publicado é doloroso; às vezes, impossível.
-- `gh` e `gcloud` têm **uma conta ativa global**. Trocar num terminal troca em *todos*, inclusive naquele outro onde um script de deploy estava prestes a rodar contra o projeto errado.
-- Agentes de IA de terminal herdam a identidade que o shell tiver na hora. Um agente que clona, commita, faz push e chama APIs de nuvem por você multiplica a chance de acidente.
+- Fez um commit no repositório de um cliente e só percebeu depois que ele saiu **com o seu e-mail pessoal** (ou o contrário: seu projeto pessoal carimbado com o e-mail da empresa). Consertar histórico que já foi publicado é trabalhoso, e às vezes nem dá.
+- Trocou de conta no `gh` ou no `gcloud` num terminal e esqueceu que a conta ativa é **global**: mudou ali, mudou em todos, inclusive naquele outro terminal onde um deploy estava prestes a rodar no projeto errado.
+- Deixou um agente de IA clonando, commitando e chamando APIs por você, e ele herdou a identidade que o shell tinha na hora. Ou seja: qualquer um dos acidentes acima, só que no piloto automático.
 
-A solução é conhecida por quem já se queimou: blocos `[includeIf "gitdir:..."]` no `~/.gitconfig`, diretórios paralelos de config do `gh` (`GH_CONFIG_DIR`), configurações nomeadas do `gcloud` (`CLOUDSDK_ACTIVE_CONFIG_NAME`), apelidos de host no SSH. Funciona muito bem, mas é chato de montar na mão, fácil de errar num detalhe, e ninguém documenta como fazer os agentes de IA respeitarem tudo isso.
+Nós passamos por tudo isso, e foi justamente dessa dor que o aparta nasceu. A receita para resolver até existe, quem já pesquisou conhece: blocos `[includeIf "gitdir:..."]` no `~/.gitconfig`, diretórios de configuração paralelos do `gh` (`GH_CONFIG_DIR`), configurações nomeadas do `gcloud` (`CLOUDSDK_ACTIVE_CONFIG_NAME`), apelidos de host no SSH. O problema é que montar tudo isso na mão é demorado, basta um detalhe errado para nada funcionar, e quase ninguém explica como fazer os agentes de IA respeitarem essa configuração.
 
-**O aparta automatiza o processo inteiro.** A pasta decide a identidade. Entrou em `~/work/acme`, o git, o gh, o gcloud e os agentes são o "você da acme". Entrou em `~/pessoal`, são você mesmo. Sem trocar nada, sem lembrar de nada, sem acidente.
+**O aparta faz esse trabalho por você.** A regra fica simples: a pasta decide a identidade. Entrou em `~/work/acme`, o git, o gh, o gcloud e os agentes viram o "você da acme". Voltou para `~/pessoal`, tudo volta a ser você. Sem trocar conta, sem checklist mental, sem susto.
 
 ## Como funciona
 
-Um comando, um wizard interativo:
+Um comando abre um assistente interativo que te guia do começo ao fim:
 
-- **Detecta o que você já usa**, contas gh/gcloud logadas, chaves SSH e atalhos de host, blocos `includeIf` existentes e todos os repositórios git do disco, agrupados por pasta e e-mail de commit. Configurações existentes viram sugestões pré-preenchidas: confirmar um perfil é apertar Enter.
-- **Ou começa do zero**, conecte uma conta nova do GitHub (`gh auth login` isolado no config dir do perfil), uma conta Google nova, gere uma chave SSH (e envie para o GitHub na hora).
-- **Aplica com segurança**, todo arquivo tocado ganha backup (`.bak-aparta-<timestamp>`) e recebe merge, nunca é substituído. `--dry-run` mostra o diff completo sem alterar nada. Nada sai da sua máquina.
-- **Verifica**, `aparta doctor` confere o estado real: e-mail resolvido em cada repo, auth do gh, config do gcloud, env injetado nos agentes.
+- **Ele encontra o que você já usa.** Contas logadas no gh e no gcloud, chaves SSH, atalhos de host, blocos `includeIf` que você já tenha criado e todos os repositórios git do disco, agrupados por pasta e por e-mail de commit. O que já existe vira sugestão pré-preenchida: confirmar um perfil é apertar Enter.
+- **Ou monta tudo do zero com você.** Dá para conectar uma conta nova do GitHub (o login já nasce isolado no diretório do perfil), conectar uma conta Google e até gerar uma chave SSH nova, com a opção de enviá-la para o GitHub na hora.
+- **Ele mexe nos seus arquivos com todo o cuidado.** Antes de tocar em qualquer arquivo existente, cria um backup (`.bak-aparta-<timestamp>`) e faz merge do conteúdo, nunca substitui nada. Quer só espiar antes? `--dry-run` mostra tudo o que aconteceria, sem alterar um byte. E nada sai da sua máquina.
+- **E depois ainda confere se deu certo.** O `aparta doctor` olha o estado real: qual e-mail cada repositório está resolvendo, se o gh está logado na conta certa, se a configuração do gcloud bate, se o ambiente chegou aos agentes.
 
 ### Telas
 
-*O wizard detecta sua configuração e pré-preenche tudo:*
+*O assistente encontra sua configuração e preenche tudo para você:*
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/wizard.pt-BR.svg" alt="wizard do aparta" width="820">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/wizard.pt-BR.svg" alt="assistente do aparta" width="820">
 
-*Um resumo, uma confirmação, com rede de proteção:*
+*Um resumo, uma confirmação, e uma rede de proteção embaixo:*
 
 <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/summary.pt-BR.svg" alt="resumo do aparta" width="820">
 
-*`aparta scan` mostra o que foi encontrado sem tocar em nada:*
+*O `aparta scan` mostra o que existe na sua máquina sem tocar em nada:*
 
 <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/scan.pt-BR.svg" alt="aparta scan" width="820">
 
-*`aparta doctor` prova que cada perfil está funcionando:*
+*E o `aparta doctor` prova que cada perfil está funcionando de verdade:*
 
 <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/doctor.pt-BR.svg" alt="aparta doctor" width="680">
 
 ## Instalação
 
-Requer Python ≥ 3.10. `gh` e `gcloud` são opcionais, o aparta seleciona credenciais das ferramentas que você usa; ele nunca faz login sozinho (a menos que você peça, no wizard).
+Você só precisa de Python 3.10 ou mais novo. O `gh` e o `gcloud` são opcionais: o aparta organiza as credenciais das ferramentas que você já usa, ele nunca faz login sozinho (a não ser que você peça, dentro do assistente).
 
-**Recomendado:** instale como ferramenta permanente com o [uv](https://docs.astral.sh/uv/), é rápido, isolado dos seus projetos e trivial de atualizar:
+**Nossa recomendação:** instale como ferramenta permanente com o [uv](https://docs.astral.sh/uv/). É rápido, fica isolado dos seus projetos e atualizar é um comando:
 
 ```bash
 uv tool install aparta     # recomendado
 aparta                     # daqui em diante é só isso
 ```
 
-Outros caminhos, conforme o seu setup:
+Prefere outro caminho? Todos estes funcionam:
 
 ```bash
 uvx aparta            # experimentar sem instalar nada
 pipx install aparta   # mesma ideia do uv tool, usando pipx
-pip install aparta    # pip puro, vai para o ambiente ativo
-npx aparta-cli        # lançador do ecossistema Node (requer uv ou pipx instalado)
+pip install aparta    # pip puro, instala no ambiente ativo
+npx aparta-cli        # para quem vive no mundo Node (precisa do uv ou do pipx)
 ```
 
-Para atualizar depois: `uv tool upgrade aparta` (ou o equivalente da ferramenta escolhida). Autocompletar no shell: `aparta --install-completion`.
+Para atualizar depois: `uv tool upgrade aparta` (ou o equivalente da ferramenta que você escolheu). E se quiser autocompletar no shell: `aparta --install-completion`.
 
 ## Idiomas
 
-O CLI fala inglês e português do Brasil. A primeira execução do wizard pergunta qual você prefere e lembra da escolha; `APARTA_LANG=pt` ou `APARTA_LANG=en` sobrepõe a escolha salva, e sem nada disso o locale (`LANG`) decide.
+O aparta fala português do Brasil e inglês. Na primeira vez que o assistente abre, ele pergunta qual idioma você prefere e guarda a resposta. Se quiser forçar, use `APARTA_LANG=pt` ou `APARTA_LANG=en`; sem nada disso, ele segue o idioma do seu sistema.
 
 ## Começando
 
 ```bash
-aparta            # primeira execução abre o wizard; depois, um menu
+aparta            # a primeira execução abre o assistente; depois, um menu
 ```
 
 1. Escolha quais agentes de IA devem receber o ambiente por projeto (Claude Code, Codex, Gemini CLI, Antigravity, ou um `.envrc` genérico via direnv).
 2. Escolha **"Detectar o que já uso"** (recomendado) ou **"Começar do zero"**.
-3. Confirme cada perfil sugerido, nome, pasta, e-mail do git, chave SSH, atalho de remote, conta gh, conta/projeto gcloud vêm pré-preenchidos da varredura.
-4. Opcionalmente adote repositórios soltos que vivem fora das pastas dos perfis (eles ficam onde estão; a identidade é aplicada localmente via `include.path` do git).
-5. Revise o resumo, confirme uma vez. Pronto.
+3. Confirme cada perfil sugerido. Nome, pasta, e-mail do git, chave SSH, atalho de remote e contas do gh e do gcloud já vêm preenchidos pela varredura, na maioria das vezes é só apertar Enter.
+4. Se houver repositórios soltos fora das pastas dos perfis, você pode adotá-los: eles continuam onde estão e recebem a identidade certa ali mesmo.
+5. Revise o resumo e confirme uma única vez. Pronto, pode voltar ao trabalho.
 
 ```bash
-aparta doctor     # verifica se tudo resolve para a identidade certa
-aparta scan       # somente leitura: mostra os grupos de projetos detectados
-aparta apply X    # reaplica um perfil (ex.: depois de clonar repos novos)
+aparta doctor     # confere se tudo está resolvendo para a identidade certa
+aparta scan       # somente leitura: mostra os grupos de projetos encontrados
+aparta apply X    # reaplica um perfil (por exemplo, depois de clonar repos novos)
+aparta remove X   # remove um perfil e desfaz o que ele aplicou
 aparta list       # lista os perfis configurados
-aparta --dry-run  # qualquer comando: mostra diffs, não altera nada
+aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar nada
 ```
 
 ## O que cada perfil configura
@@ -107,8 +108,8 @@ aparta --dry-run  # qualquer comando: mostra diffs, não altera nada
 | Ferramenta | Mecanismo |
 |---|---|
 | git | `~/.gitconfig-<perfil>` com `user.email`, `core.sshCommand` (chave própria) e opcionalmente `url insteadOf`; incluído via `[includeIf "gitdir:~/pasta/"]` |
-| GitHub CLI | cópia de `~/.config/gh` para `~/.config/gh-<perfil>` + `gh auth switch` na cópia; seleção via `GH_CONFIG_DIR` (tokens ficam no keyring, sem novo login) |
-| gcloud | configuração nomeada (`--no-activate`) com conta/projeto; seleção via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
+| GitHub CLI | cópia de `~/.config/gh` para `~/.config/gh-<perfil>` + `gh auth switch` na cópia; seleção via `GH_CONFIG_DIR` (os tokens ficam no keyring, sem novo login) |
+| gcloud | configuração nomeada (`--no-activate`) com conta e projeto; seleção via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
 | SSH | chave por perfil; opcionalmente reescrita de remotes via atalho do `~/.ssh/config` |
 | Repos soltos | `include.path` local no `.git/config` apontando para o gitconfig do perfil, identidade completa sem mover a pasta |
 
@@ -121,26 +122,27 @@ aparta --dry-run  # qualquer comando: mostra diffs, não altera nada
 | Gemini CLI | `.gemini/.env` do projeto (carregado nativamente pelo CLI) |
 | Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` |
 | opencode | plugin `shell.env` gerado em `.opencode/plugins/aparta-env.js` |
-| Cursor CLI | sem env nativo por projeto, herda o shell, coberto pelo adapter direnv |
-| direnv (genérico) | linhas `export` no `.envrc`, funciona para qualquer ferramenta (requer o [direnv](https://direnv.net) instalado e um `direnv allow` por repo) |
+| Cursor CLI | não tem env por projeto, herda o shell, então o adapter direnv já resolve |
+| direnv (genérico) | linhas `export` no `.envrc`, funciona para qualquer ferramenta (precisa do [direnv](https://direnv.net) instalado e de um `direnv allow` por repo) |
 
-Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (registro automático).
+Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o registro é automático.
 
-## Modelo de segurança
+## Você continua no controle
 
 - Toda escrita em arquivo existente cria backup com timestamp e faz **merge**: o aparta nunca sobrescreve seus dotfiles.
-- `--dry-run` mostra cada mudança como diff antes de qualquer coisa.
+- O `--dry-run` mostra cada mudança como diff antes de você decidir qualquer coisa.
 - A varredura é 100% somente leitura.
-- Nada é enviado para lugar nenhum. Sem telemetria, sem chamadas de rede além das que *você* dispara (`gh auth login`, `gcloud auth login`).
+- Nada é enviado para lugar nenhum. Sem telemetria, sem chamadas de rede além das que você mesmo dispara (`gh auth login`, `gcloud auth login`).
+- Mudou de ideia? O `aparta remove` desfaz tudo o que um perfil aplicou, e os backups continuam lá.
 
 ## Roadmap
 
-- Mais agentes conforme ganharem suporte a config por projeto
-- Suporte nativo a Windows (WSL já funciona)
+- Mais agentes, conforme forem ganhando suporte a configuração por projeto
+- Suporte nativo a Windows (no WSL já funciona)
 
 ## Contribuindo
 
-Issues e PRs são bem-vindos, veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md). O histórico de versões está no [CHANGELOG](CHANGELOG.pt-BR.md).
+Issues e PRs são muito bem-vindos! O caminho das pedras está no [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md), e o histórico de versões no [CHANGELOG](CHANGELOG.pt-BR.md).
 
 ## Licença
 

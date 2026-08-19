@@ -2,38 +2,38 @@
 
 # Política de Segurança
 
-## Versões suportadas
+## Versões com suporte
 
-Apenas a versão mais recente do aparta recebe correções de segurança.
+As correções de segurança saem sempre para a versão mais recente do aparta.
 
-| Versão | Suportada |
-| ------ | --------- |
-| última | sim       |
-| antigas | não      |
+| Versão | Suporte |
+| ------ | ------- |
+| última | sim     |
+| anteriores | não |
 
-## Reportando uma vulnerabilidade
+## Encontrou uma vulnerabilidade?
 
-Por favor, não abra uma issue pública para problemas de segurança.
+Primeiro: obrigado por reportar de forma responsável. Só pedimos uma coisa,
+não abra uma issue pública para assunto de segurança.
 
-Use o report privado de vulnerabilidades do GitHub: acesse a aba Security
-deste repositório e clique em "Report a vulnerability". Isso cria um
-advisory privado que só o mantenedor vê.
+O caminho certo é o report privado do GitHub: entre na aba **Security** deste
+repositório e clique em **"Report a vulnerability"**. Isso cria um advisory
+privado que só o mantenedor enxerga, e a conversa acontece ali dentro.
 
-Se não puder usar esse fluxo, contate o mantenedor pelo perfil em
-https://github.com/lucascarvalhal.
+Se por algum motivo esse fluxo não funcionar para você, fale com o mantenedor
+pelos contatos do perfil https://github.com/lucascarvalhal.
 
-O que incluir:
+O que ajuda a gente a agir rápido:
 
-- Uma descrição do problema e do impacto
+- Uma descrição do problema e do impacto que ele pode causar
 - Passos para reproduzir, ou uma prova de conceito
 - A versão do aparta e o seu sistema operacional
 
-O que esperar:
+E o que você pode esperar do nosso lado:
 
-- Uma confirmação de recebimento em até 7 dias
-- Uma correção ou um advisory público, coordenado com você, assim que o
+- Uma resposta confirmando o recebimento em até 7 dias
+- Uma correção ou um advisory público, combinado com você, assim que o
   problema for confirmado
 
-Por favor, dê um tempo razoável para lançarmos a correção antes de qualquer
-divulgação pública. Obrigado por ajudar a manter os usuários do aparta
-seguros.
+Só pedimos um tempo razoável para lançarmos a correção antes de qualquer
+divulgação pública. Obrigado por ajudar a manter quem usa o aparta seguro!
