@@ -72,9 +72,10 @@ pipx install aparta
 
 # ou pip puro
 pip install aparta
-```
 
-Um port para `npx` está no roadmap.
+# ecossistema Node: o mesmo CLI pelo lançador npm (requer uv ou pipx)
+npx aparta
+```
 
 ## Começando
 
@@ -131,7 +132,6 @@ Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (r
 
 - Inglês (e i18n) nos textos do CLI
 - Mais agentes conforme ganharem suporte a config por projeto
-- Port `npx` para o ecossistema Node
 - Suporte nativo a Windows (WSL já funciona)
 
 ## Contribuindo

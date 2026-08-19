@@ -74,9 +74,10 @@ pipx install aparta
 
 # or plain pip
 pip install aparta
-```
 
-An `npx` port is planned, see the roadmap.
+# Node ecosystem: same CLI through the npm launcher (needs uv or pipx)
+npx aparta
+```
 
 ## Quick start
 
@@ -133,7 +134,6 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 
 - English (and i18n) for the CLI texts
 - More agents as they gain per-project config support
-- `npx` port for the Node ecosystem
 - Windows-native support (WSL works today)
 
 ## Contributing

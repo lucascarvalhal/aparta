@@ -1,0 +1,31 @@
+{
+  "name": "aparta",
+  "version": "0.3.0",
+  "description": "Isolate your dev accounts (git, gh, gcloud, SSH) per project folder and make terminal AI agents use the right identity, always.",
+  "bin": {
+    "aparta": "cli.js"
+  },
+  "files": [
+    "cli.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "git",
+    "gh",
+    "gcloud",
+    "identity",
+    "profiles",
+    "claude-code",
+    "codex",
+    "direnv"
+  ],
+  "author": "Lucas Carvalhal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucascarvalhal/aparta.git"
+  },
+  "homepage": "https://github.com/lucascarvalhal/aparta#readme"
+}
