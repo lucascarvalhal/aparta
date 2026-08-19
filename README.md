@@ -79,7 +79,7 @@ npx aparta-cli
 
 ## Languages
 
-The CLI speaks English and Brazilian Portuguese, picked automatically from your locale (`LANG`). Force one with `APARTA_LANG=en` or `APARTA_LANG=pt`.
+The CLI speaks English and Brazilian Portuguese. The first run of the wizard asks which one you prefer and remembers it; `APARTA_LANG=en` or `APARTA_LANG=pt` overrides the saved choice, and without any of that the locale (`LANG`) decides.
 
 ## Quick start
 

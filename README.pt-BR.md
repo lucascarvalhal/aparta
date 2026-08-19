@@ -79,7 +79,7 @@ npx aparta-cli
 
 ## Idiomas
 
-O CLI fala inglês e português do Brasil, escolhidos automaticamente pelo locale (`LANG`). Force um deles com `APARTA_LANG=pt` ou `APARTA_LANG=en`.
+O CLI fala inglês e português do Brasil. A primeira execução do wizard pergunta qual você prefere e lembra da escolha; `APARTA_LANG=pt` ou `APARTA_LANG=en` sobrepõe a escolha salva, e sem nada disso o locale (`LANG`) decide.
 
 ## Começando
 

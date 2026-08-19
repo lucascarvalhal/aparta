@@ -519,9 +519,38 @@ def _summary(new_profiles: list[Profile]) -> None:
     )
 
 
+def _ask_language() -> bool:
+    """First-run language question; False when the user cancelled.
+
+    Skipped when APARTA_LANG is set or a choice was already saved. The
+    question itself is bilingual on purpose, it runs before any language
+    is known.
+    """
+    import questionary
+
+    from .i18n import saved_language, set_language
+
+    if os.environ.get("APARTA_LANG") or saved_language():
+        return True
+    choice = questionary.select(
+        "Language / Idioma:",
+        choices=[
+            questionary.Choice("English", value="en"),
+            questionary.Choice("Português (Brasil)", value="pt"),
+        ],
+    ).ask()
+    if choice is None:
+        return False
+    set_language(choice)
+    return True
+
+
 def run_wizard(dry_run: bool = False) -> None:
     """Full wizard. Raises KeyboardInterrupt/returns early when cancelled."""
     import questionary
+
+    if not _ask_language():
+        return
 
     console.print(
         Panel(
