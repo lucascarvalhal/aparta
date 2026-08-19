@@ -8,7 +8,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from ..fsutil import SafeWriter
+from ..fsutil import SafeWriter, tilde
 from ..profiles import Profile
 
 console = Console()
@@ -31,20 +31,18 @@ def render_context_gitconfig(profile: Profile) -> str:
             f'\tsshCommand = ssh -i {key} -o IdentitiesOnly=yes',
         ]
     if profile.ssh_alias:
+        host = profile.git_host
         lines += [
             f'[url "git@{profile.ssh_alias}:"]',
-            "\tinsteadOf = https://github.com/",
-            "\tinsteadOf = git@github.com:",
+            f"\tinsteadOf = https://{host}/",
+            f"\tinsteadOf = git@{host}:",
         ]
     return "\n".join(lines) + "\n"
 
 
 def gitdir_pattern(profile: Profile) -> str:
     """gitdir pattern, keeping ~ when the root lives under home."""
-    root = str(profile.root_path)
-    home = str(Path.home())
-    if root.startswith(home):
-        root = "~" + root[len(home):]
+    root = tilde(profile.root_path)
     if not root.endswith("/"):
         root += "/"
     return root
@@ -81,9 +79,7 @@ def apply_git(profile: Profile, writer: SafeWriter, home: Path | None = None) ->
 
     gitconfig = home / ".gitconfig"
     existing = gitconfig.read_text() if gitconfig.exists() else ""
-    include_path = str(ctx_path)
-    if include_path.startswith(str(home)):
-        include_path = "~" + include_path[len(str(home)):]
+    include_path = tilde(ctx_path) if home == Path.home() else str(ctx_path)
     merged = merge_includeif(existing, gitdir_pattern(profile), include_path)
     if merged != existing:
         writer.write_text(gitconfig, merged)
@@ -107,6 +103,7 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
             ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if include in current.stdout.splitlines():
             continue  # already adopted
@@ -119,6 +116,7 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
             ["git", "-C", str(repo), "config", "--local", "--add", "include.path", include],
             capture_output=True,
             text=True,
+            timeout=30,
         )
         if r.returncode != 0:
             console.print(f"[red]adoção de {repo} falhou:[/red] {r.stderr.strip()}")

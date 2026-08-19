@@ -2,27 +2,14 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from ..fsutil import SafeWriter
-from .base import AgentAdapter
+from .base import AgentAdapter, merge_env_lines, missing_keys, parse_env_lines
 
 
 def merge_envrc(existing_text: str, env: dict[str, str]) -> str:
-    lines = existing_text.splitlines()
-    out = list(lines)
-    for key, value in env.items():
-        pattern = re.compile(rf"^\s*export\s+{re.escape(key)}=")
-        replaced = False
-        for i, line in enumerate(out):
-            if pattern.match(line):
-                out[i] = f'export {key}="{value}"'
-                replaced = True
-                break
-        if not replaced:
-            out.append(f'export {key}="{value}"')
-    return "\n".join(out) + "\n"
+    return merge_env_lines(existing_text, env, 'export {k}="{v}"')
 
 
 class DirenvAdapter(AgentAdapter):
@@ -44,6 +31,9 @@ class DirenvAdapter(AgentAdapter):
         path = self.envrc_path(repo)
         if not path.exists():
             return False, ".envrc ausente"
-        text = path.read_text()
-        missing = [k for k, v in env.items() if f'export {k}="{v}"' not in text]
+        missing = missing_keys(parse_env_lines(path.read_text()), env)
         return (not missing, "env ok" if not missing else f"faltando: {', '.join(missing)}")
+
+    def read_env(self, repo: Path) -> dict[str, str]:
+        path = self.envrc_path(repo)
+        return parse_env_lines(path.read_text()) if path.exists() else {}

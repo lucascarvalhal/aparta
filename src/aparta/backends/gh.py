@@ -14,7 +14,7 @@ from pathlib import Path
 from rich.console import Console
 
 from ..fsutil import SafeWriter
-from ..profiles import Profile
+from ..profiles import Profile, gh_config_dir
 
 console = Console()
 
@@ -24,7 +24,7 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
         return
     home = home or Path.home()
     src = home / ".config" / "gh"
-    dst = home / ".config" / f"gh-{profile.name}"
+    dst = gh_config_dir(profile.name, home / ".config")
 
     # an existing dst (e.g. wizard logged in straight into the profile dir)
     # needs no copy; the global config is only used to clone a session
@@ -49,6 +49,7 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
         env=dict(os.environ, GH_CONFIG_DIR=str(dst)),
         capture_output=True,
         text=True,
+        timeout=30,
     )
     if result.returncode != 0:
         console.print(f"[red]gh auth switch falhou:[/red] {result.stderr.strip()}")

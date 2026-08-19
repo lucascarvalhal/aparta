@@ -13,11 +13,14 @@ else:  # pragma: no cover
     import tomli as tomllib
 
 from ..fsutil import SafeWriter
-from .base import AgentAdapter
+from .base import AgentAdapter, missing_keys
 
 
 def merge_codex_env(existing_text: str, env: dict[str, str]) -> str:
-    data = tomllib.loads(existing_text) if existing_text.strip() else {}
+    try:
+        data = tomllib.loads(existing_text) if existing_text.strip() else {}
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError("config.toml inválido") from exc
     current = data.get("env", {})
     if not isinstance(current, dict):
         current = {}
@@ -44,7 +47,20 @@ class CodexAdapter(AgentAdapter):
         path = self.config_path(repo)
         if not path.exists():
             return False, "config.toml ausente"
-        data = tomllib.loads(path.read_text())
+        try:
+            data = tomllib.loads(path.read_text())
+        except tomllib.TOMLDecodeError:
+            return False, "config.toml inválido"
         current = data.get("env", {})
-        missing = [k for k, v in env.items() if current.get(k) != v]
+        missing = missing_keys(current if isinstance(current, dict) else {}, env)
         return (not missing, "env ok" if not missing else f"env divergente: {', '.join(missing)}")
+
+    def read_env(self, repo: Path) -> dict[str, str]:
+        path = self.config_path(repo)
+        if not path.exists():
+            return {}
+        try:
+            env = tomllib.loads(path.read_text()).get("env", {})
+        except tomllib.TOMLDecodeError:
+            return {}
+        return env if isinstance(env, dict) else {}

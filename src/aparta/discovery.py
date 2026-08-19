@@ -7,26 +7,43 @@ and traces left by agent adapters. Everything here is read-only.
 
 from __future__ import annotations
 
-import json
+import os
 import re
 import subprocess
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_SCAN_ROOTS = [
-    "~/pessoal",
-    "~/projects",
-    "~/projetos",
-    "~/dev",
-    "~/code",
-    "~/src",
-    "~/work",
-    "~/repos",
-    "~/workspace",
-]
+from .fsutil import tilde
+from .profiles import config_home, gh_config_dir as gh_config_path
 
-IGNORED_DIRS = {"node_modules", ".venv", "venv", "__pycache__", "dist", "build"}
+# Build artifacts and dependency caches, never project roots.
+IGNORED_DIRS = {
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    "build",
+    "target",
+    "vendor",
+    "Pods",
+    "DerivedData",
+    "site-packages",
+}
+
+# OS-managed home directories that cannot contain the user's own projects.
+SYSTEM_DIRS = {
+    "Library",
+    "Applications",
+    "Movies",
+    "Music",
+    "Pictures",
+    "Public",
+    "AppData",
+}
+
+DEFAULT_SCAN_DEPTH = 4
 
 
 @dataclass
@@ -43,12 +60,6 @@ class ContextSuggestion:
     gcloud_account: str = ""  # from the named gcloud configuration
     gcloud_project: str = ""  # same source (project = ... line)
     source: str = "repos"  # "gitconfig" | "repos"
-
-
-def _tilde(path: Path) -> str:
-    home = str(Path.home())
-    s = str(path)
-    return "~" + s[len(home):] if s.startswith(home) else s
 
 
 # ---------------------------------------------------- signal 1: ~/.gitconfig
@@ -99,7 +110,7 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
         suggestions.append(
             ContextSuggestion(
                 name=root.name,
-                root=_tilde(root),
+                root=tilde(root),
                 git_email=email,
                 ssh_key=ssh_key,
                 ssh_alias=ssh_alias,
@@ -112,7 +123,7 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
 # --------------------------------------------------- signal 2: repos on disk
 
 def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
-    """git repos under root, depth-limited, skipping heavy directories."""
+    """git repos under root, depth-limited, skipping non-project directories."""
     repos: list[Path] = []
     if not root.exists():
         return repos
@@ -126,7 +137,11 @@ def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
             children = sorted(
                 p
                 for p in d.iterdir()
-                if p.is_dir() and not p.name.startswith(".") and p.name not in IGNORED_DIRS
+                if p.is_dir()
+                and not p.is_symlink()
+                and not p.name.startswith(".")
+                and p.name not in IGNORED_DIRS
+                and p.name not in SYSTEM_DIRS
             )
         except PermissionError:
             return
@@ -138,6 +153,22 @@ def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
 
     walk(root, 1)
     return repos
+
+
+def find_all_repos(
+    scan_roots: list[str] | None = None, max_depth: int = DEFAULT_SCAN_DEPTH
+) -> list[Path]:
+    """Every git repo under the given roots (the user's home by default).
+
+    No assumptions about folder naming: the whole tree is walked, pruning
+    only hidden directories, build artifacts and OS-managed directories.
+    """
+    roots = [Path(r).expanduser() for r in scan_roots] if scan_roots else [Path.home()]
+    repos: dict[Path, None] = {}
+    for root in roots:
+        for repo in find_repos(root, max_depth=max_depth):
+            repos[repo] = None
+    return list(repos)
 
 
 def repo_git_email(repo: Path) -> str:
@@ -157,31 +188,23 @@ def repo_git_email(repo: Path) -> str:
 # --------------------------------------------- signal 3: adapter traces
 
 def read_agent_env(repo: Path) -> dict[str, str]:
-    """Env already injected by previous setups (aparta or manual)."""
+    """Env already injected by previous setups, read via the agent registry."""
+    from .agents import ADAPTERS
+
     env: dict[str, str] = {}
-    settings = repo / ".claude" / "settings.local.json"
-    if settings.exists():
-        try:
-            env.update(json.loads(settings.read_text()).get("env", {}))
-        except (json.JSONDecodeError, AttributeError):
-            pass
-    for env_file in (repo / ".envrc", repo / ".gemini" / ".env"):
-        if env_file.exists():
-            for m in re.finditer(
-                r"^(?:export\s+)?(\w+)=[\"']?([^\"'\n]+)", env_file.read_text(), re.M
-            ):
-                env.setdefault(m.group(1), m.group(2))
+    for cls in ADAPTERS.values():
+        for key, value in cls().read_env(repo).items():
+            env.setdefault(key, value)
     return env
 
 
 # ------------------------------------------------------------------ discover
 
-def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
+def _scan_groups(repos: list[Path]) -> list[ContextSuggestion]:
     """Group repos by parent folder; summarize majority e-mail/gh/gcloud."""
     groups: dict[Path, list[Path]] = {}
-    for root in roots:
-        for repo in find_repos(root):
-            groups.setdefault(repo.parent, []).append(repo)
+    for repo in repos:
+        groups.setdefault(repo.parent, []).append(repo)
 
     suggestions = []
     for parent, repos in sorted(groups.items(), key=lambda kv: -len(kv[1])):
@@ -197,7 +220,7 @@ def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
         suggestions.append(
             ContextSuggestion(
                 name=parent.name,
-                root=_tilde(parent),
+                root=tilde(parent),
                 git_email=emails.most_common(1)[0][0] if emails else "",
                 repo_count=len(repos),
                 gh_config=gh_dirs.most_common(1)[0][0] if gh_dirs else "",
@@ -209,7 +232,7 @@ def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
 
 def gh_user_from_config_dir(dirname: str, config_root: Path | None = None) -> str:
     """Active user of a gh config dir, read from its hosts.yml."""
-    config_root = config_root or Path.home() / ".config"
+    config_root = config_root or config_home()
     hosts = config_root / dirname / "hosts.yml"
     if not hosts.exists():
         return ""
@@ -219,7 +242,10 @@ def gh_user_from_config_dir(dirname: str, config_root: Path | None = None) -> st
 
 def gcloud_config_values(name: str, gcloud_dir: Path | None = None) -> tuple[str, str]:
     """(account, project) of a named gcloud configuration (config_<name>)."""
-    gcloud_dir = gcloud_dir or Path.home() / ".config" / "gcloud"
+    if gcloud_dir is None:
+        gcloud_dir = Path(
+            os.environ.get("CLOUDSDK_CONFIG", str(config_home() / "gcloud"))
+        ).expanduser()
     cfg = gcloud_dir / "configurations" / f"config_{name}"
     if not cfg.exists():
         return "", ""
@@ -237,8 +263,8 @@ def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str
 def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> None:
     """Resolve gh user and gcloud account from configs on disk, falling
     back to aparta's own naming convention (gh-<name>, config_<name>)."""
-    config_root = config_root or Path.home() / ".config"
-    gh_dir = s.gh_config or f"gh-{s.name}"
+    config_root = config_root or config_home()
+    gh_dir = s.gh_config or gh_config_path(s.name, config_root).name
     if (config_root / gh_dir).exists():
         s.gh_config = gh_dir
         s.gh_user = s.gh_user or gh_user_from_config_dir(gh_dir, config_root)
@@ -254,15 +280,13 @@ def loose_repos(
     profile_roots: list[Path | str],
     scan_roots: list[str] | None = None,
 ) -> list[Path]:
-    """Repos under scan roots that no profile root covers."""
-    roots = [Path(r).expanduser() for r in (scan_roots or DEFAULT_SCAN_ROOTS)]
+    """Repos found by the scan that no profile root covers."""
     covered = [Path(p).expanduser() for p in profile_roots]
-    out: set[Path] = set()
-    for root in roots:
-        for repo in find_repos(root):
-            if not any(repo == c or c in repo.parents for c in covered):
-                out.add(repo)
-    return sorted(out)
+    return sorted(
+        repo
+        for repo in find_all_repos(scan_roots)
+        if not any(repo == c or c in repo.parents for c in covered)
+    )
 
 
 def discover(
@@ -272,16 +296,16 @@ def discover(
 ) -> list[ContextSuggestion]:
     """Context suggestions: gitconfig includeIfs first, then the disk scan.
 
-    Scan groups whose root an includeIf already covers only enrich the
-    existing suggestion (repo count, detected accounts).
+    The scan walks the user's home (or the given roots) with no naming
+    assumptions. Scan groups whose root an includeIf already covers only
+    enrich the existing suggestion (repo count, detected accounts).
     """
-    roots = [Path(r).expanduser() for r in (scan_roots or DEFAULT_SCAN_ROOTS)]
     by_root: dict[str, ContextSuggestion] = {}
 
     for s in suggestions_from_gitconfig(gitconfig):
         by_root[s.root] = s
 
-    for s in _scan_groups(roots):
+    for s in _scan_groups(find_all_repos(scan_roots)):
         existing = None
         for known_root, known in by_root.items():
             if s.root == known_root or s.root.startswith(known_root.rstrip("/") + "/"):

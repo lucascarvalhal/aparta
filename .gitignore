@@ -1,10 +1,55 @@
+# Python
 __pycache__/
 *.py[cod]
-.venv/
-dist/
+*$py.class
 *.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+sdist/
+wheels/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.python-version
+
+# Test and tooling caches
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Lock files (library: keep the resolver free)
 uv.lock
 
-# credenciais locais (nunca commitar)
+# Local credentials and environment (never commit)
 .env
+.env.*
+*.pem
+*.key
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+
+# aparta's own safety backups (if ever created inside the repo)
+*.bak-aparta-*

@@ -12,7 +12,7 @@ from aparta.profiles import Profile
 
 
 def test_login_gh_dry_run_creates_nothing(tmp_path, monkeypatch):
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     assert wizard.login_new_gh_account("novo", dry_run=True) == ""
     assert not (tmp_path / ".config" / "gh-novo").exists()
 
@@ -26,7 +26,7 @@ def test_login_gcloud_dry_run_runs_nothing(monkeypatch):
 
 
 def test_login_gh_creates_profile_dir_and_returns_user(tmp_path, monkeypatch):
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     calls = []
 
     def fake_run(args, **kwargs):
@@ -47,7 +47,7 @@ def test_login_gh_creates_profile_dir_and_returns_user(tmp_path, monkeypatch):
 
 
 def test_login_gh_failure_returns_empty(tmp_path, monkeypatch):
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.setattr(
         wizard.subprocess,
         "run",
@@ -65,6 +65,9 @@ def test_login_gcloud_uses_named_config(monkeypatch):
         return subprocess.CompletedProcess(args, 0, stdout=out, stderr="")
 
     monkeypatch.setattr(wizard.subprocess, "run", fake_run)
+    from aparta.backends import gcloud as gcloud_backend
+
+    monkeypatch.setattr(gcloud_backend, "configuration_exists", lambda name: False)
     assert wizard.login_new_gcloud_account("novo") == "nova@conta.com"
     assert calls[0][0][:4] == ["gcloud", "config", "configurations", "create"]
     login_call = next(c for c in calls if c[0] == ["gcloud", "auth", "login"])

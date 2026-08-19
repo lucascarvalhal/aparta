@@ -70,3 +70,34 @@ def test_apply_git_backs_up_existing_gitconfig(tmp_path: Path):
     backups = list(home.glob(".gitconfig.bak-aparta-*"))
     assert len(backups) == 1
     assert backups[0].read_text() == "[user]\n\temail = global@example.com\n"
+
+
+def test_render_gitconfig_uses_profile_git_host():
+    from aparta.backends.git import render_context_gitconfig
+    from aparta.profiles import Profile
+
+    p = Profile(
+        name="x",
+        root="~/x",
+        git_email="a@b.c",
+        ssh_alias="gitlab.com-work",
+        git_host="gitlab.com",
+    )
+    text = render_context_gitconfig(p)
+    assert "insteadOf = https://gitlab.com/" in text
+    assert "insteadOf = git@gitlab.com:" in text
+    assert "github.com" not in text
+
+
+def test_tilde_does_not_match_sibling_prefix(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from aparta.fsutil import tilde
+
+    home = tmp_path / "luca"
+    sibling = tmp_path / "lucax" / "repo"
+    home.mkdir()
+    sibling.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    assert tilde(sibling) == str(sibling)
+    assert tilde(home / "repo") == "~/repo"

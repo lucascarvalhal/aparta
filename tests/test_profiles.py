@@ -51,3 +51,20 @@ def test_config_dir_env_override(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path))
     assert config_dir() == tmp_path
     assert profiles_path() == tmp_path / "profiles.toml"
+
+
+def test_empty_agents_list_survives_roundtrip(tmp_path):
+    from aparta.fsutil import SafeWriter
+    from aparta.profiles import Profile, load_profiles, save_profiles
+
+    path = tmp_path / "profiles.toml"
+    p = Profile(name="x", root="~/x", git_email="a@b.c", agents=[])
+    save_profiles({"x": p}, SafeWriter(), path)
+    assert load_profiles(path)["x"].agents == []
+
+
+def test_gh_config_dir_honors_xdg(tmp_path, monkeypatch):
+    from aparta.profiles import gh_config_dir
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    assert gh_config_dir("acme") == tmp_path / "xdg" / "gh-acme"

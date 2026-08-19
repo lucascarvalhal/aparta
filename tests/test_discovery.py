@@ -136,6 +136,28 @@ def test_discover_merges_gitconfig_with_scan(tmp_path: Path):
     assert s.repo_count == 1  # enriched by the scan
 
 
+def test_find_all_repos_has_no_naming_assumptions(tmp_path: Path):
+    """A repo in an arbitrarily named folder is found; system dirs are pruned."""
+    found = _make_repo(tmp_path / "my stuff" / "xyz-2024" / "app")
+    hidden = tmp_path / "Library" / "Caches" / "repo"
+    hidden.mkdir(parents=True)
+    (hidden / ".git").mkdir()
+
+    from aparta.discovery import find_all_repos
+
+    repos = find_all_repos(scan_roots=[str(tmp_path)])
+    assert repos == [found]
+
+
+def test_discover_defaults_to_scanning_home(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    _make_repo(tmp_path / "any-name" / "site", "me@x.com")
+    suggestions = discover(
+        gitconfig=tmp_path / "sem-gitconfig", config_root=tmp_path / "config-vazio"
+    )
+    assert [s.name for s in suggestions] == ["any-name"]
+
+
 def test_suggestion_dataclass_defaults():
     s = ContextSuggestion(name="x", root="~/x")
     assert s.repo_count == 0 and s.source == "repos"

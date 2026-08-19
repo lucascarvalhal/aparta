@@ -19,7 +19,7 @@ from rich.table import Table
 from .agents import ADAPTERS
 from .discovery import ContextSuggestion, discover
 from .fsutil import SafeWriter
-from .profiles import Profile, load_profiles, profiles_path, save_profiles
+from .profiles import Profile, gh_config_dir, load_profiles, profiles_path, save_profiles
 
 console = Console()
 
@@ -117,7 +117,7 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
     The new account is born isolated in the profile's config dir; the global
     gh config is untouched. Returns the logged-in user ('' on failure).
     """
-    dst = Path.home() / ".config" / f"gh-{profile_name}"
+    dst = gh_config_dir(profile_name)
     if dry_run:
         console.print(f"[yellow]--dry-run[/yellow] GH_CONFIG_DIR={dst} gh auth login")
         return ""
@@ -153,12 +153,19 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
             f"[yellow]--dry-run[/yellow] CLOUDSDK_ACTIVE_CONFIG_NAME={profile_name} gcloud auth login"
         )
         return ""
+    from .backends.gcloud import configuration_exists
+
     try:
-        subprocess.run(
-            ["gcloud", "config", "configurations", "create", profile_name, "--no-activate"],
-            capture_output=True,
-            text=True,
-        )  # "already exists" is fine; the login below only uses the config
+        if not configuration_exists(profile_name):
+            create = subprocess.run(
+                ["gcloud", "config", "configurations", "create", profile_name, "--no-activate"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if create.returncode != 0:
+                console.print(f"[red]gcloud configurations create falhou:[/red] {create.stderr.strip()}")
+                return ""
         env = dict(os.environ, CLOUDSDK_ACTIVE_CONFIG_NAME=profile_name)
         r = subprocess.run(["gcloud", "auth", "login"], env=env)  # interactive
         if r.returncode != 0:
@@ -197,6 +204,7 @@ def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
              "-C", f"{profile_name} (gerada pelo aparta)"],
             capture_output=True,
             text=True,
+            timeout=60,
         )
     except FileNotFoundError:
         console.print("[red]ssh-keygen não encontrado.[/red]")
@@ -222,7 +230,7 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
         )
         return
     env = dict(os.environ)
-    profile_gh_dir = Path.home() / ".config" / f"gh-{profile_name}"
+    profile_gh_dir = gh_config_dir(profile_name)
     if profile_gh_dir.exists():
         env["GH_CONFIG_DIR"] = str(profile_gh_dir)
     r = subprocess.run(
@@ -230,6 +238,7 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
         env=env,
         capture_output=True,
         text=True,
+        timeout=30,
     )
     if r.returncode != 0:
         console.print(
@@ -349,7 +358,6 @@ def _ask_context(
         return None
 
     ssh_keys = list_ssh_keys()
-    ssh_key = ""
     ssh_alias = ""
     suggested_key = str(Path(suggestion.ssh_key).expanduser()) if suggestion and suggestion.ssh_key else ""
     ssh_key = _choose_from(
@@ -541,8 +549,24 @@ def run_wizard(dry_run: bool = False) -> None:
 
     suggestions: list[ContextSuggestion] = []
     if mode == "scan":
-        console.print("[dim]Procurando projetos existentes no disco...[/dim]")
+        console.print(
+            "[dim]Varrendo sua home em busca de repositórios git (somente leitura)...[/dim]"
+        )
         suggestions = [s for s in discover() if s.name not in profiles]
+        extra = (
+            questionary.path(
+                "Alguma pasta fora da home para varrer também? (vazio = nenhuma)",
+                default="",
+            ).ask()
+            or ""
+        ).strip()
+        if extra:
+            known_roots = {s.root for s in suggestions}
+            suggestions += [
+                s
+                for s in discover(scan_roots=[extra])
+                if s.name not in profiles and s.root not in known_roots
+            ]
         if not suggestions:
             console.print(
                 "[yellow]Nada detectado — vamos criar seu primeiro perfil do zero.[/yellow]"
@@ -622,10 +646,9 @@ def run_wizard(dry_run: bool = False) -> None:
         console.print(f"[green]Perfis salvos em {profiles_path()}.[/green]")
 
     if action == "apply":
-        from .cli import _apply_profile
+        from .apply import apply_profile
 
         for p in new_profiles:
-            _apply_profile(p, writer)
+            apply_profile(p, writer)
     else:
-        names = ", ".join(p.name for p in new_profiles)
-        console.print(f"Quando quiser aplicar: [bold]aparta apply {names.split(', ')[0]}[/bold]")
+        console.print(f"Quando quiser aplicar: [bold]aparta apply {new_profiles[0].name}[/bold]")

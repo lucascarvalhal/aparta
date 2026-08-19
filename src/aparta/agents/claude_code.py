@@ -6,12 +6,15 @@ import json
 from pathlib import Path
 
 from ..fsutil import SafeWriter
-from .base import AgentAdapter
+from .base import AgentAdapter, missing_keys
 
 
 def merge_settings_env(existing_text: str, env: dict[str, str]) -> str:
     """Merge the env object, preserving everything else in the JSON."""
-    data = json.loads(existing_text) if existing_text.strip() else {}
+    try:
+        data = json.loads(existing_text) if existing_text.strip() else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError("settings.local.json inválido") from exc
     if not isinstance(data, dict):
         raise ValueError("settings.local.json não contém um objeto JSON")
     current_env = data.get("env", {})
@@ -46,7 +49,17 @@ class ClaudeCodeAdapter(AgentAdapter):
         except json.JSONDecodeError:
             return False, "settings.local.json inválido"
         current = data.get("env", {})
-        missing = [k for k, v in env.items() if current.get(k) != v]
+        missing = missing_keys(current if isinstance(current, dict) else {}, env)
         if missing:
             return False, f"env divergente: {', '.join(missing)}"
         return True, "env ok"
+
+    def read_env(self, repo: Path) -> dict[str, str]:
+        path = self.settings_path(repo)
+        if not path.exists():
+            return {}
+        try:
+            env = json.loads(path.read_text()).get("env", {})
+        except (json.JSONDecodeError, AttributeError):
+            return {}
+        return env if isinstance(env, dict) else {}

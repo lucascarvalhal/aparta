@@ -17,12 +17,22 @@ else:  # pragma: no cover
 from .fsutil import SafeWriter
 
 
+def config_home() -> Path:
+    """Base user config directory, honoring XDG_CONFIG_HOME."""
+    return Path(os.environ.get("XDG_CONFIG_HOME", "~/.config")).expanduser()
+
+
 def config_dir() -> Path:
     """Config directory; APARTA_CONFIG_DIR overrides it (used by tests)."""
     override = os.environ.get("APARTA_CONFIG_DIR")
     if override:
         return Path(override)
-    return Path.home() / ".config" / "aparta"
+    return config_home() / "aparta"
+
+
+def gh_config_dir(profile_name: str, config_root: Path | None = None) -> Path:
+    """Single source of truth for the gh-<profile> config dir convention."""
+    return (config_root or config_home()) / f"gh-{profile_name}"
 
 
 def profiles_path() -> Path:
@@ -37,6 +47,7 @@ class Profile:
     git_name: str = ""
     ssh_key: str = ""  # dedicated SSH key path
     ssh_alias: str = ""  # SSH host alias for url insteadOf remote rewriting
+    git_host: str = "github.com"  # host whose remote URLs the alias rewrites
     gh_user: str = ""  # GitHub CLI account
     gcloud_account: str = ""
     gcloud_project: str = ""
@@ -51,7 +62,7 @@ class Profile:
 
     @property
     def gh_config_dir(self) -> Path:
-        return Path.home() / ".config" / f"gh-{self.name}"
+        return gh_config_dir(self.name)
 
     def env(self) -> dict[str, str]:
         """Environment variables this profile injects into agents."""
@@ -81,9 +92,11 @@ def save_profiles(
     path: Path | None = None,
 ) -> None:
     path = path or profiles_path()
+    # Omit only empty strings: an explicitly empty list (e.g. agents=[])
+    # must survive the round-trip instead of falling back to the default.
     doc = {
         "profiles": {
-            name: {k: v for k, v in asdict(p).items() if k != "name" and v not in ("", [])}
+            name: {k: v for k, v in asdict(p).items() if k != "name" and v != ""}
             for name, p in profiles.items()
         }
     }

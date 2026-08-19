@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .agents import get_adapters
-from .discovery import find_repos  # noqa: F401 (re-exported; cli imports it here)
+from .discovery import find_repos
 from .profiles import Profile
 
 console = Console()

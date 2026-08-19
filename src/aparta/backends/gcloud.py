@@ -17,7 +17,13 @@ def _run(args: list[str], config_name: str | None = None) -> subprocess.Complete
     env = dict(os.environ)
     if config_name:
         env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = config_name
-    return subprocess.run(args, env=env, capture_output=True, text=True)
+    return subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
+
+
+def configuration_exists(name: str) -> bool:
+    """Whether the named gcloud configuration already exists (locale-safe)."""
+    r = _run(["gcloud", "config", "configurations", "describe", name])
+    return r.returncode == 0
 
 
 def apply_gcloud(profile: Profile, writer: SafeWriter) -> None:
@@ -39,10 +45,11 @@ def apply_gcloud(profile: Profile, writer: SafeWriter) -> None:
             console.print(f"[yellow]--dry-run[/yellow] {prefix}{' '.join(args)}")
         return
 
-    create = _run(*cmds[0])
-    if create.returncode != 0 and "already exists" not in create.stderr:
-        console.print(f"[red]gcloud configurations create falhou:[/red] {create.stderr.strip()}")
-        return
+    if not configuration_exists(name):
+        create = _run(*cmds[0])
+        if create.returncode != 0:
+            console.print(f"[red]gcloud configurations create falhou:[/red] {create.stderr.strip()}")
+            return
     for args, cfg in cmds[1:]:
         r = _run(args, cfg)
         if r.returncode != 0:

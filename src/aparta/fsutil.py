@@ -13,6 +13,18 @@ from rich.console import Console
 console = Console()
 
 
+def tilde(path: Path | str) -> str:
+    """Render a path with ~ when it lives under the user's home."""
+    p = Path(path)
+    home = Path.home()
+    if p == home:
+        return "~"
+    try:
+        return "~/" + str(p.relative_to(home))
+    except ValueError:
+        return str(p)
+
+
 def backup_path(path: Path) -> Path:
     ts = time.strftime("%Y%m%d-%H%M%S")
     return path.with_name(f"{path.name}.bak-aparta-{ts}")

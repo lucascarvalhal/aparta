@@ -14,12 +14,19 @@ from pathlib import Path
 from ..fsutil import SafeWriter
 from .base import AgentAdapter
 
-_PLATFORM_KEYS = ("terminal.integrated.env.osx", "terminal.integrated.env.linux")
+_PLATFORM_KEYS = (
+    "terminal.integrated.env.osx",
+    "terminal.integrated.env.linux",
+    "terminal.integrated.env.windows",
+)
 
 
 def merge_vscode_settings(existing_text: str, env: dict[str, str]) -> str:
     """Merge env into terminal.integrated.env.{osx,linux}, preserving the rest."""
-    data = json.loads(existing_text) if existing_text.strip() else {}
+    try:
+        data = json.loads(existing_text) if existing_text.strip() else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError(".vscode/settings.json inválido") from exc
     if not isinstance(data, dict):
         raise ValueError(".vscode/settings.json não contém um objeto JSON")
     for key in _PLATFORM_KEYS:

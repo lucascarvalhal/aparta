@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from . import __version__
-from .agents import get_adapters
-from .backends.gcloud import apply_gcloud
-from .backends.gh import apply_gh
-from .backends.git import apply_git
-from .doctor import check_profile, find_repos
+from .apply import apply_profile
+from .doctor import check_profile
 from .fsutil import SafeWriter
-from .profiles import Profile, load_profiles, profiles_path
+from .profiles import load_profiles, profiles_path
 
 app = typer.Typer(
     name="aparta",
@@ -23,8 +18,6 @@ app = typer.Typer(
     "e injeta variáveis de ambiente nos agentes de IA de terminal.",
 )
 console = Console()
-
-_state = {"dry_run": False}
 
 
 def default_action(profiles_file: Path | None = None) -> str:
@@ -44,29 +37,25 @@ def main(
     if version:
         console.print(f"aparta {__version__}")
         raise typer.Exit()
-    _state["dry_run"] = dry_run
+    ctx.obj = {"dry_run": dry_run}
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
-            _run_wizard()
+            _run_wizard(dry_run)
         else:
-            _run_menu()
+            _run_menu(dry_run)
 
 
-def _writer() -> SafeWriter:
-    return SafeWriter(dry_run=_state["dry_run"])
-
-
-def _run_wizard() -> None:
+def _run_wizard(dry_run: bool) -> None:
     from .wizard import run_wizard
 
     try:
-        run_wizard(dry_run=_state["dry_run"])
+        run_wizard(dry_run=dry_run)
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelado.[/yellow]")
         raise typer.Exit(1)
 
 
-def _run_menu() -> None:
+def _run_menu(dry_run: bool) -> None:
     import questionary
 
     while True:
@@ -83,12 +72,15 @@ def _run_menu() -> None:
         if choice in (None, "quit"):
             return
         if choice == "init":
-            _run_wizard()
+            _run_wizard(dry_run)
         elif choice == "apply":
             profiles = load_profiles()
+            if not profiles:
+                console.print("[yellow]Nenhum perfil configurado ainda.[/yellow]")
+                continue
             name = questionary.select("Qual perfil?", choices=list(profiles)).ask()
             if name:
-                _apply_profile(profiles[name], _writer())
+                apply_profile(profiles[name], SafeWriter(dry_run=dry_run))
         elif choice == "doctor":
             for p in load_profiles().values():
                 check_profile(p)
@@ -97,43 +89,14 @@ def _run_menu() -> None:
 
 
 @app.command()
-def init() -> None:
+def init(ctx: typer.Context) -> None:
     """Wizard interativo: escolhe agentes, configura contextos e aplica."""
-    _run_wizard()
-
-
-def _apply_profile(profile: Profile, writer: SafeWriter) -> None:
-    console.print(f"[bold]Aplicando perfil '{profile.name}'[/bold] (raiz: {profile.root_path})\n")
-
-    apply_git(profile, writer)
-    apply_gh(profile, writer)
-    apply_gcloud(profile, writer)
-
-    env = profile.env()
-    if env:
-        repos = find_repos(profile.root_path) + [
-            Path(r).expanduser() for r in profile.adopted_repos
-        ]
-        if not repos:
-            console.print(f"[yellow]Nenhum repositório git encontrado em {profile.root_path}.[/yellow]")
-        adapters = get_adapters(profile.agents)
-        for repo in repos:
-            for adapter in adapters:
-                if adapter.detect(repo):
-                    adapter.inject(repo, env, writer)
-    else:
-        console.print("[dim]Perfil sem gh/gcloud: nada de env para injetar nos agentes.[/dim]")
-
-    if writer.dry_run:
-        console.print(f"\n[yellow]--dry-run: {len(writer.changes)} mudança(s) prevista(s); nada foi alterado.[/yellow]")
-    elif not writer.changes:
-        console.print("\n[green]Tudo já estava aplicado; nada a mudar.[/green]")
-    else:
-        console.print(f"\n[green]Pronto: {len(writer.changes)} arquivo(s) atualizado(s).[/green]")
+    _run_wizard(ctx.obj["dry_run"])
 
 
 @app.command()
 def apply(
+    ctx: typer.Context,
     profile_name: str = typer.Argument(..., help="Nome do perfil a aplicar."),
 ) -> None:
     """Aplica um perfil: gitconfigs, gh config dir, gcloud config e env nos repos."""
@@ -142,7 +105,7 @@ def apply(
     if not profile:
         console.print(f"[red]Perfil '{profile_name}' não encontrado.[/red] Rode `aparta init`.")
         raise typer.Exit(1)
-    _apply_profile(profile, _writer())
+    apply_profile(profile, SafeWriter(dry_run=ctx.obj["dry_run"]))
 
 
 @app.command()
@@ -161,6 +124,8 @@ def doctor(
         raise typer.Exit(1)
     selected = [profiles[profile_name]] if profile_name else list(profiles.values())
 
+    # list comprehension on purpose: all() must not short-circuit, every
+    # profile's table should render even after a failure
     ok = all([check_profile(p) for p in selected])
     raise typer.Exit(0 if ok else 1)
 
@@ -190,17 +155,19 @@ def list_profiles() -> None:
 
 
 @app.command()
-def scan() -> None:
+def scan(
+    paths: list[str] = typer.Argument(
+        None, help="Pastas a varrer (vazio = sua home inteira)."
+    ),
+) -> None:
     """Varre o disco e sugere grupos de projetos (somente leitura, nada é alterado)."""
     from .discovery import discover
 
-    console.print("[dim]Varrendo raízes comuns e ~/.gitconfig...[/dim]")
-    suggestions = discover()
+    where = ", ".join(paths) if paths else "sua home"
+    console.print(f"[dim]Varrendo {where} e ~/.gitconfig (somente leitura)...[/dim]")
+    suggestions = discover(scan_roots=paths or None)
     if not suggestions:
-        console.print(
-            "[yellow]Nenhum grupo de projetos encontrado nas pastas comuns "
-            "(~/projects, ~/dev, ...).[/yellow]"
-        )
+        console.print("[yellow]Nenhum repositório git encontrado.[/yellow]")
         return
     table = Table(title="Grupos de projetos detectados")
     table.add_column("Nome sugerido", style="bold")

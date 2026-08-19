@@ -6,7 +6,7 @@
   <a href="https://pypi.org/project/aparta/"><img src="https://img.shields.io/pypi/v/aparta" alt="PyPI"></a>
   <img src="https://img.shields.io/pypi/pyversions/aparta" alt="Python">
   <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT">
-  <img src="https://img.shields.io/badge/tests-70%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-92%20passing-brightgreen" alt="Tests">
 </p>
 
 <p align="center">
