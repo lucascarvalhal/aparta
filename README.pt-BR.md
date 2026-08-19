@@ -139,6 +139,10 @@ Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o
 
 - Mais agentes, conforme forem ganhando suporte a configuração por projeto
 
+## Combina muito bem com
+
+- [Universal Memory (U-Mem)](https://universal-memory.com/): uma camada de memória local e agnóstica de fornecedor para agentes de IA. O aparta garante que cada agente use a conta certa por pasta; o U-Mem faz eles lembrarem do seu contexto e das suas preferências entre sessões e ferramentas. Juntos, cobrem identidade e memória. Só mantenha o diretório `.umem/` fora do versionamento (o .gitignore deste repo já cuida disso).
+
 ## Contribuindo
 
 Issues e PRs são muito bem-vindos! O caminho das pedras está no [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md), e o histórico de versões no [CHANGELOG](CHANGELOG.pt-BR.md).

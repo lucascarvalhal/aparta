@@ -137,6 +137,10 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 
 - More agents as they gain per-project config support
 
+## Works great with
+
+- [Universal Memory (U-Mem)](https://universal-memory.com/): a local-first, vendor-agnostic memory layer for AI agents. aparta makes every agent use the right account per folder; U-Mem makes them remember your context and preferences across sessions and tools. Together they cover identity and memory. Keep its `.umem/` directory out of version control (this repo's .gitignore already does).
+
 ## Contributing
 
 Issues and PRs are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Release history lives in the [CHANGELOG](CHANGELOG.md).
