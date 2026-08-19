@@ -114,6 +114,8 @@ aparta --dry-run  # qualquer comando: mostra diffs, não altera nada
 | Codex CLI | seção `[env]` em `.codex/config.toml` do repositório |
 | Gemini CLI | `.gemini/.env` do projeto (carregado nativamente pelo CLI) |
 | Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` |
+| opencode | plugin `shell.env` gerado em `.opencode/plugins/aparta-env.js` |
+| Cursor CLI | sem env nativo por projeto, herda o shell, coberto pelo adapter direnv |
 | direnv (genérico) | linhas `export` no `.envrc`, funciona para qualquer ferramenta |
 
 Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (registro automático).
@@ -128,7 +130,7 @@ Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (r
 ## Roadmap
 
 - Inglês (e i18n) nos textos do CLI
-- Mais agentes: Cursor CLI, opencode
+- Mais agentes conforme ganharem suporte a config por projeto
 - Port `npx` para o ecossistema Node
 - Suporte nativo a Windows (WSL já funciona)
 
