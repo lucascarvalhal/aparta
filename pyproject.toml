@@ -1,6 +1,6 @@
 [project]
 name = "aparta"
-version = "0.4.2"
+version = "0.4.3"
 description = "Isolate your dev accounts (git, gh, gcloud, SSH) per project folder and make terminal AI agents use the right identity, always."
 readme = "README.md"
 requires-python = ">=3.10"
