@@ -14,6 +14,7 @@ from rich.console import Console
 
 from .agents import get_adapters
 from .backends import Note
+from .backends.aws import apply_aws
 from .backends.gcloud import apply_gcloud
 from .backends.gh import apply_gh
 from .backends.git import apply_git
@@ -28,6 +29,7 @@ BACKENDS: list[tuple[str, Callable[[Profile, SafeWriter], "list[Note]"]]] = [
     ("git", apply_git),
     ("gh", apply_gh),
     ("gcloud", apply_gcloud),
+    ("aws", apply_aws),
 ]
 
 

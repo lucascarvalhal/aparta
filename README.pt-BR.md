@@ -13,7 +13,7 @@
   <a href="README.md">English</a> | <b>Português (Brasil)</b>
 </p>
 
-O **aparta** cuida de uma coisa só, e cuida bem: cada pasta de projeto usa a conta certa. git, GitHub CLI, gcloud, chave SSH e até seus agentes de IA de terminal (Claude Code, Codex, Gemini CLI, Antigravity) passam a assumir a identidade correta sozinhos, sem você precisar lembrar de trocar nada.
+O **aparta** cuida de uma coisa só, e cuida bem: cada pasta de projeto usa a conta certa. git, GitHub CLI, gcloud, AWS, chave SSH e até seus agentes de IA de terminal (Claude Code, Codex, Gemini CLI, Antigravity) passam a assumir a identidade correta sozinhos, sem você precisar lembrar de trocar nada.
 
 <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.pt-BR.gif" alt="demonstração do aparta" width="900">
 
@@ -110,6 +110,7 @@ aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar n
 | git | `~/.gitconfig-<perfil>` com `user.email`, `core.sshCommand` (chave própria) e opcionalmente `url insteadOf`; incluído via `[includeIf "gitdir:~/pasta/"]` |
 | GitHub CLI | cópia de `~/.config/gh` para `~/.config/gh-<perfil>` + `gh auth switch` na cópia; seleção via `GH_CONFIG_DIR` (os tokens ficam no keyring, sem novo login) |
 | gcloud | configuração nomeada (`--no-activate`) com conta e projeto; seleção via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
+| AWS | seus perfis nomeados de `~/.aws`; seleção via `AWS_PROFILE`, respeitada pelo CLI, por todos os SDKs, pelo Terraform e pelo CDK |
 | SSH | chave por perfil; opcionalmente reescrita de remotes via atalho do `~/.ssh/config` |
 | Repos soltos | `include.path` local no `.git/config` apontando para o gitconfig do perfil, identidade completa sem mover a pasta |
 
@@ -137,7 +138,14 @@ Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o
 
 ## Roadmap
 
-- Mais agentes, conforme forem ganhando suporte a configuração por projeto
+Provedores planejados, em ordem aproximada:
+
+- Azure CLI: diretórios de config paralelos via `AZURE_CONFIG_DIR`
+- Kubernetes: kubeconfig por perfil via `KUBECONFIG`
+- Docker: contexto por perfil via `DOCKER_CONTEXT`
+- GitLab CLI (glab): diretórios de config paralelos via `GLAB_CONFIG_DIR`
+- Terraform Cloud: credenciais por perfil via `TF_CLI_CONFIG_FILE`
+- Mais agentes de IA, conforme forem ganhando suporte a configuração por projeto
 
 ## Recomendamos fortemente que você use
 

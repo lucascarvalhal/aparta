@@ -51,6 +51,7 @@ class Profile:
     gh_user: str = ""  # GitHub CLI account
     gcloud_account: str = ""
     gcloud_project: str = ""
+    aws_profile: str = ""  # named profile in ~/.aws/config, selected via AWS_PROFILE
     agents: list[str] = field(default_factory=lambda: ["claude-code"])
     # repos outside root owned by this profile; identity is applied via a
     # local include in each .git/config, without moving the folder
@@ -71,6 +72,8 @@ class Profile:
             env["GH_CONFIG_DIR"] = str(self.gh_config_dir)
         if self.gcloud_account or self.gcloud_project:
             env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
+        if self.aws_profile:
+            env["AWS_PROFILE"] = self.aws_profile
         return env
 
 

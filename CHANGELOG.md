@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- AWS support: profiles get an `aws_profile` selected from your existing
+  `~/.aws` named profiles (or created via `aws configure`), injected into
+  agents as `AWS_PROFILE` and checked by `aparta doctor`.
+- Provider selection step in the wizard: pick which providers to configure
+  (GitHub CLI, Google Cloud, AWS) or keep the full sweep.
+
 ## [0.4.4] - 2026-08-19
 
 ### Security

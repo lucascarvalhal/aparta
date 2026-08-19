@@ -59,6 +59,7 @@ class ContextSuggestion:
     gh_user: str = ""  # from the gh_config hosts.yml
     gcloud_account: str = ""  # from the named gcloud configuration
     gcloud_project: str = ""  # same source (project = ... line)
+    aws_profile: str = ""  # from agent env (AWS_PROFILE) or a matching ~/.aws profile
     source: str = "repos"  # "gitconfig" | "repos"
 
 
@@ -211,12 +212,15 @@ def _scan_groups(repos: list[Path]) -> list[ContextSuggestion]:
         emails = Counter(e for e in (repo_git_email(r) for r in repos) if e)
         gh_dirs: Counter[str] = Counter()
         gcloud_names: Counter[str] = Counter()
+        aws_names: Counter[str] = Counter()
         for r in repos:
             env = read_agent_env(r)
             if env.get("GH_CONFIG_DIR"):
                 gh_dirs[Path(env["GH_CONFIG_DIR"]).name] += 1
             if env.get("CLOUDSDK_ACTIVE_CONFIG_NAME"):
                 gcloud_names[env["CLOUDSDK_ACTIVE_CONFIG_NAME"]] += 1
+            if env.get("AWS_PROFILE"):
+                aws_names[env["AWS_PROFILE"]] += 1
         suggestions.append(
             ContextSuggestion(
                 name=parent.name,
@@ -225,6 +229,7 @@ def _scan_groups(repos: list[Path]) -> list[ContextSuggestion]:
                 repo_count=len(repos),
                 gh_config=gh_dirs.most_common(1)[0][0] if gh_dirs else "",
                 gcloud_config=gcloud_names.most_common(1)[0][0] if gcloud_names else "",
+                aws_profile=aws_names.most_common(1)[0][0] if aws_names else "",
             )
         )
     return suggestions
@@ -260,7 +265,9 @@ def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str
     return gcloud_config_values(name, gcloud_dir)[0]
 
 
-def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> None:
+def _enrich_accounts(
+    s: ContextSuggestion, config_root: Path | None = None, aws_dir: Path | None = None
+) -> None:
     """Resolve gh user and gcloud account from configs on disk, falling
     back to aparta's own naming convention (gh-<name>, config_<name>)."""
     config_root = config_root or config_home()
@@ -274,6 +281,11 @@ def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> N
         s.gcloud_config = gcloud_name
         s.gcloud_account = s.gcloud_account or account
         s.gcloud_project = s.gcloud_project or project
+    if not s.aws_profile:
+        from .backends.aws import aws_profile_exists
+
+        if aws_profile_exists(s.name, aws_dir):
+            s.aws_profile = s.name
 
 
 def loose_repos(
@@ -293,6 +305,7 @@ def discover(
     scan_roots: list[str] | None = None,
     gitconfig: Path | None = None,
     config_root: Path | None = None,
+    aws_dir: Path | None = None,
 ) -> list[ContextSuggestion]:
     """Context suggestions: gitconfig includeIfs first, then the disk scan.
 
@@ -323,5 +336,5 @@ def discover(
         by_root.values(), key=lambda s: (s.source != "gitconfig", -s.repo_count)
     )
     for s in ordered:
-        _enrich_accounts(s, config_root)
+        _enrich_accounts(s, config_root, aws_dir)
     return ordered

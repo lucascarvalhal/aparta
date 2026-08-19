@@ -8,6 +8,15 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Adicionado
+
+- Suporte a AWS: os perfis ganham um `aws_profile` escolhido entre os seus
+  perfis nomeados de `~/.aws` (ou criado via `aws configure`), injetado nos
+  agentes como `AWS_PROFILE` e conferido pelo `aparta doctor`.
+- Etapa de seleção de provedores no assistente: escolha quais provedores
+  configurar (GitHub CLI, Google Cloud, AWS) ou mantenha a varredura
+  completa.
+
 ## [0.4.4] - 2026-08-19
 
 ### Segurança

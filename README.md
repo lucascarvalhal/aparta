@@ -13,7 +13,7 @@
   <b>English</b> | <a href="README.pt-BR.md">Português (Brasil)</a>
 </p>
 
-**aparta** isolates your development accounts, git, GitHub CLI, gcloud, SSH keys, per project folder, and makes your terminal AI agents (Claude Code, Codex, Gemini CLI, Antigravity) use the right identity, always. *Aparta* is Portuguese for "set apart".
+**aparta** isolates your development accounts, git, GitHub CLI, gcloud, AWS, SSH keys, per project folder, and makes your terminal AI agents (Claude Code, Codex, Gemini CLI, Antigravity) use the right identity, always. *Aparta* is Portuguese for "set apart".
 
 <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.gif" alt="aparta demo" width="900">
 
@@ -109,6 +109,7 @@ aparta --dry-run  # any command: show diffs, change nothing
 | git | `~/.gitconfig-<profile>` with `user.email`, `core.sshCommand` (dedicated key), optional `url insteadOf` rewrite; included via `[includeIf "gitdir:~/folder/"]` |
 | GitHub CLI | copy of `~/.config/gh` to `~/.config/gh-<profile>` + `gh auth switch` inside the copy; selected via `GH_CONFIG_DIR` (tokens stay in your keyring, no re-login) |
 | gcloud | named configuration (`--no-activate`) with account/project; selected via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
+| AWS | your existing named profiles in `~/.aws`; selected via `AWS_PROFILE`, honored by the CLI, every SDK, Terraform and the CDK |
 | SSH | per-profile key; optional `~/.ssh/config` host-alias rewrite so any clone URL uses the right key |
 | Stray repos | local `include.path` in the repo's `.git/config` pointing at the profile's gitconfig, full identity without moving the folder |
 
@@ -135,7 +136,14 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 
 ## Roadmap
 
-- More agents as they gain per-project config support
+Planned providers, in rough order:
+
+- Azure CLI: parallel config directories via `AZURE_CONFIG_DIR`
+- Kubernetes: per-profile kubeconfig via `KUBECONFIG`
+- Docker: per-profile context via `DOCKER_CONTEXT`
+- GitLab CLI (glab): parallel config directories via `GLAB_CONFIG_DIR`
+- Terraform Cloud: per-profile credentials via `TF_CLI_CONFIG_FILE`
+- More AI agents as they gain per-project config support
 
 ## We strongly recommend using
 

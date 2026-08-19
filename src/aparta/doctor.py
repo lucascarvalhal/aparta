@@ -81,6 +81,14 @@ def check_profile(profile: Profile) -> bool:
             ok = project == profile.gcloud_project
             all_ok &= _row(table, "gcloud", "project", ok, project or r.stderr.strip())
 
+    # aws: the named profile must exist in ~/.aws
+    if profile.aws_profile:
+        from .backends.aws import aws_profile_exists
+
+        ok = aws_profile_exists(profile.aws_profile)
+        detail = _("profile found in ~/.aws") if ok else _("profile missing, run `aws configure --profile {name}`", name=profile.aws_profile)
+        all_ok &= _row(table, "aws", profile.aws_profile, ok, detail)
+
     # agents: env injected in each repo
     expected_env = profile.env()
     if expected_env:

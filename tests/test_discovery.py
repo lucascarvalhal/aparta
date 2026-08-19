@@ -107,6 +107,7 @@ def test_discover_groups_by_parent_folder(tmp_path: Path):
         scan_roots=[str(pessoal), str(tmp_path / "projects")],
         gitconfig=tmp_path / "sem-gitconfig",
         config_root=tmp_path / "config-vazio",
+        aws_dir=tmp_path / "aws-vazio",
     )
     by_name = {s.name: s for s in suggestions}
     assert by_name["pessoal"].repo_count == 2
@@ -127,7 +128,7 @@ def test_discover_merges_gitconfig_with_scan(tmp_path: Path):
     (tmp_path / ".gitconfig-pessoal").write_text("[user]\n    email = fixo@gmail.com\n")
 
     suggestions = discover(
-        scan_roots=[str(pessoal)], gitconfig=gitconfig, config_root=tmp_path / "config-vazio"
+        scan_roots=[str(pessoal)], gitconfig=gitconfig, config_root=tmp_path / "config-vazio", aws_dir=tmp_path / "aws-vazio"
     )
     assert len(suggestions) == 1
     s = suggestions[0]
@@ -153,7 +154,7 @@ def test_discover_defaults_to_scanning_home(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     _make_repo(tmp_path / "any-name" / "site", "me@x.com")
     suggestions = discover(
-        gitconfig=tmp_path / "sem-gitconfig", config_root=tmp_path / "config-vazio"
+        gitconfig=tmp_path / "sem-gitconfig", config_root=tmp_path / "config-vazio", aws_dir=tmp_path / "aws-vazio"
     )
     assert [s.name for s in suggestions] == ["any-name"]
 

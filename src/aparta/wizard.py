@@ -28,6 +28,14 @@ SKIP = "(skip)"
 NEW_GH_LOGIN = "(connect a new GitHub account...)"
 NEW_GCLOUD_LOGIN = "(connect a new Google account...)"
 NEW_SSH_KEY = "(generate a new SSH key for this profile...)"
+NEW_AWS_PROFILE = "(configure a new AWS profile now...)"
+
+# Providers the wizard can configure; git and SSH are always on.
+PROVIDERS = [
+    ("gh", "GitHub CLI"),
+    ("gcloud", "Google Cloud"),
+    ("aws", "AWS"),
+]
 
 
 # ----------------------------------------------------------------- discovery
@@ -429,6 +437,31 @@ def _ask_gh(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> s
     return gh_user
 
 
+def _ask_aws(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> str:
+    from .backends.aws import list_aws_profiles
+
+    profiles = list_aws_profiles()
+    if not profiles:
+        console.print(_("[dim]No AWS profile found yet (~/.aws/config).[/dim]"))
+    chosen = _choose_from(
+        _("AWS profile for this profile:"),
+        profiles,
+        sentinels=(NEW_AWS_PROFILE, SKIP),
+        default=suggestion.aws_profile if suggestion else "",
+    )
+    if chosen == NEW_AWS_PROFILE:
+        if dry_run:
+            console.print(f"[yellow]--dry-run[/yellow] aws configure --profile {name}")
+            return ""
+        try:
+            r = subprocess.run(["aws", "configure", "--profile", name])  # interactive
+        except FileNotFoundError:
+            console.print(_("[red]aws not found in PATH.[/red]"))
+            return ""
+        return name if r.returncode == 0 else ""
+    return chosen
+
+
 def _ask_gcloud(
     name: str, suggestion: ContextSuggestion | None, dry_run: bool
 ) -> tuple[str, str]:
@@ -463,18 +496,27 @@ def _ask_context(
     existing_names: list[str],
     suggestion: ContextSuggestion | None = None,
     dry_run: bool = False,
+    providers: list[str] | None = None,
 ) -> Profile | None:
-    """One profile end to end: identity, SSH, gh, gcloud."""
+    """One profile end to end: identity, SSH, then the selected providers."""
+    providers = providers if providers is not None else [key for key, _label in PROVIDERS]
     identity = _ask_identity(existing_names, suggestion)
     if identity is None:
         return None
     name, root, git_email = identity
 
     ssh_key, ssh_alias, generated_key = _ask_ssh(name, suggestion, dry_run)
-    gh_user = _ask_gh(name, suggestion, dry_run)
-    if gh_user and generated_key:
-        offer_upload_ssh_key(ssh_key, gh_user, name)
-    gcloud_account, gcloud_project = _ask_gcloud(name, suggestion, dry_run)
+    gh_user = ""
+    if "gh" in providers:
+        gh_user = _ask_gh(name, suggestion, dry_run)
+        if gh_user and generated_key:
+            offer_upload_ssh_key(ssh_key, gh_user, name)
+    gcloud_account, gcloud_project = ("", "")
+    if "gcloud" in providers:
+        gcloud_account, gcloud_project = _ask_gcloud(name, suggestion, dry_run)
+    aws_profile = ""
+    if "aws" in providers:
+        aws_profile = _ask_aws(name, suggestion, dry_run)
 
     return Profile(
         name=name,
@@ -485,6 +527,7 @@ def _ask_context(
         gh_user=gh_user,
         gcloud_account=gcloud_account,
         gcloud_project=gcloud_project,
+        aws_profile=aws_profile,
         agents=agents,
     )
 
@@ -497,6 +540,8 @@ def _suggestion_label(s: ContextSuggestion) -> str:
         parts.append(f", gh:{s.gh_user or s.gh_config}")
     if s.gcloud_account or s.gcloud_config:
         parts.append(f", gcloud:{s.gcloud_account or s.gcloud_config}")
+    if s.aws_profile:
+        parts.append(f", aws:{s.aws_profile}")
     if s.source == "gitconfig":
         parts.append(_(", already in ~/.gitconfig"))
     return "".join(parts) + ")"
@@ -562,6 +607,8 @@ def _summary(new_profiles: list[Profile]) -> None:
         if p.gcloud_account:
             proj = _(" (project {project})", project=p.gcloud_project) if p.gcloud_project else ""
             actions.append(_("gcloud: configuration '{name}' with {account}{proj}", name=p.name, account=p.gcloud_account, proj=proj))
+        if p.aws_profile:
+            actions.append(_("aws: select profile '{name}' via AWS_PROFILE", name=p.aws_profile))
         env = p.env()
         if env and p.agents:
             names = ", ".join(ADAPTERS[a].display_name for a in p.agents if a in ADAPTERS)
@@ -636,7 +683,20 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
     if agents is None:
         return
 
-    # step 2: start mode, detect existing setup or build from scratch
+    # step 2: providers, choose the clouds/tools or keep the full sweep
+    provider_selection = questionary.checkbox(
+        _("Which providers do you want to configure? (git and SSH are always on; keep all selected for a full sweep)"),
+        choices=[
+            questionary.Choice(label, value=key, checked=True)
+            for key, label in PROVIDERS
+        ],
+        qmark="",
+    ).ask()
+    if provider_selection is None:
+        return
+    providers = provider_selection
+
+    # step 3: start mode, detect existing setup or build from scratch
     mode = questionary.select(
         _("How do you want to start?"),
         choices=[
@@ -704,6 +764,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
                 list(profiles) + [p.name for p in new_profiles],
                 suggestion=s,
                 dry_run=dry_run,
+                providers=providers,
             )
             if profile is not None:
                 new_profiles.append(profile)
@@ -713,7 +774,10 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         if new_profiles and not _confirm(_("Configure another profile?")):
             break
         profile = _ask_context(
-            agents, list(profiles) + [p.name for p in new_profiles], dry_run=dry_run
+            agents,
+            list(profiles) + [p.name for p in new_profiles],
+            dry_run=dry_run,
+            providers=providers,
         )
         if profile is not None:
             new_profiles.append(profile)
