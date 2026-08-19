@@ -51,6 +51,7 @@ class ContextSuggestion:
     name: str
     root: str  # shown with ~ when possible
     git_email: str = ""
+    git_name: str = ""  # user.name from the included gitconfig
     repo_count: int = 0
     gh_config: str = ""  # e.g. "gh-personal" (dir found in agent env)
     gcloud_config: str = ""  # e.g. "personal" (CLOUDSDK_ACTIVE_CONFIG_NAME)
@@ -95,6 +96,7 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
     for gitdir, include_path in parse_includeifs(gitconfig.read_text()):
         root = Path(gitdir.rstrip("/")).expanduser()
         email = ""
+        git_name = ""
         ssh_key = ""
         ssh_alias = ""
         included = Path(include_path).expanduser()
@@ -104,6 +106,8 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
             text = included.read_text()
             m = re.search(r"email\s*=\s*(\S+)", text)
             email = m.group(1) if m else ""
+            m = re.search(r"^\s*name\s*=\s*(.+)$", text, re.M)
+            git_name = m.group(1).strip() if m else ""
             m = re.search(r"sshCommand\s*=\s*ssh\s+-i\s+(\S+)", text)
             ssh_key = m.group(1) if m else ""
             m = re.search(r'\[url "git@([^:"]+):"\]', text)
@@ -113,6 +117,7 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
                 name=root.name,
                 root=tilde(root),
                 git_email=email,
+                git_name=git_name,
                 ssh_key=ssh_key,
                 ssh_alias=ssh_alias,
                 source="gitconfig",

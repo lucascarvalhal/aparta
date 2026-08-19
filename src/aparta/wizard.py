@@ -357,10 +357,24 @@ def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
     return answer
 
 
+def global_git_name() -> str:
+    """user.name from the global git config, used as a sensible default."""
+    try:
+        r = subprocess.run(
+            ["git", "config", "--global", "user.name"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
+    return r.stdout.strip()
+
+
 def _ask_identity(
     existing_names: list[str], suggestion: ContextSuggestion | None
-) -> tuple[str, str, str] | None:
-    """Name, root folder and git e-mail; None when the user cancelled."""
+) -> tuple[str, str, str, str] | None:
+    """Profile name, root folder, git e-mail and commit name; None if cancelled."""
     import questionary
 
     name = questionary.text(
@@ -394,7 +408,15 @@ def _ask_identity(
     ).ask()
     if git_email is None:
         return None
-    return name, root.strip(), git_email.strip()
+
+    git_name = questionary.text(
+        _("Name shown on commits (empty = keep whatever git already uses):"),
+        default=(suggestion.git_name if suggestion and suggestion.git_name else global_git_name()),
+        qmark="",
+    ).ask()
+    if git_name is None:
+        return None
+    return name, root.strip(), git_email.strip(), git_name.strip()
 
 
 def _ask_ssh(
@@ -503,7 +525,7 @@ def _ask_context(
     identity = _ask_identity(existing_names, suggestion)
     if identity is None:
         return None
-    name, root, git_email = identity
+    name, root, git_email, git_name = identity
 
     ssh_key, ssh_alias, generated_key = _ask_ssh(name, suggestion, dry_run)
     gh_user = ""
@@ -522,6 +544,7 @@ def _ask_context(
         name=name,
         root=root,
         git_email=git_email,
+        git_name=git_name,
         ssh_key=ssh_key,
         ssh_alias=ssh_alias,
         gh_user=gh_user,
@@ -589,6 +612,7 @@ def _summary(new_profiles: list[Profile]) -> None:
     for p in new_profiles:
         actions = [
             _("git: create ~/.gitconfig-{name} (email {email}", name=p.name, email=p.git_email)
+            + (_(", name {git_name}", git_name=p.git_name) if p.git_name else "")
             + (_(", key {key}", key=p.ssh_key) if p.ssh_key else "")
             + _(") and add an includeIf for ")
             + p.root,

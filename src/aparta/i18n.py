@@ -103,6 +103,8 @@ CATALOG: dict[str, dict[str, str]] = {
         "Check the real state: e-mail per repo, gh auth, gcloud config, agent env.": "Valida o estado real: e-mail por repo, auth do gh, config do gcloud, env dos agentes.",
         "List configured profiles.": "Lista os perfis configurados.",
         "This screen.": "Esta tela.",
+        "Name shown on commits (empty = keep whatever git already uses):": "Nome que aparece nos commits (vazio = manter o que o git já usa):",
+        ", name {git_name}": ", nome {git_name}",
         "Update aparta to the latest release.": "Atualiza o aparta para a versão mais recente.",
         "[green]You are already on the latest version ({current}).[/green]": "[green]Você já está na versão mais recente ({current}).[/green]",
         "Updating {current} -> {latest}...": "Atualizando {current} -> {latest}...",

@@ -39,6 +39,94 @@ def render_context_gitconfig(profile: Profile) -> str:
     return "\n".join(lines) + "\n"
 
 
+# ------------------------------------------------- per-profile gitconfig merge
+
+# Keys aparta owns inside ~/.gitconfig-<profile>; everything else the user
+# put there (name, signing, aliases, comments) is preserved untouched.
+
+def _parse_sections(text: str) -> list[tuple[str | None, list[str]]]:
+    """Split a gitconfig into (header, body lines), preserving raw text."""
+    sections: list[tuple[str | None, list[str]]] = []
+    header: str | None = None
+    body: list[str] = []
+    for line in text.splitlines():
+        if line.lstrip().startswith("["):
+            sections.append((header, body))
+            header, body = line, []
+        else:
+            body.append(line)
+    sections.append((header, body))
+    return [s for s in sections if s[0] is not None or s[1]]
+
+
+def _serialize_sections(sections: list[tuple[str | None, list[str]]]) -> str:
+    out: list[str] = []
+    for header, body in sections:
+        if header is not None:
+            out.append(header)
+        out.extend(body)
+    return "\n".join(out).rstrip("\n") + "\n"
+
+
+def _section_index(sections: list[tuple[str | None, list[str]]], name: str) -> int | None:
+    for i, (header, _body) in enumerate(sections):
+        if header and re.match(rf"^\s*\[{re.escape(name)}\]\s*$", header, re.IGNORECASE):
+            return i
+    return None
+
+
+def _set_key(sections: list[tuple[str | None, list[str]]], section: str, key: str, value: str) -> None:
+    """Update the key in place when present, otherwise append it to the section."""
+    line = f"\t{key} = {value}"
+    index = _section_index(sections, section)
+    if index is None:
+        sections.append((f"[{section}]", [line]))
+        return
+    header, body = sections[index]
+    pattern = re.compile(rf"^\s*{re.escape(key)}\s*=", re.IGNORECASE)
+    for i, existing in enumerate(body):
+        if pattern.match(existing):
+            body[i] = line
+            return
+    insert_at = len(body)
+    while insert_at > 0 and not body[insert_at - 1].strip():
+        insert_at -= 1
+    body.insert(insert_at, line)
+
+
+def _set_url_insteadof(sections: list[tuple[str | None, list[str]]], alias: str, host: str) -> None:
+    """Point the host's insteadOf block at the alias, updating an old one."""
+    header = f'[url "git@{alias}:"]'
+    body = [f"\tinsteadOf = https://{host}/", f"\tinsteadOf = git@{host}:"]
+    for i, (existing_header, existing_body) in enumerate(sections):
+        if existing_header and existing_header.lstrip().lower().startswith("[url "):
+            text = "\n".join(existing_body)
+            if f"https://{host}/" in text or f"git@{host}:" in text:
+                sections[i] = (header, body)
+                return
+    sections.append((header, body))
+
+
+def merge_context_gitconfig(existing_text: str, profile: Profile) -> str:
+    """Merge the profile's settings into an existing gitconfig.
+
+    Only the keys aparta manages are written; unknown sections, keys and
+    comments survive. An empty input renders the file from scratch.
+    """
+    if not existing_text.strip():
+        return render_context_gitconfig(profile)
+
+    sections = _parse_sections(existing_text)
+    if profile.git_name:
+        _set_key(sections, "user", "name", profile.git_name)
+    _set_key(sections, "user", "email", profile.git_email)
+    if profile.ssh_key:
+        _set_key(sections, "core", "sshCommand", f"ssh -i {profile.ssh_key} -o IdentitiesOnly=yes")
+    if profile.ssh_alias:
+        _set_url_insteadof(sections, profile.ssh_alias, profile.git_host)
+    return _serialize_sections(sections)
+
+
 def gitdir_pattern(profile: Profile) -> str:
     """gitdir pattern, keeping ~ when the root lives under home."""
     root = tilde(profile.root_path)
@@ -83,7 +171,8 @@ def apply_git(profile: Profile, writer: SafeWriter, home: Path | None = None) ->
     """Write ~/.gitconfig-<profile> and merge its includeIf into ~/.gitconfig."""
     home = home or Path.home()
     ctx_path = context_gitconfig_path(profile, home)
-    writer.write_text(ctx_path, render_context_gitconfig(profile))
+    existing_ctx = ctx_path.read_text() if ctx_path.exists() else ""
+    writer.write_text(ctx_path, merge_context_gitconfig(existing_ctx, profile))
 
     gitconfig = home / ".gitconfig"
     existing = gitconfig.read_text() if gitconfig.exists() else ""
