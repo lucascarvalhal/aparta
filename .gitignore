@@ -28,9 +28,6 @@ env/
 htmlcov/
 coverage.xml
 
-# Lock files (library: keep the resolver free)
-uv.lock
-
 # Local credentials and environment (never commit)
 .env
 .env.*
