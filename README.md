@@ -15,6 +15,8 @@
 
 **aparta** isolates your development accounts, git, GitHub CLI, gcloud, SSH keys, per project folder, and makes your terminal AI agents (Claude Code, Codex, Gemini CLI, Antigravity) use the right identity, always. *Aparta* is Portuguese for "set apart".
 
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.gif" alt="aparta demo" width="900">
+
 ## Why aparta?
 
 If you work with more than one identity, a day job, a side gig, freelance clients, open source, you know the drill:

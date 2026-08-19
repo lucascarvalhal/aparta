@@ -15,6 +15,8 @@
 
 O **aparta** isola suas contas de desenvolvimento, git, GitHub CLI, gcloud, chaves SSH, por pasta de projeto, e faz seus agentes de IA de terminal (Claude Code, Codex, Gemini CLI, Antigravity) usarem a identidade certa, sempre.
 
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.gif" alt="aparta demo" width="900">
+
 ## Por que o aparta existe?
 
 Quem trabalha com mais de uma identidade, emprego, freela, clientes, open source, conhece o roteiro:
