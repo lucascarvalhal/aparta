@@ -40,6 +40,7 @@ class SafeWriter:
     """
 
     dry_run: bool = False
+    verbose: bool = False
     changes: list[str] = field(default_factory=list)
 
     def write_text(self, path: Path, new_content: str, label: str | None = None) -> bool:
@@ -50,7 +51,8 @@ class SafeWriter:
             return False
 
         if self.dry_run:
-            self._show_diff(label, old_content or "", new_content)
+            if self.verbose:
+                self._show_diff(label, old_content or "", new_content)
             self.changes.append(f"[dry-run] {label}")
             return True
 
@@ -58,10 +60,12 @@ class SafeWriter:
         if path.exists():
             bak = backup_path(path)
             shutil.copy2(path, bak)
-            console.print(f"[dim]{_('backup:')} {bak}[/dim]")
+            if self.verbose:
+                console.print(f"[dim]{_('backup:')} {bak}[/dim]")
         path.write_text(new_content)
         self.changes.append(label)
-        console.print(f"[green]{_('written:')}[/green] {label}")
+        if self.verbose:
+            console.print(f"[green]{_('written:')}[/green] {label}")
         return True
 
     def remove_file(self, path: Path, label: str | None = None) -> bool:
@@ -70,15 +74,18 @@ class SafeWriter:
         if not path.exists():
             return False
         if self.dry_run:
-            console.print(f"[yellow]--dry-run[/yellow] rm {label}")
+            if self.verbose:
+                console.print(f"[yellow]--dry-run[/yellow] rm {label}")
             self.changes.append(f"[dry-run] rm {label}")
             return True
         bak = backup_path(path)
         shutil.copy2(path, bak)
-        console.print(f"[dim]{_('backup:')} {bak}[/dim]")
+        if self.verbose:
+            console.print(f"[dim]{_('backup:')} {bak}[/dim]")
         path.unlink()
         self.changes.append(label)
-        console.print(f"[red]{_('removed:')}[/red] {label}")
+        if self.verbose:
+            console.print(f"[red]{_('removed:')}[/red] {label}")
         return True
 
     def remove_dir(self, path: Path, label: str | None = None) -> bool:
@@ -87,14 +94,17 @@ class SafeWriter:
         if not path.exists():
             return False
         if self.dry_run:
-            console.print(f"[yellow]--dry-run[/yellow] rm -r {label}")
+            if self.verbose:
+                console.print(f"[yellow]--dry-run[/yellow] rm -r {label}")
             self.changes.append(f"[dry-run] rm -r {label}")
             return True
         bak = backup_path(path)
         path.rename(bak)
-        console.print(f"[dim]{_('backup:')} {bak}[/dim]")
+        if self.verbose:
+            console.print(f"[dim]{_('backup:')} {bak}[/dim]")
         self.changes.append(label)
-        console.print(f"[red]{_('removed:')}[/red] {label}")
+        if self.verbose:
+            console.print(f"[red]{_('removed:')}[/red] {label}")
         return True
 
     def _show_diff(self, label: str, old: str, new: str) -> None:

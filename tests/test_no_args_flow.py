@@ -29,8 +29,8 @@ def isolated_config(tmp_path, monkeypatch):
 
 def test_no_args_first_run_routes_to_wizard(isolated_config, monkeypatch):
     called = {}
-    monkeypatch.setattr(cli, "_run_wizard", lambda dry_run: called.setdefault("wizard", True))
-    monkeypatch.setattr(cli, "_run_menu", lambda dry_run: called.setdefault("menu", True))
+    monkeypatch.setattr(cli, "_run_wizard", lambda dry_run, verbose=False: called.setdefault("wizard", True))
+    monkeypatch.setattr(cli, "_run_menu", lambda dry_run, verbose=False: called.setdefault("menu", True))
     result = runner.invoke(app, [])
     assert result.exit_code == 0
     assert called == {"wizard": True}
@@ -42,15 +42,15 @@ def test_no_args_with_profiles_routes_to_menu(isolated_config, monkeypatch):
         "[profiles.pessoal]\nroot = '~/p'\ngit_email = 'a@b.c'\n"
     )
     called = {}
-    monkeypatch.setattr(cli, "_run_wizard", lambda dry_run: called.setdefault("wizard", True))
-    monkeypatch.setattr(cli, "_run_menu", lambda dry_run: called.setdefault("menu", True))
+    monkeypatch.setattr(cli, "_run_wizard", lambda dry_run, verbose=False: called.setdefault("wizard", True))
+    monkeypatch.setattr(cli, "_run_menu", lambda dry_run, verbose=False: called.setdefault("menu", True))
     result = runner.invoke(app, [])
     assert result.exit_code == 0
     assert called == {"menu": True}
 
 
 def test_subcommand_does_not_trigger_wizard(isolated_config, monkeypatch):
-    monkeypatch.setattr(cli, "_run_wizard", lambda dry_run: pytest.fail("wizard must not run"))
+    monkeypatch.setattr(cli, "_run_wizard", lambda dry_run, verbose=False: pytest.fail("wizard must not run"))
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
     assert "No profile" in result.output

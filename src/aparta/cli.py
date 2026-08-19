@@ -35,30 +35,33 @@ def main(
     dry_run: bool = typer.Option(
         False, "--dry-run", help=_("Show the diff of what would change, without applying anything.")
     ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help=_("Show every file, backup and diff instead of the compact summary.")
+    ),
     version: bool = typer.Option(False, "--version", help=_("Show the version and exit.")),
 ) -> None:
     if version:
         console.print(f"aparta {__version__}")
         raise typer.Exit()
-    ctx.obj = {"dry_run": dry_run}
+    ctx.obj = {"dry_run": dry_run, "verbose": verbose}
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
-            _run_wizard(dry_run)
+            _run_wizard(dry_run, verbose)
         else:
-            _run_menu(dry_run)
+            _run_menu(dry_run, verbose)
 
 
-def _run_wizard(dry_run: bool) -> None:
+def _run_wizard(dry_run: bool, verbose: bool = False) -> None:
     from .wizard import run_wizard
 
     try:
-        run_wizard(dry_run=dry_run)
+        run_wizard(dry_run=dry_run, verbose=verbose)
     except KeyboardInterrupt:
         console.print("\n" + _("[yellow]Cancelled.[/yellow]"))
         raise typer.Exit(1)
 
 
-def _run_menu(dry_run: bool) -> None:
+def _run_menu(dry_run: bool, verbose: bool = False) -> None:
     import questionary
 
     while True:
@@ -75,7 +78,7 @@ def _run_menu(dry_run: bool) -> None:
         if choice in (None, "quit"):
             return
         if choice == "init":
-            _run_wizard(dry_run)
+            _run_wizard(dry_run, verbose)
         elif choice == "apply":
             profiles = load_profiles()
             if not profiles:
@@ -83,7 +86,7 @@ def _run_menu(dry_run: bool) -> None:
                 continue
             name = questionary.select(_("Which profile?"), choices=list(profiles)).ask()
             if name:
-                apply_profile(profiles[name], SafeWriter(dry_run=dry_run))
+                apply_profile(profiles[name], SafeWriter(dry_run=dry_run, verbose=verbose))
         elif choice == "doctor":
             for p in load_profiles().values():
                 check_profile(p)
@@ -94,7 +97,7 @@ def _run_menu(dry_run: bool) -> None:
 @app.command()
 def init(ctx: typer.Context) -> None:
     """Interactive wizard: pick agents, configure profiles and apply."""
-    _run_wizard(ctx.obj["dry_run"])
+    _run_wizard(ctx.obj["dry_run"], ctx.obj["verbose"])
 
 
 @app.command()
@@ -108,7 +111,7 @@ def apply(
     if not profile:
         console.print(_("[red]Profile '{name}' not found.[/red] Run `aparta init`.", name=profile_name))
         raise typer.Exit(1)
-    apply_profile(profile, SafeWriter(dry_run=ctx.obj["dry_run"]))
+    apply_profile(profile, SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"]))
 
 
 @app.command()
@@ -212,7 +215,7 @@ def remove(
         if not confirmed:
             console.print(_("[yellow]Cancelled.[/yellow]"))
             raise typer.Exit(0)
-    writer = SafeWriter(dry_run=ctx.obj["dry_run"])
+    writer = SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"])
     remove_profile(profile, writer)
     if not ctx.obj["dry_run"]:
         del profiles[profile_name]

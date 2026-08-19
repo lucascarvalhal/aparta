@@ -1,7 +1,8 @@
 """Application layer: apply a profile across backends and agent adapters.
 
 Lives between the UI layers (cli, wizard) and the backends so neither UI
-imports the other. New backends only need to be added to BACKENDS.
+imports the other. Output is one compact line per area; SafeWriter in
+verbose mode adds the per-file detail and dry-run diffs.
 """
 
 from __future__ import annotations
@@ -9,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from .i18n import _
 from rich.console import Console
 
 from .agents import get_adapters
@@ -19,34 +19,73 @@ from .backends.gh import apply_gh
 from .backends.git import apply_git
 from .discovery import find_repos
 from .fsutil import SafeWriter
-from .profiles import Profile
+from .i18n import _
+from .profiles import Profile, load_profiles
 
 console = Console()
 
-BACKENDS: list[Callable[[Profile, SafeWriter], "list[Note]"]] = [
-    apply_git,
-    apply_gh,
-    apply_gcloud,
+BACKENDS: list[tuple[str, Callable[[Profile, SafeWriter], "list[Note]"]]] = [
+    ("git", apply_git),
+    ("gh", apply_gh),
+    ("gcloud", apply_gcloud),
 ]
+
+
+def _nested_profile_roots(profile: Profile) -> list[Path]:
+    """Roots of sibling profiles nested inside this profile's root."""
+    root = profile.root_path
+    return [
+        p.root_path
+        for p in load_profiles().values()
+        if p.name != profile.name and p.root_path != root and root in p.root_path.parents
+    ]
+
+
+def profile_repos(profile: Profile) -> list[Path]:
+    """The profile's repos: root scan minus nested sibling profiles, plus adopted.
+
+    A repo under a more specific profile's root belongs to that profile, so
+    a broad profile (e.g. ~/projects) never overwrites a nested one's env.
+    """
+    nested = _nested_profile_roots(profile)
+    repos = [
+        r
+        for r in find_repos(profile.root_path)
+        if not any(r == n or n in r.parents for n in nested)
+    ]
+    return repos + [Path(r).expanduser() for r in profile.adopted_repos]
 
 
 def apply_profile(profile: Profile, writer: SafeWriter) -> None:
     """Apply every backend, then inject env into the profile's repos."""
-    console.print(_("[bold]Applying profile '{name}'[/bold] (root: {root})", name=profile.name, root=profile.root_path) + "\n")
+    console.print(_("[bold]Applying profile '{name}'[/bold] (root: {root})", name=profile.name, root=profile.root_path))
 
-    for backend in BACKENDS:
-        for note in backend(profile, writer):
-            console.print(note.text)
+    nested = _nested_profile_roots(profile)
+    if nested:
+        console.print(
+            _(
+                "[dim]Skipping repos owned by more specific profiles: {roots}[/dim]",
+                roots=", ".join(str(n) for n in nested),
+            )
+        )
+
+    for label, backend in BACKENDS:
+        before = len(writer.changes)
+        notes = backend(profile, writer)
+        for note in notes:
+            if note.level != "info" or writer.verbose:
+                console.print(note.text)
+        if len(writer.changes) > before or any(n.level == "info" for n in notes):
+            console.print(_("  [green]OK[/green] {area}", area=label))
 
     env = profile.env()
     if not env:
         console.print(_("[dim]Profile has no gh/gcloud: no env to inject into agents.[/dim]"))
     else:
-        repos = find_repos(profile.root_path) + [
-            Path(r).expanduser() for r in profile.adopted_repos
-        ]
+        repos = profile_repos(profile)
         if not repos:
             console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
+        before = len(writer.changes)
         adapters = get_adapters(profile.agents)
         for repo in repos:
             for adapter in adapters:
@@ -59,10 +98,18 @@ def apply_profile(profile: Profile, writer: SafeWriter) -> None:
                     console.print(
                         _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
                     )
+        touched = len(writer.changes) - before
+        if repos:
+            console.print(
+                _("  [green]OK[/green] agents: env in {n} of {total} repo(s)", n=touched, total=len(repos))
+            )
 
     if writer.dry_run:
-        console.print("\n" + _("[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]", n=len(writer.changes)))
+        console.print(_("[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]", n=len(writer.changes)))
+        if not writer.verbose and writer.changes:
+            console.print(_("[dim]Use --verbose to see every file and diff.[/dim]"))
     elif not writer.changes:
-        console.print("\n" + _("[green]Everything was already applied; nothing to change.[/green]"))
+        console.print(_("[green]Everything was already applied; nothing to change.[/green]"))
     else:
-        console.print("\n" + _("[green]Done: {n} file(s) updated.[/green]", n=len(writer.changes)))
+        console.print(_("[green]Done: {n} file(s) updated (backups kept).[/green]", n=len(writer.changes)))
+    console.print()

@@ -599,7 +599,7 @@ def _ask_language() -> bool:
     return True
 
 
-def run_wizard(dry_run: bool = False) -> None:
+def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
     """Full wizard. Raises KeyboardInterrupt/returns early when cancelled."""
     import questionary
 
@@ -733,7 +733,7 @@ def run_wizard(dry_run: bool = False) -> None:
         console.print(_("[yellow]Cancelled; nothing was saved.[/yellow]"))
         return
 
-    writer = SafeWriter(dry_run=dry_run)
+    writer = SafeWriter(dry_run=dry_run, verbose=verbose)
     for p in new_profiles:
         profiles[p.name] = p
     save_profiles(profiles, writer)
