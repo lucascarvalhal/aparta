@@ -533,11 +533,11 @@ def run_wizard(dry_run: bool = False) -> None:
         "Como você quer começar?",
         choices=[
             questionary.Choice(
-                "🔍 Detectar o que já uso — varre contas logadas, chaves e projetos existentes",
+                "Detectar o que já uso — varre contas logadas, chaves e projetos existentes",
                 value="scan",
             ),
             questionary.Choice(
-                "✨ Começar do zero — conectar contas e criar chaves passo a passo",
+                "Começar do zero — conectar contas e criar chaves passo a passo",
                 value="zero",
             ),
         ],
