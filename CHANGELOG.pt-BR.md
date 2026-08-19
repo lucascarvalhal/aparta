@@ -8,6 +8,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.4.1] - 2026-08-19
+
 ### Adicionado
 
 - `aparta remove <perfil>`: apaga um perfil e desfaz tudo que ele aplicou
@@ -93,7 +95,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.0...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/lucascarvalhal/aparta/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/lucascarvalhal/aparta/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lucascarvalhal/aparta/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/lucascarvalhal/aparta/compare/v0.1.0...v0.2.0
