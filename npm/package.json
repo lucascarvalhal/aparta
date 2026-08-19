@@ -1,6 +1,6 @@
 {
   "name": "aparta-cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Isolate your dev accounts (git, gh, gcloud, SSH) per project folder and make terminal AI agents use the right identity, always.",
   "bin": {
     "aparta": "cli.js"
