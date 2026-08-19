@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ..i18n import _
 from ..fsutil import SafeWriter
 from .base import AgentAdapter, missing_keys
 
@@ -54,9 +55,9 @@ class OpencodeAdapter(AgentAdapter):
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         path = self.plugin_path(repo)
         if not path.exists():
-            return False, "plugin aparta-env.js ausente"
+            return False, _("aparta-env.js plugin missing")
         missing = missing_keys(parse_plugin_env(path.read_text()), env)
-        return (not missing, "env ok" if not missing else f"faltando: {', '.join(missing)}")
+        return (not missing, _("env ok") if not missing else _("missing: {keys}", keys=", ".join(missing)))
 
     def read_env(self, repo: Path) -> dict[str, str]:
         path = self.plugin_path(repo)

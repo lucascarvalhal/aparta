@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .agents import get_adapters
+from .i18n import _
 from .discovery import find_repos
 from .profiles import Profile
 
@@ -22,7 +23,7 @@ def _run(args: list[str], extra_env: dict[str, str] | None = None) -> subprocess
     try:
         return subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
     except FileNotFoundError:
-        return subprocess.CompletedProcess(args, 127, "", f"{args[0]} não encontrado")
+        return subprocess.CompletedProcess(args, 127, "", _("{cmd} not found", cmd=args[0]))
     except subprocess.TimeoutExpired:
         return subprocess.CompletedProcess(args, 1, "", "timeout")
 
@@ -34,11 +35,11 @@ def _row(table: Table, area: str, item: str, ok: bool | None, detail: str) -> bo
 
 
 def check_profile(profile: Profile) -> bool:
-    table = Table(title=f"doctor — perfil '{profile.name}'", show_lines=False)
-    table.add_column("Área", style="bold")
-    table.add_column("Item")
+    table = Table(title=_("doctor: profile '{name}'", name=profile.name), show_lines=False)
+    table.add_column(_("Area"), style="bold")
+    table.add_column(_("Item"))
     table.add_column("OK", justify="center")
-    table.add_column("Detalhe", overflow="fold")
+    table.add_column(_("Detail"), overflow="fold")
 
     all_ok = True
     repos = find_repos(profile.root_path) + [
@@ -47,23 +48,23 @@ def check_profile(profile: Profile) -> bool:
 
     # git: e-mail resolved in each repo
     if not repos:
-        all_ok &= _row(table, "git", str(profile.root_path), None, "nenhum repositório encontrado")
+        all_ok &= _row(table, "git", str(profile.root_path), None, _("no repository found"))
     for repo in repos:
         r = _run(["git", "-C", str(repo), "config", "user.email"])
         email = r.stdout.strip()
         ok = email == profile.git_email
-        all_ok &= _row(table, "git", repo.name, ok, email or "user.email não resolvido")
+        all_ok &= _row(table, "git", repo.name, ok, email or _("user.email not resolved"))
 
     # gh: auth status under the profile's GH_CONFIG_DIR
     if profile.gh_user:
         gh_dir = profile.gh_config_dir
         if not gh_dir.exists():
-            all_ok &= _row(table, "gh", str(gh_dir), False, "config dir ausente — rode `aparta apply`")
+            all_ok &= _row(table, "gh", str(gh_dir), False, _("config dir missing, run `aparta apply`"))
         else:
             r = _run(["gh", "auth", "status"], {"GH_CONFIG_DIR": str(gh_dir)})
             output = r.stdout + r.stderr
             ok = r.returncode == 0 and profile.gh_user in output
-            detail = f"logado como {profile.gh_user}" if ok else (output.strip().splitlines() or ["falhou"])[-1]
+            detail = _("logged in as {user}", user=profile.gh_user) if ok else (output.strip().splitlines() or [_("failed")])[-1]
             all_ok &= _row(table, "gh", gh_dir.name, ok, detail)
 
     # gcloud: account/project of the profile's configuration

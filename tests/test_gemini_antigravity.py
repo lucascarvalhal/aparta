@@ -67,4 +67,4 @@ def test_antigravity_validate_detects_divergence(tmp_path: Path):
     )
     ok, msg = AntigravityAdapter().validate(repo, ENV)
     assert not ok
-    assert "divergente" in msg
+    assert "mismatch" in msg

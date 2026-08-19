@@ -20,14 +20,14 @@ def test_claude_validate_invalid_json(tmp_path: Path):
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "settings.local.json").write_text("{broken")
     ok, msg = ClaudeCodeAdapter().validate(tmp_path, ENV)
-    assert ok is False and "inválido" in msg
+    assert ok is False and "invalid" in msg
 
 
 def test_codex_validate_invalid_toml(tmp_path: Path):
     (tmp_path / ".codex").mkdir()
     (tmp_path / ".codex" / "config.toml").write_text("[env\nbroken")
     ok, msg = CodexAdapter().validate(tmp_path, ENV)
-    assert ok is False and "inválido" in msg
+    assert ok is False and "invalid" in msg
 
 
 @pytest.mark.parametrize(

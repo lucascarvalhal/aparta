@@ -13,6 +13,7 @@ Env HOME "/tmp/aparta-demo-home"
 Env XDG_CONFIG_HOME "/tmp/aparta-demo-home/.config"
 Env APARTA_CONFIG_DIR "/tmp/aparta-demo-home/.config/aparta"
 Env CLOUDSDK_CONFIG "/tmp/aparta-demo-home/.config/gcloud"
+Env APARTA_LANG "en"
 Env PATH "/tmp/aparta-demo-home/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 Hide

@@ -56,8 +56,6 @@ One command, one interactive wizard:
 
 <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/doctor.svg" alt="aparta doctor" width="680">
 
-> The CLI speaks Portuguese today (its home market); English localization is on the roadmap. The flow is simple enough to follow either way, every prompt is shown above.
-
 ## Installation
 
 Requires Python ≥ 3.10. `gh` and `gcloud` are optional, aparta selects credentials for the tools you use; it never logs in for you (unless you ask it to, in the wizard).
@@ -78,6 +76,10 @@ pip install aparta
 # Node ecosystem: same CLI through the npm launcher (needs uv or pipx)
 npx aparta-cli
 ```
+
+## Languages
+
+The CLI speaks English and Brazilian Portuguese, picked automatically from your locale (`LANG`). Force one with `APARTA_LANG=en` or `APARTA_LANG=pt`.
 
 ## Quick start
 
@@ -132,7 +134,6 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 
 ## Roadmap
 
-- English (and i18n) for the CLI texts
 - More agents as they gain per-project config support
 - Windows-native support (WSL works today)
 

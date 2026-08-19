@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..i18n import _
 from ..fsutil import SafeWriter
 from .base import AgentAdapter, missing_keys
 
@@ -14,9 +15,9 @@ def merge_settings_env(existing_text: str, env: dict[str, str]) -> str:
     try:
         data = json.loads(existing_text) if existing_text.strip() else {}
     except json.JSONDecodeError as exc:
-        raise ValueError("settings.local.json inválido") from exc
+        raise ValueError(_("settings.local.json is invalid")) from exc
     if not isinstance(data, dict):
-        raise ValueError("settings.local.json não contém um objeto JSON")
+        raise ValueError(_("settings.local.json is not a JSON object"))
     current_env = data.get("env", {})
     if not isinstance(current_env, dict):
         current_env = {}
@@ -43,16 +44,16 @@ class ClaudeCodeAdapter(AgentAdapter):
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         path = self.settings_path(repo)
         if not path.exists():
-            return False, "settings.local.json ausente"
+            return False, _("settings.local.json missing")
         try:
             data = json.loads(path.read_text())
         except json.JSONDecodeError:
-            return False, "settings.local.json inválido"
+            return False, _("settings.local.json is invalid")
         current = data.get("env", {})
         missing = missing_keys(current if isinstance(current, dict) else {}, env)
         if missing:
-            return False, f"env divergente: {', '.join(missing)}"
-        return True, "env ok"
+            return False, _("env mismatch: {keys}", keys=", ".join(missing))
+        return True, _("env ok")
 
     def read_env(self, repo: Path) -> dict[str, str]:
         path = self.settings_path(repo)

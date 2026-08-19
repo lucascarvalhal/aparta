@@ -33,4 +33,26 @@ exec uv run --project /Users/lucascarvalhal/pessoal/aparta aparta "$@"
 WRAP
 chmod +x "$DEMO/bin/aparta"
 
+# stub gh with two demo accounts so the wizard shows account selection
+mkdir -p "$DEMO/.config/gh"
+printf 'git_protocol: ssh\n' > "$DEMO/.config/gh/config.yml"
+printf 'github.com:\n    user: ana-acme\n' > "$DEMO/.config/gh/hosts.yml"
+cat > "$DEMO/bin/gh" << 'FAKE'
+#!/bin/bash
+if [ "$1 $2" = "auth status" ]; then
+  cat << 'EOF'
+github.com
+  ✓ Logged in to github.com account ana-acme (keyring)
+  ✓ Logged in to github.com account anadev (keyring)
+EOF
+fi
+exit 0
+FAKE
+chmod +x "$DEMO/bin/gh"
+cat > "$DEMO/bin/gcloud" << 'FAKE'
+#!/bin/bash
+exit 1
+FAKE
+chmod +x "$DEMO/bin/gcloud"
+
 echo "demo home ready at $DEMO"

@@ -6,6 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from ..i18n import _
 from rich.console import Console
 
 from ..fsutil import SafeWriter, tilde
@@ -97,7 +98,7 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
     for raw in profile.adopted_repos:
         repo = Path(raw).expanduser()
         if not (repo / ".git").exists():
-            console.print(f"[yellow]aviso:[/yellow] {repo} não é um repositório git; pulando.")
+            console.print(_("[yellow]warning:[/yellow] {repo} is not a git repository; skipping.", repo=repo))
             continue
         current = subprocess.run(
             ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
@@ -119,6 +120,6 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
             timeout=30,
         )
         if r.returncode != 0:
-            console.print(f"[red]adoção de {repo} falhou:[/red] {r.stderr.strip()}")
+            console.print(_("[red]adopting {repo} failed:[/red] {error}", repo=repo, error=r.stderr.strip()))
         else:
-            console.print(f"[green]git:[/green] {repo.name} adotado pelo perfil '{profile.name}'")
+            console.print(_("[green]git:[/green] {repo} adopted by profile '{name}'", repo=repo.name, name=profile.name))

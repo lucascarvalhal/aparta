@@ -1,0 +1,200 @@
+"""Lightweight i18n: English canonical strings, Portuguese catalog.
+
+Language resolution order: APARTA_LANG, LC_ALL, LC_MESSAGES, LANG. Anything
+starting with "pt" selects Portuguese; everything else falls back to English.
+`_()` translates the canonical English string and then formats keyword
+arguments, so placeholders survive translation.
+"""
+
+from __future__ import annotations
+
+import os
+
+CATALOG: dict[str, dict[str, str]] = {
+    "pt": {
+        # sentinels (wizard select actions)
+        "(skip)": "(pular)",
+        "(connect a new GitHub account...)": "(conectar nova conta do GitHub...)",
+        "(connect a new Google account...)": "(conectar nova conta Google...)",
+        "(generate a new SSH key for this profile...)": "(gerar nova chave SSH para este perfil...)",
+        "(do not use, connect directly with the chosen key)": "(não usar, conectar direto com a chave escolhida)",
+        # generic fragments
+        " (project {project})": " (projeto {project})",
+        ", key {key}": ", chave {key}",
+        ", already in ~/.gitconfig": ", já no ~/.gitconfig",
+        ") and add an includeIf for ": ") e adicionar includeIf para ",
+        "(no differences)": "(sem diferenças)",
+        "repo": "repo",
+        "repos": "repos",
+        "required": "obrigatório",
+        "scan": "varredura",
+        "failed": "falhou",
+        "current": "atual",
+        "proposed": "proposto",
+        "backup:": "backup:",
+        "written:": "escrito:",
+        "your home": "sua home",
+        "env ok": "env ok",
+        "enter a valid e-mail": "informe um e-mail válido",
+        # adapters / doctor details
+        "settings.local.json missing": "settings.local.json ausente",
+        "settings.local.json is invalid": "settings.local.json inválido",
+        "settings.local.json is not a JSON object": "settings.local.json não contém um objeto JSON",
+        "config.toml missing": "config.toml ausente",
+        "config.toml is invalid": "config.toml inválido",
+        ".gemini/.env missing": ".gemini/.env ausente",
+        ".envrc missing": ".envrc ausente",
+        ".vscode/settings.json missing": ".vscode/settings.json ausente",
+        ".vscode/settings.json is invalid": ".vscode/settings.json inválido",
+        ".vscode/settings.json is not a JSON object": ".vscode/settings.json não contém um objeto JSON",
+        "aparta-env.js plugin missing": "plugin aparta-env.js ausente",
+        "env mismatch: {keys}": "env divergente: {keys}",
+        "missing: {keys}": "faltando: {keys}",
+        "{key} mismatch: {keys}": "{key} divergente: {keys}",
+        "no repository found": "nenhum repositório encontrado",
+        "user.email not resolved": "user.email não resolvido",
+        "config dir missing, run `aparta apply`": "config dir ausente, rode `aparta apply`",
+        "logged in as {user}": "logado como {user}",
+        "{cmd} not found": "{cmd} não encontrado",
+        "doctor: profile '{name}'": "doctor: perfil '{name}'",
+        "Area": "Área",
+        "Item": "Item",
+        "Detail": "Detalhe",
+        # cli
+        "Isolates development accounts (git, gh, gcloud) per project folder and injects environment variables into terminal AI agents.":
+            "Isola contas de desenvolvimento (git, gh, gcloud) por pasta de projeto e injeta variáveis de ambiente nos agentes de IA de terminal.",
+        "Show the diff of what would change, without applying anything.": "Mostra o diff do que seria alterado, sem aplicar nada.",
+        "Show the version and exit.": "Mostra a versão e sai.",
+        "aparta: what do you want to do?": "aparta: o que você quer fazer?",
+        "New profile (wizard)": "Novo perfil (wizard)",
+        "Apply a profile (apply)": "Aplicar um perfil (apply)",
+        "Check everything (doctor)": "Validar tudo (doctor)",
+        "List profiles (list)": "Listar perfis (list)",
+        "Quit": "Sair",
+        "[yellow]Cancelled.[/yellow]": "[yellow]Cancelado.[/yellow]",
+        "[yellow]No profile configured yet.[/yellow]": "[yellow]Nenhum perfil configurado ainda.[/yellow]",
+        "Which profile?": "Qual perfil?",
+        "Name of the profile to apply.": "Nome do perfil a aplicar.",
+        "[red]Profile '{name}' not found.[/red] Run `aparta init`.": "[red]Perfil '{name}' não encontrado.[/red] Rode `aparta init`.",
+        "Profile to check (empty = all).": "Perfil a validar (vazio = todos).",
+        "[yellow]No profile configured. Run `aparta init`.[/yellow]": "[yellow]Nenhum perfil configurado. Rode `aparta init`.[/yellow]",
+        "[red]Profile '{name}' not found.[/red]": "[red]Perfil '{name}' não encontrado.[/red]",
+        "Profiles ({path})": "Perfis ({path})",
+        "Name": "Nome",
+        "Root": "Raiz",
+        "Git e-mail": "E-mail do git",
+        "Agents": "Agentes",
+        "Folders to scan (empty = your whole home).": "Pastas a varrer (vazio = sua home inteira).",
+        "[dim]Scanning {where} and ~/.gitconfig (read-only)...[/dim]": "[dim]Varrendo {where} e ~/.gitconfig (somente leitura)...[/dim]",
+        "[yellow]No git repository found.[/yellow]": "[yellow]Nenhum repositório git encontrado.[/yellow]",
+        "Detected project groups": "Grupos de projetos detectados",
+        "Suggested name": "Nome sugerido",
+        "Folder": "Pasta",
+        "Repos": "Repos",
+        "Source": "Origem",
+        "Use [bold]aparta init[/bold] to turn them into profiles.": "Use [bold]aparta init[/bold] para transformá-los em perfis.",
+        # fsutil / apply
+        "[bold]Applying profile '{name}'[/bold] (root: {root})": "[bold]Aplicando perfil '{name}'[/bold] (raiz: {root})",
+        "[dim]Profile has no gh/gcloud: no env to inject into agents.[/dim]": "[dim]Perfil sem gh/gcloud: nada de env para injetar nos agentes.[/dim]",
+        "[yellow]No git repository found in {root}.[/yellow]": "[yellow]Nenhum repositório git encontrado em {root}.[/yellow]",
+        "[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.": "[yellow]aviso:[/yellow] {adapter} em {repo}: {error}; pulando.",
+        "[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]": "[yellow]--dry-run: {n} mudança(s) prevista(s); nada foi alterado.[/yellow]",
+        "[green]Everything was already applied; nothing to change.[/green]": "[green]Tudo já estava aplicado; nada a mudar.[/green]",
+        "[green]Done: {n} file(s) updated.[/green]": "[green]Pronto: {n} arquivo(s) atualizado(s).[/green]",
+        # backends
+        "[yellow]warning:[/yellow] {repo} is not a git repository; skipping.": "[yellow]aviso:[/yellow] {repo} não é um repositório git; pulando.",
+        "[red]adopting {repo} failed:[/red] {error}": "[red]adoção de {repo} falhou:[/red] {error}",
+        "[green]git:[/green] {repo} adopted by profile '{name}'": "[green]git:[/green] {repo} adotado pelo perfil '{name}'",
+        "[yellow]warning:[/yellow] ~/.config/gh does not exist, run `gh auth login` first.": "[yellow]aviso:[/yellow] ~/.config/gh não existe, rode `gh auth login` antes.",
+        "[yellow]--dry-run[/yellow] would copy {src} -> {dst}": "[yellow]--dry-run[/yellow] copiaria {src} -> {dst}",
+        "[green]created:[/green] {dst}": "[green]criado:[/green] {dst}",
+        "[red]gh auth switch failed:[/red] {error}": "[red]gh auth switch falhou:[/red] {error}",
+        "[green]gh:[/green] active user in {dst}: {user}": "[green]gh:[/green] usuário ativo em {dst}: {user}",
+        "[red]gcloud configurations create failed:[/red] {error}": "[red]gcloud configurations create falhou:[/red] {error}",
+        "[red]{cmd} failed:[/red] {error}": "[red]{cmd} falhou:[/red] {error}",
+        "[green]gcloud:[/green] configuration '{name}' ready": "[green]gcloud:[/green] configuração '{name}' pronta",
+        # wizard: logins, keys
+        "[red]gh not found in PATH.[/red]": "[red]gh não encontrado no PATH.[/red]",
+        "[yellow]Login cancelled or failed; skipping gh.[/yellow]": "[yellow]Login cancelado ou falhou; pulando gh.[/yellow]",
+        "[green]gh:[/green] '{user}' logged in at {dst}": "[green]gh:[/green] '{user}' logado em {dst}",
+        "[yellow]Login cancelled or failed; skipping gcloud.[/yellow]": "[yellow]Login cancelado ou falhou; pulando gcloud.[/yellow]",
+        "[red]gcloud not found in PATH.[/red]": "[red]gcloud não encontrado no PATH.[/red]",
+        "[green]gcloud:[/green] '{account}' in configuration '{name}'": "[green]gcloud:[/green] '{account}' na configuração '{name}'",
+        "[dim]{key} already exists; using it.[/dim]": "[dim]{key} já existe; usando a existente.[/dim]",
+        "[red]ssh-keygen not found.[/red]": "[red]ssh-keygen não encontrado.[/red]",
+        "[red]ssh-keygen failed:[/red] {error}": "[red]ssh-keygen falhou:[/red] {error}",
+        "[green]key created:[/green] {key}": "[green]chave criada:[/green] {key}",
+        "Public key": "Chave pública",
+        "Upload this key to the GitHub account '{user}' now? (gh ssh-key add)": "Enviar esta chave para a conta GitHub '{user}' agora? (gh ssh-key add)",
+        "[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]": "[dim]Depois: gh ssh-key add {key}.pub --title {name}[/dim]",
+        "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]":
+            "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]",
+        "[green]gh:[/green] key added to account '{user}'.": "[green]gh:[/green] chave adicionada à conta '{user}'.",
+        # wizard: prompts
+        "Remotes SSH shortcut (a Host from ~/.ssh/config; empty = use the key directly):": "Atalho SSH dos remotes (Host do ~/.ssh/config; vazio = usar a chave direta):",
+        "SSH shortcut for this profile's remotes (rewrites GitHub URLs to use the right key):": "Atalho SSH para os remotes deste perfil (reescreve as URLs do GitHub para usar a chave certa):",
+        "Profile name for {root}:": "Nome do perfil para {root}:",
+        "New profile name (e.g. personal, work, client-x):": "Nome do novo perfil (ex.: pessoal, trabalho, cliente-x):",
+        "'{name}' already exists. Overwrite?": "'{name}' já existe. Sobrescrever?",
+        "Root folder of this profile's projects:": "Pasta raiz dos projetos deste perfil:",
+        "git e-mail for these repositories:": "E-mail do git para esses repositórios:",
+        "Dedicated SSH key for this profile:": "Chave SSH específica deste perfil:",
+        "[dim]No gh account logged in yet (gh auth status).[/dim]": "[dim]Nenhuma conta gh logada ainda (gh auth status).[/dim]",
+        "GitHub CLI account for this profile:": "Conta do GitHub CLI para este perfil:",
+        "[dim]No gcloud account logged in yet (gcloud auth list).[/dim]": "[dim]Nenhuma conta gcloud logada ainda (gcloud auth list).[/dim]",
+        "gcloud account for this profile:": "Conta gcloud para este perfil:",
+        "GCP project id for this profile (e.g. my-project-123; empty = set later):": "ID do projeto no GCP para este perfil (ex.: meu-projeto-123; vazio = definir depois):",
+        # wizard: adoption, summary, flow
+        "Found [bold]{n}[/bold] repository(ies) outside the profile folders. You can adopt them: they stay where they are and get the profile identity in the repo itself.":
+            "Encontrei [bold]{n}[/bold] repositório(s) fora das pastas dos perfis. Você pode adotá-los: eles ficam onde estão e recebem a identidade do perfil só no próprio repo.",
+        "Which of these belong to '{name}'? (Enter = none)": "Quais destes pertencem a '{name}'? (Enter = nenhum)",
+        "Summary: what aparta is going to do": "Resumo: o que o aparta vai fazer",
+        "Profile": "Perfil",
+        "Actions": "Ações",
+        "git: create ~/.gitconfig-{name} (email {email}": "git: criar ~/.gitconfig-{name} (email {email}",
+        "git: rewrite https remotes through the git@{alias}: shortcut": "git: reescrever remotes https via atalho git@{alias}:",
+        "git: adopt {n} repo(s) outside the root (local include.path, no moves): ": "git: adotar {n} repo(s) fora da raiz (include.path local, sem mover): ",
+        "gh: copy ~/.config/gh to ~/.config/gh-{name} and activate '{user}'": "gh: copiar ~/.config/gh para ~/.config/gh-{name} e ativar '{user}'",
+        "gcloud: configuration '{name}' with {account}{proj}": "gcloud: configuração '{name}' com {account}{proj}",
+        "agents ({names}): inject {vars} into the repos of {root}": "agentes ({names}): injetar {vars} nos repos de {root}",
+        "Every write to an existing file creates a backup (.bak-aparta-<timestamp>) and merges, nothing is overwritten. Use --dry-run to only see the diff.":
+            "Toda escrita em arquivo existente cria backup (.bak-aparta-<timestamp>) e faz merge, nada é substituído. Use --dry-run para só ver o diff.",
+        "Safety": "Segurança",
+        "Welcome to [bold]aparta[/bold]! Let's isolate your development accounts per project folder.":
+            "Bem-vindo ao [bold]aparta[/bold]! Vamos isolar suas contas de desenvolvimento por pasta de projeto.",
+        "Which AI agents should receive the environment variables?": "Quais agentes de IA devem receber as variáveis de ambiente?",
+        "How do you want to start?": "Como você quer começar?",
+        "Detect what I already use: scans logged-in accounts, keys and existing projects": "Detectar o que já uso: varre contas logadas, chaves e projetos existentes",
+        "Start from scratch: connect accounts and create keys step by step": "Começar do zero: conectar contas e criar chaves passo a passo",
+        "[dim]Scanning your home for git repositories (read-only)...[/dim]": "[dim]Varrendo sua home em busca de repositórios git (somente leitura)...[/dim]",
+        "Any folder outside your home to scan as well? (empty = none)": "Alguma pasta fora da home para varrer também? (vazio = nenhuma)",
+        "[yellow]Nothing detected, let's create your first profile from scratch.[/yellow]": "[yellow]Nada detectado, vamos criar seu primeiro perfil do zero.[/yellow]",
+        "Found [bold]{n}[/bold] project group(s) already in use:": "Encontrei [bold]{n}[/bold] grupo(s) de projetos já em uso:",
+        "Which should become profiles? (answers come pre-filled)": "Quais devem virar perfis? (as respostas vêm pré-preenchidas)",
+        "[dim]Enter accepts the suggested values; edit whatever you want.[/dim]": "[dim]Enter aceita os valores sugeridos; edite o que quiser.[/dim]",
+        "Group {i}/{n}: {root}": "Grupo {i}/{n}: {root}",
+        "Configure another profile?": "Configurar outro perfil?",
+        "Try again?": "Tentar novamente?",
+        "[yellow]No profile configured.[/yellow]": "[yellow]Nenhum perfil configurado.[/yellow]",
+        "How to proceed?": "Como prosseguir?",
+        "Save and apply now": "Salvar e aplicar agora",
+        "Just save the profiles (apply later with `aparta apply`)": "Só salvar os perfis (aplicar depois com `aparta apply`)",
+        "Cancel": "Cancelar",
+        "[yellow]Cancelled; nothing was saved.[/yellow]": "[yellow]Cancelado; nada foi salvo.[/yellow]",
+        "[green]Profiles saved to {path}.[/green]": "[green]Perfis salvos em {path}.[/green]",
+        "Whenever you want to apply: [bold]aparta apply {name}[/bold]": "Quando quiser aplicar: [bold]aparta apply {name}[/bold]",
+    }
+}
+
+
+def resolve_lang() -> str:
+    for var in ("APARTA_LANG", "LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(var)
+        if value:
+            return "pt" if value.lower().startswith("pt") else "en"
+    return "en"
+
+
+def _(text: str, **kwargs) -> str:
+    translated = CATALOG.get(resolve_lang(), {}).get(text, text)
+    return translated.format(**kwargs) if kwargs else translated

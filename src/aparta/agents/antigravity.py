@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ..i18n import _
 from ..fsutil import SafeWriter
 from .base import AgentAdapter
 
@@ -26,9 +27,9 @@ def merge_vscode_settings(existing_text: str, env: dict[str, str]) -> str:
     try:
         data = json.loads(existing_text) if existing_text.strip() else {}
     except json.JSONDecodeError as exc:
-        raise ValueError(".vscode/settings.json inválido") from exc
+        raise ValueError(_(".vscode/settings.json is invalid")) from exc
     if not isinstance(data, dict):
-        raise ValueError(".vscode/settings.json não contém um objeto JSON")
+        raise ValueError(_(".vscode/settings.json is not a JSON object"))
     for key in _PLATFORM_KEYS:
         current = data.get(key, {})
         if not isinstance(current, dict):
@@ -55,14 +56,14 @@ class AntigravityAdapter(AgentAdapter):
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         path = self.settings_path(repo)
         if not path.exists():
-            return False, ".vscode/settings.json ausente"
+            return False, _(".vscode/settings.json missing")
         try:
             data = json.loads(path.read_text())
         except json.JSONDecodeError:
-            return False, ".vscode/settings.json inválido"
+            return False, _(".vscode/settings.json is invalid")
         for key in _PLATFORM_KEYS:
             current = data.get(key, {})
             missing = [k for k, v in env.items() if current.get(k) != v]
             if missing:
-                return False, f"{key} divergente: {', '.join(missing)}"
-        return True, "env ok"
+                return False, _("{key} mismatch: {keys}", key=key, keys=", ".join(missing))
+        return True, _("env ok")

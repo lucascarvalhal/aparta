@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .i18n import _
 from rich.console import Console
 
 console = Console()
@@ -57,19 +58,19 @@ class SafeWriter:
         if path.exists():
             bak = backup_path(path)
             shutil.copy2(path, bak)
-            console.print(f"[dim]backup: {bak}[/dim]")
+            console.print(f"[dim]{_('backup:')} {bak}[/dim]")
         path.write_text(new_content)
         self.changes.append(label)
-        console.print(f"[green]escrito:[/green] {label}")
+        console.print(f"[green]{_('written:')}[/green] {label}")
         return True
 
     def _show_diff(self, label: str, old: str, new: str) -> None:
         diff = difflib.unified_diff(
             old.splitlines(keepends=True),
             new.splitlines(keepends=True),
-            fromfile=f"{label} (atual)",
-            tofile=f"{label} (proposto)",
+            fromfile=f"{label} ({_('current')})",
+            tofile=f"{label} ({_('proposed')})",
         )
-        text = "".join(diff) or "(sem diferenças)"
-        console.print(f"[bold yellow]--dry-run — {label}[/bold yellow]")
+        text = "".join(diff) or _("(no differences)")
+        console.print(f"[bold yellow]--dry-run: {label}[/bold yellow]")
         console.print(text, highlight=False, markup=False)

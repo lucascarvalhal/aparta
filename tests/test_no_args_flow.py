@@ -53,7 +53,7 @@ def test_subcommand_does_not_trigger_wizard(isolated_config, monkeypatch):
     monkeypatch.setattr(cli, "_run_wizard", lambda dry_run: pytest.fail("wizard must not run"))
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
-    assert "Nenhum perfil" in result.output
+    assert "No profile" in result.output
 
 
 def test_version_flag(isolated_config):
@@ -65,7 +65,7 @@ def test_version_flag(isolated_config):
 def test_apply_unknown_profile_exits_1(isolated_config):
     result = runner.invoke(app, ["apply", "nope"])
     assert result.exit_code == 1
-    assert "não encontrado" in result.output
+    assert "not found" in result.output
 
 
 def test_doctor_without_profiles_exits_1(isolated_config):

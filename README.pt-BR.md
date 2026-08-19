@@ -77,6 +77,10 @@ pip install aparta
 npx aparta-cli
 ```
 
+## Idiomas
+
+O CLI fala inglês e português do Brasil, escolhidos automaticamente pelo locale (`LANG`). Force um deles com `APARTA_LANG=pt` ou `APARTA_LANG=en`.
+
 ## Começando
 
 ```bash
@@ -130,7 +134,6 @@ Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (r
 
 ## Roadmap
 
-- Inglês (e i18n) nos textos do CLI
 - Mais agentes conforme ganharem suporte a config por projeto
 - Suporte nativo a Windows (WSL já funciona)
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from .i18n import _
 from rich.console import Console
 
 from .agents import get_adapters
@@ -30,20 +31,20 @@ BACKENDS: list[Callable[[Profile, SafeWriter], None]] = [
 
 def apply_profile(profile: Profile, writer: SafeWriter) -> None:
     """Apply every backend, then inject env into the profile's repos."""
-    console.print(f"[bold]Aplicando perfil '{profile.name}'[/bold] (raiz: {profile.root_path})\n")
+    console.print(_("[bold]Applying profile '{name}'[/bold] (root: {root})", name=profile.name, root=profile.root_path) + "\n")
 
     for backend in BACKENDS:
         backend(profile, writer)
 
     env = profile.env()
     if not env:
-        console.print("[dim]Perfil sem gh/gcloud: nada de env para injetar nos agentes.[/dim]")
+        console.print(_("[dim]Profile has no gh/gcloud: no env to inject into agents.[/dim]"))
     else:
         repos = find_repos(profile.root_path) + [
             Path(r).expanduser() for r in profile.adopted_repos
         ]
         if not repos:
-            console.print(f"[yellow]Nenhum repositório git encontrado em {profile.root_path}.[/yellow]")
+            console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
         adapters = get_adapters(profile.agents)
         for repo in repos:
             for adapter in adapters:
@@ -54,12 +55,12 @@ def apply_profile(profile: Profile, writer: SafeWriter) -> None:
                 except ValueError as exc:
                     # one repo with a broken config file must not stop the apply
                     console.print(
-                        f"[yellow]aviso:[/yellow] {adapter.name} em {repo.name}: {exc}; pulando."
+                        _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
                     )
 
     if writer.dry_run:
-        console.print(f"\n[yellow]--dry-run: {len(writer.changes)} mudança(s) prevista(s); nada foi alterado.[/yellow]")
+        console.print("\n" + _("[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]", n=len(writer.changes)))
     elif not writer.changes:
-        console.print("\n[green]Tudo já estava aplicado; nada a mudar.[/green]")
+        console.print("\n" + _("[green]Everything was already applied; nothing to change.[/green]"))
     else:
-        console.print(f"\n[green]Pronto: {len(writer.changes)} arquivo(s) atualizado(s).[/green]")
+        console.print("\n" + _("[green]Done: {n} file(s) updated.[/green]", n=len(writer.changes)))

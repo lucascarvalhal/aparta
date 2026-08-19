@@ -10,12 +10,15 @@ from . import __version__
 from .apply import apply_profile
 from .doctor import check_profile
 from .fsutil import SafeWriter
+from .i18n import _
 from .profiles import load_profiles, profiles_path
 
 app = typer.Typer(
     name="aparta",
-    help="Isola contas de desenvolvimento (git, gh, gcloud) por pasta de projeto "
-    "e injeta variáveis de ambiente nos agentes de IA de terminal.",
+    help=_(
+        "Isolates development accounts (git, gh, gcloud) per project folder "
+        "and injects environment variables into terminal AI agents."
+    ),
 )
 console = Console()
 
@@ -30,9 +33,9 @@ def default_action(profiles_file: Path | None = None) -> str:
 def main(
     ctx: typer.Context,
     dry_run: bool = typer.Option(
-        False, "--dry-run", help="Mostra o diff do que seria alterado, sem aplicar nada."
+        False, "--dry-run", help=_("Show the diff of what would change, without applying anything.")
     ),
-    version: bool = typer.Option(False, "--version", help="Mostra a versão e sai."),
+    version: bool = typer.Option(False, "--version", help=_("Show the version and exit.")),
 ) -> None:
     if version:
         console.print(f"aparta {__version__}")
@@ -51,7 +54,7 @@ def _run_wizard(dry_run: bool) -> None:
     try:
         run_wizard(dry_run=dry_run)
     except KeyboardInterrupt:
-        console.print("\n[yellow]Cancelado.[/yellow]")
+        console.print("\n" + _("[yellow]Cancelled.[/yellow]"))
         raise typer.Exit(1)
 
 
@@ -60,13 +63,13 @@ def _run_menu(dry_run: bool) -> None:
 
     while True:
         choice = questionary.select(
-            "aparta — o que você quer fazer?",
+            _("aparta: what do you want to do?"),
             choices=[
-                questionary.Choice("Novo perfil (wizard)", value="init"),
-                questionary.Choice("Aplicar um perfil (apply)", value="apply"),
-                questionary.Choice("Validar tudo (doctor)", value="doctor"),
-                questionary.Choice("Listar perfis (list)", value="list"),
-                questionary.Choice("Sair", value="quit"),
+                questionary.Choice(_("New profile (wizard)"), value="init"),
+                questionary.Choice(_("Apply a profile (apply)"), value="apply"),
+                questionary.Choice(_("Check everything (doctor)"), value="doctor"),
+                questionary.Choice(_("List profiles (list)"), value="list"),
+                questionary.Choice(_("Quit"), value="quit"),
             ],
         ).ask()
         if choice in (None, "quit"):
@@ -76,9 +79,9 @@ def _run_menu(dry_run: bool) -> None:
         elif choice == "apply":
             profiles = load_profiles()
             if not profiles:
-                console.print("[yellow]Nenhum perfil configurado ainda.[/yellow]")
+                console.print(_("[yellow]No profile configured yet.[/yellow]"))
                 continue
-            name = questionary.select("Qual perfil?", choices=list(profiles)).ask()
+            name = questionary.select(_("Which profile?"), choices=list(profiles)).ask()
             if name:
                 apply_profile(profiles[name], SafeWriter(dry_run=dry_run))
         elif choice == "doctor":
@@ -90,20 +93,20 @@ def _run_menu(dry_run: bool) -> None:
 
 @app.command()
 def init(ctx: typer.Context) -> None:
-    """Wizard interativo: escolhe agentes, configura contextos e aplica."""
+    """Interactive wizard: pick agents, configure profiles and apply."""
     _run_wizard(ctx.obj["dry_run"])
 
 
 @app.command()
 def apply(
     ctx: typer.Context,
-    profile_name: str = typer.Argument(..., help="Nome do perfil a aplicar."),
+    profile_name: str = typer.Argument(..., help=_("Name of the profile to apply.")),
 ) -> None:
-    """Aplica um perfil: gitconfigs, gh config dir, gcloud config e env nos repos."""
+    """Apply a profile: gitconfigs, gh config dir, gcloud config and repo env."""
     profiles = load_profiles()
     profile = profiles.get(profile_name)
     if not profile:
-        console.print(f"[red]Perfil '{profile_name}' não encontrado.[/red] Rode `aparta init`.")
+        console.print(_("[red]Profile '{name}' not found.[/red] Run `aparta init`.", name=profile_name))
         raise typer.Exit(1)
     apply_profile(profile, SafeWriter(dry_run=ctx.obj["dry_run"]))
 
@@ -111,16 +114,16 @@ def apply(
 @app.command()
 def doctor(
     profile_name: str = typer.Argument(
-        None, help="Perfil a validar (vazio = todos)."
+        None, help=_("Profile to check (empty = all).")
     ),
 ) -> None:
-    """Valida o estado real: git user.email por repo, gh auth status, gcloud config."""
+    """Check the real state: git user.email per repo, gh auth status, gcloud config."""
     profiles = load_profiles()
     if not profiles:
-        console.print("[yellow]Nenhum perfil configurado. Rode `aparta init`.[/yellow]")
+        console.print(_("[yellow]No profile configured. Run `aparta init`.[/yellow]"))
         raise typer.Exit(1)
     if profile_name and profile_name not in profiles:
-        console.print(f"[red]Perfil '{profile_name}' não encontrado.[/red]")
+        console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
         raise typer.Exit(1)
     selected = [profiles[profile_name]] if profile_name else list(profiles.values())
 
@@ -133,15 +136,15 @@ def doctor(
 def _print_profiles() -> None:
     profiles = load_profiles()
     if not profiles:
-        console.print("[yellow]Nenhum perfil configurado. Rode `aparta init`.[/yellow]")
+        console.print(_("[yellow]No profile configured. Run `aparta init`.[/yellow]"))
         return
-    table = Table(title=f"Perfis ({profiles_path()})")
-    table.add_column("Nome", style="bold")
-    table.add_column("Raiz")
-    table.add_column("Git e-mail")
+    table = Table(title=_("Profiles ({path})", path=profiles_path()))
+    table.add_column(_("Name"), style="bold")
+    table.add_column(_("Root"))
+    table.add_column(_("Git e-mail"))
     table.add_column("gh")
     table.add_column("gcloud")
-    table.add_column("Agentes")
+    table.add_column(_("Agents"))
     for p in profiles.values():
         gcloud = p.gcloud_account + (f" / {p.gcloud_project}" if p.gcloud_project else "")
         table.add_row(p.name, p.root, p.git_email, p.gh_user or "—", gcloud or "—", ", ".join(p.agents) or "—")
@@ -150,38 +153,38 @@ def _print_profiles() -> None:
 
 @app.command("list")
 def list_profiles() -> None:
-    """Lista os perfis configurados."""
+    """List configured profiles."""
     _print_profiles()
 
 
 @app.command()
 def scan(
     paths: list[str] = typer.Argument(
-        None, help="Pastas a varrer (vazio = sua home inteira)."
+        None, help=_("Folders to scan (empty = your whole home).")
     ),
 ) -> None:
-    """Varre o disco e sugere grupos de projetos (somente leitura, nada é alterado)."""
+    """Scan the disk and suggest project groups (read-only, nothing changes)."""
     from .discovery import discover
 
-    where = ", ".join(paths) if paths else "sua home"
-    console.print(f"[dim]Varrendo {where} e ~/.gitconfig (somente leitura)...[/dim]")
+    where = ", ".join(paths) if paths else _("your home")
+    console.print(_("[dim]Scanning {where} and ~/.gitconfig (read-only)...[/dim]", where=where))
     suggestions = discover(scan_roots=paths or None)
     if not suggestions:
-        console.print("[yellow]Nenhum repositório git encontrado.[/yellow]")
+        console.print(_("[yellow]No git repository found.[/yellow]"))
         return
-    table = Table(title="Grupos de projetos detectados")
-    table.add_column("Nome sugerido", style="bold")
-    table.add_column("Pasta")
-    table.add_column("Repos", justify="right")
-    table.add_column("Git e-mail")
+    table = Table(title=_("Detected project groups"))
+    table.add_column(_("Suggested name"), style="bold")
+    table.add_column(_("Folder"))
+    table.add_column(_("Repos"), justify="right")
+    table.add_column(_("Git e-mail"))
     table.add_column("gh / gcloud")
-    table.add_column("Origem")
+    table.add_column(_("Source"))
     for s in suggestions:
         accounts = " / ".join(x for x in (s.gh_config, s.gcloud_config) if x) or "—"
-        source = "~/.gitconfig" if s.source == "gitconfig" else "varredura"
+        source = "~/.gitconfig" if s.source == "gitconfig" else _("scan")
         table.add_row(s.name, s.root, str(s.repo_count), s.git_email or "—", accounts, source)
     console.print(table)
-    console.print("Use [bold]aparta init[/bold] para transformá-los em perfis.")
+    console.print(_("Use [bold]aparta init[/bold] to turn them into profiles."))
 
 
 if __name__ == "__main__":

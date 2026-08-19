@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..i18n import _
 from ..fsutil import SafeWriter
 from .base import AgentAdapter, merge_env_lines, missing_keys, parse_env_lines
 
@@ -34,9 +35,9 @@ class GeminiAdapter(AgentAdapter):
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         path = self.env_path(repo)
         if not path.exists():
-            return False, ".gemini/.env ausente"
+            return False, _(".gemini/.env missing")
         missing = missing_keys(parse_env_lines(path.read_text()), env)
-        return (not missing, "env ok" if not missing else f"faltando: {', '.join(missing)}")
+        return (not missing, _("env ok") if not missing else _("missing: {keys}", keys=", ".join(missing)))
 
     def read_env(self, repo: Path) -> dict[str, str]:
         path = self.env_path(repo)

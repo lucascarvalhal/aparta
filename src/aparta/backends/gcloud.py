@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 
+from ..i18n import _
 from rich.console import Console
 
 from ..fsutil import SafeWriter
@@ -48,10 +49,10 @@ def apply_gcloud(profile: Profile, writer: SafeWriter) -> None:
     if not configuration_exists(name):
         create = _run(*cmds[0])
         if create.returncode != 0:
-            console.print(f"[red]gcloud configurations create falhou:[/red] {create.stderr.strip()}")
+            console.print(_("[red]gcloud configurations create failed:[/red] {error}", error=create.stderr.strip()))
             return
     for args, cfg in cmds[1:]:
         r = _run(args, cfg)
         if r.returncode != 0:
-            console.print(f"[red]{' '.join(args)} falhou:[/red] {r.stderr.strip()}")
-    console.print(f"[green]gcloud:[/green] configuração '{name}' pronta")
+            console.print(_("[red]{cmd} failed:[/red] {error}", cmd=" ".join(args), error=r.stderr.strip()))
+    console.print(_("[green]gcloud:[/green] configuration '{name}' ready", name=name))
