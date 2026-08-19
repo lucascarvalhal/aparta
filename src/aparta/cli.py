@@ -187,5 +187,30 @@ def scan(
     console.print(_("Use [bold]aparta init[/bold] to turn them into profiles."))
 
 
+@app.command("help")
+def show_help() -> None:
+    """Show every command and what it does."""
+    console.print(_("[bold]aparta[/bold]: the right account in every folder.") + "\n")
+    table = Table(show_header=True)
+    table.add_column(_("Command"), style="bold", no_wrap=True)
+    table.add_column(_("What it does"), overflow="fold")
+    table.add_row("aparta", _("First run opens the setup wizard; afterwards, an interactive menu."))
+    table.add_row("aparta init", _("Guided wizard: pick agents, detect or create profiles, apply."))
+    table.add_row("aparta scan \\[folders]", _("Read-only: find git repos and suggest profile groups (default: your home)."))
+    table.add_row("aparta apply <profile>", _("Re-apply a profile: gitconfigs, gh, gcloud and agent env in the repos."))
+    table.add_row("aparta doctor \\[profile]", _("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
+    table.add_row("aparta list", _("List configured profiles."))
+    table.add_row("aparta help", _("This screen."))
+    console.print(table)
+    console.print(
+        "\n"
+        + _(
+            "Global flags: [bold]--dry-run[/bold] previews every change as a diff, "
+            "[bold]--version[/bold] prints the version. Language: [bold]APARTA_LANG=en|pt[/bold]."
+        )
+    )
+    console.print(_("More detail per command: [bold]aparta <command> --help[/bold]."))
+
+
 if __name__ == "__main__":
     app()
