@@ -139,6 +139,7 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 
 ## Works great with
 
+- [Orca](https://www.onorca.dev/): an Agent Development Environment that runs several AI agents at once in isolated worktrees, with terminals, editor and browser in one app. Every agent Orca launches inherits the per-folder identity that aparta configured, so parallel agents across different clients stay on the right accounts.
 - [Universal Memory (U-Mem)](https://universal-memory.com/): a local-first, vendor-agnostic memory layer for AI agents. aparta makes every agent use the right account per folder; U-Mem makes them remember your context and preferences across sessions and tools. Together they cover identity and memory. Keep its `.umem/` directory out of version control (this repo's .gitignore already does).
 
 ## Contributing

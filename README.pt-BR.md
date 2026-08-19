@@ -141,6 +141,7 @@ Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o
 
 ## Combina muito bem com
 
+- [Orca](https://www.onorca.dev/): um Agent Development Environment que roda vários agentes de IA ao mesmo tempo em worktrees isolados, com terminais, editor e navegador num app só. Cada agente que o Orca abre herda a identidade por pasta que o aparta configurou, então agentes em paralelo, em clientes diferentes, ficam cada um na conta certa.
 - [Universal Memory (U-Mem)](https://universal-memory.com/): uma camada de memória local e agnóstica de fornecedor para agentes de IA. O aparta garante que cada agente use a conta certa por pasta; o U-Mem faz eles lembrarem do seu contexto e das suas preferências entre sessões e ferramentas. Juntos, cobrem identidade e memória. Só mantenha o diretório `.umem/` fora do versionamento (o .gitignore deste repo já cuida disso).
 
 ## Contribuindo
