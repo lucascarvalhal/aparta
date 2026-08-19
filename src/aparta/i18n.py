@@ -114,7 +114,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "Do not ask for confirmation.": "Não pedir confirmação.",
         "Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?": "Remover '{name}' e desfazer gitconfig, gh, gcloud e env dos agentes?",
         "[bold]Removing profile '{name}'[/bold]": "[bold]Removendo perfil '{name}'[/bold]",
-        "[green]Profile '{name}' removed. Backups were kept for every touched file.[/green]": "[green]Perfil '{name}' removido. Backups foram mantidos de cada arquivo tocado.[/green]",
+        "[green]Profile '{name}' removed. Backups were kept for every touched file.[/green]": "[green]Perfil '{name}' removido. Tudo que foi tocado ficou com backup, caso você mude de ideia.[/green]",
         "Remove a profile and undo what it applied (backups kept).": "Remove um perfil e desfaz o que ele aplicou (backups mantidos).",
         "removed:": "removido:",
         "Global flags: [bold]--dry-run[/bold] previews every change as a diff, [bold]--version[/bold] prints the version. Language: [bold]APARTA_LANG=en|pt[/bold].": "Flags globais: [bold]--dry-run[/bold] mostra cada mudança como diff, [bold]--version[/bold] imprime a versão. Idioma: [bold]APARTA_LANG=pt|en[/bold].",
@@ -125,7 +125,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "[yellow]No git repository found in {root}.[/yellow]": "[yellow]Nenhum repositório git encontrado em {root}.[/yellow]",
         "[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.": "[yellow]aviso:[/yellow] {adapter} em {repo}: {error}; pulando.",
         "[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]": "[yellow]--dry-run: {n} mudança(s) prevista(s); nada foi alterado.[/yellow]",
-        "[green]Everything was already applied; nothing to change.[/green]": "[green]Tudo já estava aplicado; nada a mudar.[/green]",
+        "[green]Everything was already applied; nothing to change.[/green]": "[green]Tudo já estava em dia; nada para mudar.[/green]",
         "[green]Done: {n} file(s) updated.[/green]": "[green]Pronto: {n} arquivo(s) atualizado(s).[/green]",
         # backends
         "[yellow]warning:[/yellow] {repo} is not a git repository; skipping.": "[yellow]aviso:[/yellow] {repo} não é um repositório git; pulando.",
@@ -141,18 +141,18 @@ CATALOG: dict[str, dict[str, str]] = {
         "[green]gcloud:[/green] configuration '{name}' ready": "[green]gcloud:[/green] configuração '{name}' pronta",
         # wizard: logins, keys
         "[red]gh not found in PATH.[/red]": "[red]gh não encontrado no PATH.[/red]",
-        "[yellow]Login cancelled or failed; skipping gh.[/yellow]": "[yellow]Login cancelado ou falhou; pulando gh.[/yellow]",
+        "[yellow]Login cancelled or failed; skipping gh.[/yellow]": "[yellow]Login cancelado ou com falha; seguindo sem o gh.[/yellow]",
         "[green]gh:[/green] '{user}' logged in at {dst}": "[green]gh:[/green] '{user}' logado em {dst}",
-        "[yellow]Login cancelled or failed; skipping gcloud.[/yellow]": "[yellow]Login cancelado ou falhou; pulando gcloud.[/yellow]",
+        "[yellow]Login cancelled or failed; skipping gcloud.[/yellow]": "[yellow]Login cancelado ou com falha; seguindo sem o gcloud.[/yellow]",
         "[red]gcloud not found in PATH.[/red]": "[red]gcloud não encontrado no PATH.[/red]",
         "[green]gcloud:[/green] '{account}' in configuration '{name}'": "[green]gcloud:[/green] '{account}' na configuração '{name}'",
-        "[dim]{key} already exists; using it.[/dim]": "[dim]{key} já existe; usando a existente.[/dim]",
+        "[dim]{key} already exists; using it.[/dim]": "[dim]{key} já existe, vamos usar essa mesma.[/dim]",
         "[red]ssh-keygen not found.[/red]": "[red]ssh-keygen não encontrado.[/red]",
         "[red]ssh-keygen failed:[/red] {error}": "[red]ssh-keygen falhou:[/red] {error}",
         "[green]key created:[/green] {key}": "[green]chave criada:[/green] {key}",
         "Public key": "Chave pública",
         "Upload this key to the GitHub account '{user}' now? (gh ssh-key add)": "Enviar esta chave para a conta GitHub '{user}' agora? (gh ssh-key add)",
-        "[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]": "[dim]Depois: gh ssh-key add {key}.pub --title {name}[/dim]",
+        "[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]": "[dim]Quando quiser enviar: gh ssh-key add {key}.pub --title {name}[/dim]",
         "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]":
             "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]",
         "[green]gh:[/green] key added to account '{user}'.": "[green]gh:[/green] chave adicionada à conta '{user}'.",
@@ -172,7 +172,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "GCP project id for this profile (e.g. my-project-123; empty = set later):": "ID do projeto no GCP para este perfil (ex.: meu-projeto-123; vazio = definir depois):",
         # wizard: adoption, summary, flow
         "Found [bold]{n}[/bold] repository(ies) outside the profile folders. You can adopt them: they stay where they are and get the profile identity in the repo itself.":
-            "Encontrei [bold]{n}[/bold] repositório(s) fora das pastas dos perfis. Você pode adotá-los: eles ficam onde estão e recebem a identidade do perfil só no próprio repo.",
+            "Encontrei [bold]{n}[/bold] repositório(s) fora das pastas dos perfis. Se quiser, você pode adotá-los: eles continuam onde estão e ganham a identidade do perfil ali mesmo.",
         "Which of these belong to '{name}'? (Enter = none)": "Quais destes pertencem a '{name}'? (Enter = nenhum)",
         "Summary: what aparta is going to do": "Resumo: o que o aparta vai fazer",
         "Profile": "Perfil",
@@ -184,10 +184,10 @@ CATALOG: dict[str, dict[str, str]] = {
         "gcloud: configuration '{name}' with {account}{proj}": "gcloud: configuração '{name}' com {account}{proj}",
         "agents ({names}): inject {vars} into the repos of {root}": "agentes ({names}): injetar {vars} nos repos de {root}",
         "Every write to an existing file creates a backup (.bak-aparta-<timestamp>) and merges, nothing is overwritten. Use --dry-run to only see the diff.":
-            "Toda escrita em arquivo existente cria backup (.bak-aparta-<timestamp>) e faz merge, nada é substituído. Use --dry-run para só ver o diff.",
+            "Pode confirmar sem medo: todo arquivo existente ganha backup (.bak-aparta-<timestamp>) e recebe merge, nada é substituído. Se preferir só espiar antes, use --dry-run.",
         "Safety": "Segurança",
         "Welcome to [bold]aparta[/bold]! Let's isolate your development accounts per project folder.":
-            "Bem-vindo ao [bold]aparta[/bold]! Vamos isolar suas contas de desenvolvimento por pasta de projeto.",
+            "Bem-vindo ao [bold]aparta[/bold]! Vamos deixar cada pasta de projeto com a conta certa.",
         "Which AI agents should receive the environment variables?": "Quais agentes de IA devem receber as variáveis de ambiente?",
         "How do you want to start?": "Como você quer começar?",
         "Detect what I already use: scans logged-in accounts, keys and existing projects": "Detectar o que já uso: varre contas logadas, chaves e projetos existentes",
@@ -196,7 +196,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "Scan an extra folder outside your home?": "Varrer alguma pasta extra fora da home?",
         "Which folder?": "Qual pasta?",
         "y": "s",
-        "[yellow]Nothing detected, let's create your first profile from scratch.[/yellow]": "[yellow]Nada detectado, vamos criar seu primeiro perfil do zero.[/yellow]",
+        "[yellow]Nothing detected, let's create your first profile from scratch.[/yellow]": "[yellow]Não encontrei nada por aqui, então vamos criar seu primeiro perfil do zero.[/yellow]",
         "Found [bold]{n}[/bold] project group(s) already in use:": "Encontrei [bold]{n}[/bold] grupo(s) de projetos já em uso:",
         "Which should become profiles? (answers come pre-filled)": "Quais devem virar perfis? (as respostas vêm pré-preenchidas)",
         "[dim]Enter accepts the suggested values; edit whatever you want.[/dim]": "[dim]Enter aceita os valores sugeridos; edite o que quiser.[/dim]",
@@ -204,13 +204,13 @@ CATALOG: dict[str, dict[str, str]] = {
         "Configure another profile?": "Configurar outro perfil?",
         "Try again?": "Tentar novamente?",
         "[yellow]No profile configured.[/yellow]": "[yellow]Nenhum perfil configurado.[/yellow]",
-        "How to proceed?": "Como prosseguir?",
+        "How to proceed?": "Como você quer seguir?",
         "Save and apply now": "Salvar e aplicar agora",
         "Just save the profiles (apply later with `aparta apply`)": "Só salvar os perfis (aplicar depois com `aparta apply`)",
         "Cancel": "Cancelar",
         "[yellow]Cancelled; nothing was saved.[/yellow]": "[yellow]Cancelado; nada foi salvo.[/yellow]",
         "[green]Profiles saved to {path}.[/green]": "[green]Perfis salvos em {path}.[/green]",
-        "Whenever you want to apply: [bold]aparta apply {name}[/bold]": "Quando quiser aplicar: [bold]aparta apply {name}[/bold]",
+        "Whenever you want to apply: [bold]aparta apply {name}[/bold]": "Quando quiser aplicar, é só rodar: [bold]aparta apply {name}[/bold]",
     }
 }
 
