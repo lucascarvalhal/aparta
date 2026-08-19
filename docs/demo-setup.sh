@@ -55,4 +55,15 @@ exit 1
 FAKE
 chmod +x "$DEMO/bin/gcloud"
 
+# named AWS profiles matching the demo groups, so the wizard pre-fills them
+mkdir -p "$DEMO/.aws"
+cat > "$DEMO/.aws/config" << 'AWSCFG'
+[profile acme]
+region = us-east-1
+output = json
+
+[profile personal]
+region = sa-east-1
+AWSCFG
+
 echo "demo home ready at $DEMO"

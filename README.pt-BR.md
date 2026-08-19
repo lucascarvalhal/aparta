@@ -88,19 +88,24 @@ O aparta fala português do Brasil e inglês. Na primeira vez que o assistente a
 aparta            # a primeira execução abre o assistente; depois, um menu
 ```
 
-1. Escolha quais agentes de IA devem receber o ambiente por projeto (Claude Code, Codex, Gemini CLI, Antigravity, ou um `.envrc` genérico via direnv).
-2. Escolha **"Detectar o que já uso"** (recomendado) ou **"Começar do zero"**.
-3. Confirme cada perfil sugerido. Nome, pasta, e-mail do git, chave SSH, atalho de remote e contas do gh e do gcloud já vêm preenchidos pela varredura, na maioria das vezes é só apertar Enter.
-4. Se houver repositórios soltos fora das pastas dos perfis, você pode adotá-los: eles continuam onde estão e recebem a identidade certa ali mesmo.
-5. Revise o resumo e confirme uma única vez. Pronto, pode voltar ao trabalho.
+1. Na primeira execução, escolha o idioma e se prefere atualizações automáticas ou manuais.
+2. Escolha quais agentes de IA devem receber o ambiente por projeto (Claude Code, Codex, Gemini CLI, Antigravity, opencode, ou um `.envrc` genérico via direnv).
+3. Escolha quais provedores quer configurar (GitHub CLI, Google Cloud, AWS), ou deixe todos marcados para a varredura completa. git e SSH entram sempre.
+4. Escolha **"Detectar o que já uso"** (recomendado) ou **"Começar do zero"**.
+5. Confirme cada perfil sugerido. Nome, pasta, e-mail do git, chave SSH, atalho de remote e contas já vêm preenchidos pela varredura, na maioria das vezes é só apertar Enter.
+6. Se houver repositórios soltos fora das pastas dos perfis, você pode adotá-los: eles continuam onde estão e recebem a identidade certa ali mesmo.
+7. Revise o resumo e confirme uma única vez. Pronto, pode voltar ao trabalho.
 
 ```bash
 aparta doctor     # confere se tudo está resolvendo para a identidade certa
 aparta scan       # somente leitura: mostra os grupos de projetos encontrados
 aparta apply X    # reaplica um perfil (por exemplo, depois de clonar repos novos)
-aparta remove X   # remove um perfil e desfaz o que ele aplicou
+aparta remove X   # remove um perfil e desfaz o que ele aplicou (com backups)
 aparta list       # lista os perfis configurados
+aparta update     # atualiza o aparta para a versão mais recente
+aparta help       # todos os comandos e o que cada um faz
 aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar nada
+aparta --verbose  # em qualquer comando: mostra cada arquivo, backup e diff
 ```
 
 ## O que cada perfil configura

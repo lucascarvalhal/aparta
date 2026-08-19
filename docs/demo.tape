@@ -5,7 +5,7 @@ Output docs/demo.gif
 
 Set FontSize 15
 Set Width 1100
-Set Height 640
+Set Height 700
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 60ms
 
@@ -14,6 +14,7 @@ Env XDG_CONFIG_HOME "/tmp/aparta-demo-home/.config"
 Env APARTA_CONFIG_DIR "/tmp/aparta-demo-home/.config/aparta"
 Env CLOUDSDK_CONFIG "/tmp/aparta-demo-home/.config/gcloud"
 Env APARTA_LANG "en"
+Env APARTA_UPDATES "off"
 Env PATH "/tmp/aparta-demo-home/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 Hide
@@ -26,6 +27,10 @@ Enter
 Sleep 2.5s
 
 # agents: keep Claude Code selected
+Enter
+Sleep 1.5s
+
+# providers: keep gh, gcloud and aws selected (full sweep)
 Enter
 Sleep 1.5s
 
@@ -60,6 +65,9 @@ Sleep 1.2s
 # gcloud: skip
 Down
 Enter
+Sleep 1.2s
+# aws profile: acme (pre-filled)
+Enter
 Sleep 1.5s
 
 # ---- profile 2/2: personal ----
@@ -81,6 +89,9 @@ Enter
 Sleep 1.2s
 # gcloud: skip
 Down
+Enter
+Sleep 1.2s
+# aws profile: personal (pre-filled)
 Enter
 Sleep 1.5s
 

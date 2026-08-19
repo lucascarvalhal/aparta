@@ -88,18 +88,24 @@ The CLI speaks English and Brazilian Portuguese. The first run of the wizard ask
 aparta            # first run opens the wizard; later runs open a menu
 ```
 
-1. Pick which AI agents should receive per-project environment (Claude Code, Codex, Gemini CLI, Antigravity, or a generic `.envrc` via direnv).
-2. Choose **"Detect what I already use"** (recommended) or **"Start from zero"**.
-3. Confirm each suggested profile, name, folder, git e-mail, SSH key, remote alias, gh account, gcloud account/project all come pre-filled from the scan.
-4. Optionally adopt stray repos that live outside your profile folders (they keep their location; identity is applied locally via a git `include.path`).
-5. Review the summary, confirm once. Done.
+1. On the very first run, pick your language and whether updates should be automatic or manual.
+2. Pick which AI agents should receive per-project environment (Claude Code, Codex, Gemini CLI, Antigravity, opencode, or a generic `.envrc` via direnv).
+3. Pick which providers to configure (GitHub CLI, Google Cloud, AWS), or keep them all for a full sweep. git and SSH are always included.
+4. Choose **"Detect what I already use"** (recommended) or **"Start from zero"**.
+5. Confirm each suggested profile, name, folder, git e-mail, SSH key, remote alias and accounts all come pre-filled from the scan.
+6. Optionally adopt stray repos that live outside your profile folders (they keep their location; identity is applied locally via a git `include.path`).
+7. Review the summary, confirm once. Done.
 
 ```bash
 aparta doctor     # verify everything actually resolves to the right identity
 aparta scan       # read-only: show detected project groups
 aparta apply X    # re-apply a profile (e.g. after cloning new repos)
+aparta remove X   # remove a profile and undo what it applied (backups kept)
 aparta list       # list configured profiles
+aparta update     # update aparta to the latest release
+aparta help       # every command and what it does
 aparta --dry-run  # any command: show diffs, change nothing
+aparta --verbose  # any command: show every file, backup and diff
 ```
 
 ## What each profile configures

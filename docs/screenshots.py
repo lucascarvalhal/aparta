@@ -33,7 +33,7 @@ def render(lang: str, suffix: str) -> None:
     t.add_column(_("Git e-mail"))
     t.add_column("gh / gcloud")
     t.add_column(_("Source"))
-    t.add_row("acme", "~/work/acme", "14", "ana@acme.com", "gh-acme / acme", "~/.gitconfig")
+    t.add_row("acme", "~/work/acme", "14", "ana@acme.com", "gh-acme / acme / aws:acme", "~/.gitconfig")
     t.add_row("client-x", "~/work/client-x", "6", "ana@client-x.io", "gcloud:client-x", "~/.gitconfig")
     t.add_row("personal", "~/personal", "5", "ana.dev@gmail.com", "gh-personal / personal", "~/.gitconfig")
     t.add_row("projects", "~/projects", "3", "ana.dev@gmail.com", "—", _("scan"))
@@ -44,8 +44,9 @@ def render(lang: str, suffix: str) -> None:
     # ---- wizard ----
     c = record()
     c.print(Panel(_("Welcome to [bold]aparta[/bold]! Let's isolate your development accounts per project folder."), border_style="cyan"))
-    c.print(f"[bold]?[/bold] {_('Which AI agents should receive the environment variables?')}  [cyan]Claude Code, Gemini CLI[/cyan]")
-    c.print(f"[bold]?[/bold] {_('How do you want to start?')}  [cyan]{_('Detect what I already use: scans logged-in accounts, keys and existing projects').split(':')[0]}[/cyan]")
+    c.print(f"{_('Which AI agents should receive the environment variables?')}  [cyan]Claude Code, Gemini CLI[/cyan]")
+    c.print(f"{_('Which providers do you want to configure? (git and SSH are always on; keep all selected for a full sweep)')}  [cyan]done (3 selections)[/cyan]")
+    c.print(f"{_('How do you want to start?')}  [cyan]{_('Detect what I already use: scans logged-in accounts, keys and existing projects').split(':')[0]}[/cyan]")
     c.print(_("[dim]Scanning your home for git repositories (read-only)...[/dim]"))
     c.print(_("Found [bold]{n}[/bold] project group(s) already in use:", n=2))
     c.print("  [green]●[/green] ~/work/acme (14 repos, ana@acme.com, gh:ana-acme)")
@@ -58,13 +59,14 @@ def render(lang: str, suffix: str) -> None:
             border_style="cyan",
         )
     )
-    c.print(f"[bold]?[/bold] {_('Profile name for {root}:', root='~/work/acme')}  [cyan]acme[/cyan]")
+    c.print(f"{_('Profile name for {root}:', root='~/work/acme')}  [cyan]acme[/cyan]")
     root_prompt = _("Root folder of this profile's projects:")
-    c.print(f"[bold]?[/bold] {root_prompt}  [cyan]~/work/acme[/cyan]")
-    c.print(f"[bold]?[/bold] {_('git e-mail for these repositories:')}  [cyan]ana@acme.com[/cyan]")
-    c.print(f"[bold]?[/bold] {_('Dedicated SSH key for this profile:')}  [cyan]~/.ssh/id_ed25519_acme[/cyan]")
-    c.print(f"[bold]?[/bold] {_('GitHub CLI account for this profile:')}  [cyan]ana-acme[/cyan]")
-    c.print(f"[bold]?[/bold] {_('gcloud account for this profile:')}  [cyan]ana@acme.com[/cyan]")
+    c.print(f"{root_prompt}  [cyan]~/work/acme[/cyan]")
+    c.print(f"{_('git e-mail for these repositories:')}  [cyan]ana@acme.com[/cyan]")
+    c.print(f"{_('Dedicated SSH key for this profile:')}  [cyan]~/.ssh/id_ed25519_acme[/cyan]")
+    c.print(f"{_('GitHub CLI account for this profile:')}  [cyan]ana-acme[/cyan]")
+    c.print(f"{_('gcloud account for this profile:')}  [cyan]ana@acme.com[/cyan]")
+    c.print(f"{_('AWS profile for this profile:')}  [cyan]acme[/cyan]")
     c.save_svg(str(DOCS / f"wizard{suffix}.svg"), title="aparta wizard")
 
     # ---- summary ----
@@ -82,7 +84,9 @@ def render(lang: str, suffix: str) -> None:
         + "\n"
         + _("gcloud: configuration '{name}' with {account}{proj}", name="acme", account="ana@acme.com", proj=_(" (project {project})", project="acme-data-prod"))
         + "\n"
-        + _("agents ({names}): inject {vars} into the repos of {root}", names="Claude Code, Gemini CLI", vars="GH_CONFIG_DIR, CLOUDSDK_ACTIVE_CONFIG_NAME", root="~/work/acme"),
+        + _("aws: select profile '{name}' via AWS_PROFILE", name="acme")
+        + "\n"
+        + _("agents ({names}): inject {vars} into the repos of {root}", names="Claude Code, Gemini CLI", vars="GH_CONFIG_DIR, CLOUDSDK_ACTIVE_CONFIG_NAME, AWS_PROFILE", root="~/work/acme"),
     )
     t.add_row(
         "personal",
@@ -111,6 +115,7 @@ def render(lang: str, suffix: str) -> None:
     t.add_row("gh", "gh-acme", ok, _("logged in as {user}", user="ana-acme"))
     t.add_row("gcloud", "account", ok, "ana@acme.com")
     t.add_row("gcloud", "project", ok, "acme-data-prod")
+    t.add_row("aws", "acme", ok, _("profile found in ~/.aws"))
     t.add_row("claude-code", "api-gateway", ok, _("env ok"))
     t.add_row("gemini", "api-gateway", ok, _("env ok"))
     c.print(t)
