@@ -1,90 +1,141 @@
-# aparta
+<p align="center">
+  <img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/logo.svg" alt="aparta" width="480">
+</p>
 
-> Isole suas contas de desenvolvimento (git, GitHub CLI, gcloud) por pasta de projeto — e faça seus agentes de IA de terminal usarem a conta certa, sempre.
+<p align="center">
+  <a href="https://pypi.org/project/aparta/"><img src="https://img.shields.io/pypi/v/aparta" alt="PyPI"></a>
+  <img src="https://img.shields.io/pypi/pyversions/aparta" alt="Python">
+  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT">
+  <img src="https://img.shields.io/badge/tests-70%20passing-brightgreen" alt="Tests">
+</p>
 
-![CI](https://img.shields.io/badge/tests-passing-brightgreen) ![Python](https://img.shields.io/badge/python-%E2%89%A53.10-blue) ![License: MIT](https://img.shields.io/badge/license-MIT-yellow) ![PyPI](https://img.shields.io/badge/pypi-aparta-orange)
+<p align="center">
+  <b>English</b> | <a href="README.pt-BR.md">Português (Brasil)</a>
+</p>
 
-<!-- TODO: gravar demo com asciinema e substituir o placeholder abaixo -->
-![demo placeholder](https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.gif)
+**aparta** isolates your development accounts — git, GitHub CLI, gcloud, SSH keys — per project folder, and makes your terminal AI agents (Claude Code, Codex, Gemini CLI, Antigravity) use the right identity, always. *Aparta* is Portuguese for "set apart".
 
-## Quick Start (English)
+## Why aparta?
 
-Working with multiple identities (personal + work, or several clients) means commits going out with the wrong e-mail, `gh`/`gcloud` having a single *global* active account, and AI coding agents inheriting whatever identity your shell happens to have. **aparta** automates the known manual fix — `includeIf` blocks in `~/.gitconfig`, parallel `gh` config dirs selected via `GH_CONFIG_DIR`, named `gcloud` configurations selected via `CLOUDSDK_ACTIVE_CONFIG_NAME` — and injects those env vars per project into your terminal AI agents.
+If you work with more than one identity — a day job, a side gig, freelance clients, open source — you know the drill:
+
+- You commit to a client's repo and only later notice the commit went out **with your personal e-mail** (or worse: your personal work went out with your employer's e-mail). Rewriting published history is painful; sometimes it's impossible.
+- `gh` and `gcloud` have **one globally active account**. Switching in one terminal switches *everywhere* — including that other terminal where a deploy script was about to run against the wrong project.
+- Terminal AI agents inherit whatever identity your shell happens to have. An agent that clones, commits, pushes, or calls cloud APIs on your behalf multiplies the odds of an accident.
+
+The fix is well known among people who've been burned: `[includeIf "gitdir:..."]` blocks in `~/.gitconfig`, parallel `gh` config directories selected via `GH_CONFIG_DIR`, named `gcloud` configurations selected via `CLOUDSDK_ACTIVE_CONFIG_NAME`, per-host SSH aliases. It works beautifully — and it's tedious to set up by hand, easy to get subtly wrong, and nobody documents how to make AI agents respect it.
+
+**aparta automates the whole thing.** Folder decides identity. Enter a project under `~/work/acme`, and git, gh, gcloud, and your AI agents are the acme you. Enter `~/personal`, and they're you-you. No switching, no remembering, no accidents.
+
+## How it works
+
+One command, one interactive wizard:
+
+- **Scans what you already have** — logged-in gh/gcloud accounts, SSH keys and host aliases, existing `includeIf` blocks, and every git repo on disk grouped by folder and commit e-mail. Existing setups become pre-filled suggestions: confirming a profile is just pressing Enter.
+- **Or starts from zero** — connect a new GitHub account (`gh auth login` scoped to the profile's own config dir), a new Google account, generate a fresh SSH key (and upload it to GitHub for you).
+- **Applies safely** — every file it touches is backed up first (`.bak-aparta-<timestamp>`) and merged, never overwritten. `--dry-run` shows the full diff without changing anything. Nothing ever leaves your machine.
+- **Verifies** — `aparta doctor` checks the real state: the resolved git e-mail in each repo, gh auth, gcloud config, injected agent env.
+
+### Screenshots
+
+*The wizard detects your existing setup and pre-fills everything:*
+
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/wizard.svg" alt="aparta wizard" width="820">
+
+*One summary, one confirmation — with a safety net:*
+
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/resumo.svg" alt="aparta summary" width="820">
+
+*`aparta scan` shows what it found without touching anything:*
+
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/scan.svg" alt="aparta scan" width="820">
+
+*`aparta doctor` proves each profile is actually working:*
+
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/doctor.svg" alt="aparta doctor" width="680">
+
+> The CLI speaks Portuguese today (its home market); English localization is on the roadmap. The flow is simple enough to follow either way — every prompt is shown above.
+
+## Installation
+
+Requires Python ≥ 3.10. `gh` and `gcloud` are optional — aparta selects credentials for the tools you use; it never logs in for you (unless you ask it to, in the wizard).
 
 ```bash
-uvx aparta        # first run drops you straight into the interactive wizard
+# run without installing (recommended to try it out)
+uvx aparta
+
+# install as a permanent tool with uv
+uv tool install aparta
+
+# or with pipx
+pipx install aparta
+
+# or plain pip
+pip install aparta
 ```
 
-Pick your AI agents, describe each context (folder, git e-mail, SSH key, gh/gcloud accounts — aparta lists what is already logged in), review the summary, confirm once. Done. `aparta doctor` verifies everything afterwards.
+An `npx` port is planned — see the roadmap.
 
-Requirements: Python >= 3.10; `gh` and `gcloud` must already be authenticated (aparta selects credentials, it never logs in for you). Nothing ever leaves your machine.
-
----
-
-## O problema
-
-Quem trabalha com mais de uma identidade vive esbarrando no mesmo atrito:
-
-- commits saindo com o **e-mail errado** dependendo da pasta;
-- `gh` e `gcloud` têm **uma conta ativa global** — trocar num terminal troca em todos;
-- agentes de IA de terminal herdam o ambiente do shell e usam a conta errada.
-
-O **aparta** automatiza a solução manual conhecida: blocos `[includeIf "gitdir:..."]` no `~/.gitconfig`, diretórios de config paralelos do `gh` (`GH_CONFIG_DIR`), configurations nomeadas do `gcloud` (`CLOUDSDK_ACTIVE_CONFIG_NAME`) — e injeta essas variáveis por projeto nos seus agentes de IA.
-
-## Instalação
+## Quick start
 
 ```bash
-uvx aparta          # roda sem instalar (recomendado para começar)
-pip install aparta  # ou instale de vez
+aparta            # first run opens the wizard; later runs open a menu
 ```
 
-Rodar `aparta` sem argumentos na primeira vez abre o **wizard interativo**; com perfis já configurados, abre um menu (novo perfil / apply / doctor / list).
+1. Pick which AI agents should receive per-project environment (Claude Code, Codex, Gemini CLI, Antigravity, or a generic `.envrc` via direnv).
+2. Choose **"Detect what I already use"** (recommended) or **"Start from zero"**.
+3. Confirm each suggested profile — name, folder, git e-mail, SSH key, remote alias, gh account, gcloud account/project all come pre-filled from the scan.
+4. Optionally adopt stray repos that live outside your profile folders (they keep their location; identity is applied locally via a git `include.path`).
+5. Review the summary, confirm once. Done.
 
-## Agentes suportados
+```bash
+aparta doctor     # verify everything actually resolves to the right identity
+aparta scan       # read-only: show detected project groups
+aparta apply X    # re-apply a profile (e.g. after cloning new repos)
+aparta list       # list configured profiles
+aparta --dry-run  # any command: show diffs, change nothing
+```
 
-| Agente | Mecanismo de injeção |
+## What each profile configures
+
+| Tool | Mechanism |
 |---|---|
-| Claude Code | campo `env` em `.claude/settings.local.json` (merge) |
-| Codex CLI | seção `[env]` em `.codex/config.toml` do repositório |
-| Gemini CLI | `.gemini/.env` do projeto (carregado nativamente pelo CLI) |
-| Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` |
-| direnv (genérico) | linhas `export` no `.envrc` — funciona para qualquer ferramenta |
+| git | `~/.gitconfig-<profile>` with `user.email`, `core.sshCommand` (dedicated key), optional `url insteadOf` rewrite; included via `[includeIf "gitdir:~/folder/"]` |
+| GitHub CLI | copy of `~/.config/gh` to `~/.config/gh-<profile>` + `gh auth switch` inside the copy; selected via `GH_CONFIG_DIR` (tokens stay in your keyring — no re-login) |
+| gcloud | named configuration (`--no-activate`) with account/project; selected via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
+| SSH | per-profile key; optional `~/.ssh/config` host-alias rewrite so any clone URL uses the right key |
+| Stray repos | local `include.path` in the repo's `.git/config` pointing at the profile's gitconfig — full identity without moving the folder |
 
-Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (registro automático).
+## Supported AI agents
 
-## O que cada perfil configura
-
-| Ferramenta | Mecanismo |
+| Agent | Injection mechanism |
 |---|---|
-| git | `~/.gitconfig-<perfil>` com `user.email`, `core.sshCommand` (chave SSH própria) e opcionalmente `url insteadOf`; incluído via `[includeIf "gitdir:~/pasta/"]` |
-| gh | cópia de `~/.config/gh` para `~/.config/gh-<perfil>` + `gh auth switch` na cópia; seleção via `GH_CONFIG_DIR` (tokens ficam no keyring — sem novo login) |
-| gcloud | `gcloud config configurations create <perfil> --no-activate`; seleção via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
-| agentes | as duas env vars acima injetadas por repositório, pelos adapters da tabela anterior |
+| Claude Code | `env` field in `.claude/settings.local.json` (merged) |
+| Codex CLI | `[env]` section in the repo's `.codex/config.toml` |
+| Gemini CLI | project `.gemini/.env` (loaded natively by the CLI) |
+| Antigravity | `terminal.integrated.env.{osx,linux}` in `.vscode/settings.json` |
+| direnv (generic) | `export` lines in `.envrc` — works for any tool |
 
-## Comandos
+Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered).
 
-```bash
-aparta            # wizard (1ª vez) ou menu
-aparta init       # wizard: agentes → contextos → resumo → confirmação → apply
-aparta apply <p>  # aplica um perfil
-aparta doctor     # valida tudo (tabela: git email por repo, gh auth, gcloud, env)
-aparta list       # perfis configurados
-aparta --dry-run apply <p>   # mostra o diff completo sem tocar em nada
-```
+## Safety model
 
-## Segurança
+- Every write to an existing file creates a timestamped backup and **merges** — aparta never overwrites your dotfiles.
+- `--dry-run` previews every change as a diff.
+- The scan is 100% read-only.
+- Nothing is sent anywhere. No telemetry, no network calls beyond the ones *you* trigger (`gh auth login`, `gcloud auth login`).
 
-- **Backups sempre**: toda escrita em arquivo existente cria antes `<arquivo>.bak-aparta-<timestamp>`.
-- **Merge, nunca substituição**: no `~/.gitconfig` blocos são adicionados apenas se ausentes; nos configs dos agentes só o objeto de env é mesclado — o resto é preservado.
-- **`--dry-run` global**: veja o diff exato antes de aplicar qualquer coisa.
-- **Nada sai da sua máquina**: o aparta não faz chamadas de rede; ele apenas organiza arquivos locais e credenciais que **você já criou** com `gh auth login` e `gcloud auth login` (faça login antes de usar o aparta).
+## Roadmap
 
-Estado em `~/.config/aparta/profiles.toml` (override com `APARTA_CONFIG_DIR`).
+- English (and i18n) for the CLI texts
+- More agents: Cursor CLI, opencode
+- `npx` port for the Node ecosystem
+- Windows-native support (WSL works today)
 
-## Contribuindo
+## Contributing
 
-Veja [CONTRIBUTING.md](CONTRIBUTING.md). Resumo: `uv sync`, `uv run pytest`, um adapter novo é um arquivo em `src/aparta/agents/` com `name`, `display_name` e os métodos `detect/inject/validate`.
+Issues and PRs are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Licença
+## License
 
 [MIT](LICENSE)

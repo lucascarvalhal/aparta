@@ -1,7 +1,7 @@
 [project]
 name = "aparta"
 version = "0.1.0"
-description = "Isole contas de desenvolvimento (git, gh, gcloud) por pasta de projeto e injete o ambiente nos agentes de IA de terminal."
+description = "Isolate your dev accounts (git, gh, gcloud, SSH) per project folder and make terminal AI agents use the right identity, always."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

@@ -1,0 +1,25 @@
+<svg width="560" height="140" viewBox="0 0 560 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- aparta: duas identidades, apartadas por pasta -->
+  <g>
+    <rect x="8" y="10" width="120" height="120" rx="26" fill="#0f172a"/>
+    <!-- pasta esquerda (inclinada para fora) -->
+    <g transform="rotate(-8 44 70)">
+      <path d="M24 48 h20 l6 -8 h16 a6 6 0 0 1 6 6 v44 a6 6 0 0 1 -6 6 h-42 a6 6 0 0 1 -6 -6 v-36 a6 6 0 0 1 6 -6 z"
+            fill="#22d3ee"/>
+    </g>
+    <!-- pasta direita (inclinada para fora) -->
+    <g transform="rotate(8 96 70)">
+      <path d="M74 48 h20 l6 -8 h16 a6 6 0 0 1 6 6 v44 a6 6 0 0 1 -6 6 h-42 a6 6 0 0 1 -6 -6 v-36 a6 6 0 0 1 6 -6 z"
+            fill="#a78bfa"/>
+    </g>
+    <!-- o vão que aparta -->
+    <line x1="68" y1="26" x2="68" y2="114" stroke="#0f172a" stroke-width="10" stroke-linecap="round"/>
+    <line x1="68" y1="30" x2="68" y2="110" stroke="#334155" stroke-width="2.5" stroke-dasharray="1 9" stroke-linecap="round"/>
+  </g>
+  <text x="152" y="92" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="64" font-weight="700" letter-spacing="-2">
+    <tspan fill="#22d3ee">apar</tspan><tspan fill="#a78bfa">ta</tspan>
+  </text>
+  <text x="156" y="120" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="16" fill="#64748b">the right account in every folder</text>
+</svg>
