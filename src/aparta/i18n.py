@@ -106,7 +106,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "Show every file, backup and diff instead of the compact summary.": "Mostra cada arquivo, backup e diff em vez do resumo compacto.",
         "[dim]Skipping repos owned by more specific profiles: {roots}[/dim]": "[dim]Pulando repos que pertencem a perfis mais específicos: {roots}[/dim]",
         "  [green]OK[/green] {area}": "  [green]OK[/green] {area}",
-        "  [green]OK[/green] agents: env in {n} of {total} repo(s)": "  [green]OK[/green] agentes: env em {n} de {total} repo(s)",
+        "  [green]OK[/green] agents: {n} config file(s) updated across {total} repo(s)": "  [green]OK[/green] agentes: {n} arquivo(s) de config atualizado(s) em {total} repo(s)",
         "[dim]Use --verbose to see every file and diff.[/dim]": "[dim]Use --verbose para ver cada arquivo e diff.[/dim]",
         "[green]Done: {n} file(s) updated (backups kept).[/green]": "[green]Pronto: {n} arquivo(s) atualizado(s) (backups mantidos).[/green]",
         "Shell autocompletion: [bold]aparta --install-completion[/bold].": "Autocompletar no shell: [bold]aparta --install-completion[/bold].",

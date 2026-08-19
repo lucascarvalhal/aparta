@@ -111,7 +111,7 @@ def apply_profile(
         touched = len(writer.changes) - before
         if repos:
             console.print(
-                _("  [green]OK[/green] agents: env in {n} of {total} repo(s)", n=touched, total=len(repos))
+                _("  [green]OK[/green] agents: {n} config file(s) updated across {total} repo(s)", n=touched, total=len(repos))
             )
 
     if writer.dry_run:
