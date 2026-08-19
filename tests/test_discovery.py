@@ -1,4 +1,4 @@
-"""Testes da descoberta automática de contextos (discovery.py)."""
+"""Context discovery (discovery.py)."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def test_parse_includeifs():
     ]
 
 
-def test_parse_includeifs_ignora_sem_path():
+def test_parse_includeifs_skips_blocks_without_path():
     text = '[includeIf "gitdir:~/x/"]\n[user]\n    email = a@b.c\n'
     assert parse_includeifs(text) == []
 
@@ -65,11 +65,11 @@ def test_suggestions_from_gitconfig(tmp_path: Path):
     assert s.source == "gitconfig"
 
 
-def test_suggestions_from_gitconfig_inexistente(tmp_path: Path):
+def test_suggestions_from_gitconfig_missing_file(tmp_path: Path):
     assert suggestions_from_gitconfig(tmp_path / "nao-existe") == []
 
 
-def test_find_repos_pula_pastas_pesadas(tmp_path: Path):
+def test_find_repos_skips_heavy_dirs(tmp_path: Path):
     _make_repo(tmp_path / "app")
     escondido = tmp_path / "node_modules" / "dep"
     escondido.mkdir(parents=True)
@@ -90,14 +90,14 @@ def test_read_agent_env(tmp_path: Path):
     assert env["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "pessoal"
 
 
-def test_read_agent_env_json_invalido(tmp_path: Path):
+def test_read_agent_env_invalid_json(tmp_path: Path):
     repo = tmp_path / "repo"
     (repo / ".claude").mkdir(parents=True)
     (repo / ".claude" / "settings.local.json").write_text("{quebrado")
     assert read_agent_env(repo) == {}
 
 
-def test_discover_agrupa_por_pasta_mae(tmp_path: Path):
+def test_discover_groups_by_parent_folder(tmp_path: Path):
     pessoal = tmp_path / "pessoal"
     _make_repo(pessoal / "blog", "eu@gmail.com")
     _make_repo(pessoal / "cli", "eu@gmail.com")
@@ -113,11 +113,11 @@ def test_discover_agrupa_por_pasta_mae(tmp_path: Path):
     assert by_name["pessoal"].git_email == "eu@gmail.com"
     assert by_name["acme"].repo_count == 1
     assert by_name["acme"].git_email == "eu@acme.com"
-    # mais repos primeiro
+    # most repos first
     assert suggestions[0].name == "pessoal"
 
 
-def test_discover_mescla_gitconfig_com_varredura(tmp_path: Path):
+def test_discover_merges_gitconfig_with_scan(tmp_path: Path):
     pessoal = tmp_path / "pessoal"
     _make_repo(pessoal / "blog", "eu@gmail.com")
     gitconfig = tmp_path / ".gitconfig"
@@ -131,9 +131,9 @@ def test_discover_mescla_gitconfig_com_varredura(tmp_path: Path):
     )
     assert len(suggestions) == 1
     s = suggestions[0]
-    assert s.source == "gitconfig"  # sinal mais forte prevalece
+    assert s.source == "gitconfig"  # strongest signal wins
     assert s.git_email == "fixo@gmail.com"
-    assert s.repo_count == 1  # enriquecido pela varredura
+    assert s.repo_count == 1  # enriched by the scan
 
 
 def test_suggestion_dataclass_defaults():
@@ -141,7 +141,7 @@ def test_suggestion_dataclass_defaults():
     assert s.repo_count == 0 and s.source == "repos"
 
 
-def test_suggestions_from_gitconfig_extrai_ssh_key(tmp_path: Path):
+def test_suggestions_from_gitconfig_extracts_ssh_key(tmp_path: Path):
     gitconfig = tmp_path / ".gitconfig"
     gitconfig.write_text('[includeIf "gitdir:~/eneva/"]\n    path = .gitconfig-eneva\n')
     (tmp_path / ".gitconfig-eneva").write_text(
@@ -152,7 +152,7 @@ def test_suggestions_from_gitconfig_extrai_ssh_key(tmp_path: Path):
     assert s.ssh_key == "~/.ssh/id_ed25519_eneva"
 
 
-def test_suggestions_from_gitconfig_extrai_ssh_alias(tmp_path: Path):
+def test_suggestions_from_gitconfig_extracts_ssh_alias(tmp_path: Path):
     gitconfig = tmp_path / ".gitconfig"
     gitconfig.write_text('[includeIf "gitdir:~/pessoal/"]\n    path = .gitconfig-pessoal\n')
     (tmp_path / ".gitconfig-pessoal").write_text(
@@ -191,8 +191,8 @@ def test_gcloud_config_values(tmp_path: Path):
     assert gcloud_config_values("nada", tmp_path) == ("", "")
 
 
-def test_discover_enriquece_contas_por_convencao(tmp_path: Path):
-    """Sugestão 'pessoal' acha gh-pessoal e config_pessoal pela convenção de nomes."""
+def test_discover_enriches_accounts_by_naming_convention(tmp_path: Path):
+    """The 'pessoal' suggestion finds gh-pessoal/config_pessoal by naming convention."""
     pessoal = tmp_path / "pessoal"
     _make_repo(pessoal / "blog", "eu@gmail.com")
     config_root = tmp_path / ".config"

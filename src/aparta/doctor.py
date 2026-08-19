@@ -1,4 +1,4 @@
-"""aparta doctor: valida git, gh, gcloud e agentes por perfil, em tabela rich."""
+"""aparta doctor: validate git, gh, gcloud and agents per profile."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .agents import get_adapters
-from .discovery import find_repos  # noqa: F401 — reexportado (cli importa daqui)
+from .discovery import find_repos  # noqa: F401 (re-exported; cli imports it here)
 from .profiles import Profile
 
 console = Console()
@@ -45,7 +45,7 @@ def check_profile(profile: Profile) -> bool:
         p for p in (Path(r).expanduser() for r in profile.adopted_repos) if p.exists()
     ]
 
-    # git: e-mail resolvido em cada repo
+    # git: e-mail resolved in each repo
     if not repos:
         all_ok &= _row(table, "git", str(profile.root_path), None, "nenhum repositório encontrado")
     for repo in repos:
@@ -54,7 +54,7 @@ def check_profile(profile: Profile) -> bool:
         ok = email == profile.git_email
         all_ok &= _row(table, "git", repo.name, ok, email or "user.email não resolvido")
 
-    # gh: auth status com o GH_CONFIG_DIR do perfil
+    # gh: auth status under the profile's GH_CONFIG_DIR
     if profile.gh_user:
         gh_dir = profile.gh_config_dir
         if not gh_dir.exists():
@@ -66,7 +66,7 @@ def check_profile(profile: Profile) -> bool:
             detail = f"logado como {profile.gh_user}" if ok else (output.strip().splitlines() or ["falhou"])[-1]
             all_ok &= _row(table, "gh", gh_dir.name, ok, detail)
 
-    # gcloud: conta/projeto da configuração do perfil
+    # gcloud: account/project of the profile's configuration
     if profile.gcloud_account or profile.gcloud_project:
         env = {"CLOUDSDK_ACTIVE_CONFIG_NAME": profile.name}
         if profile.gcloud_account:
@@ -80,7 +80,7 @@ def check_profile(profile: Profile) -> bool:
             ok = project == profile.gcloud_project
             all_ok &= _row(table, "gcloud", "project", ok, project or r.stderr.strip())
 
-    # agentes: env injetado em cada repo
+    # agents: env injected in each repo
     expected_env = profile.env()
     if expected_env:
         for adapter in get_adapters(profile.agents):

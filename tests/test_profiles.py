@@ -1,4 +1,4 @@
-"""Geração e round-trip dos perfis em profiles.toml."""
+"""Profile generation and round-trip through profiles.toml."""
 
 from pathlib import Path
 

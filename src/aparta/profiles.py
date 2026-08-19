@@ -1,4 +1,4 @@
-"""Modelo e persistência dos perfis em ~/.config/aparta/profiles.toml."""
+"""Profile model and persistence (~/.config/aparta/profiles.toml)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from .fsutil import SafeWriter
 
 
 def config_dir() -> Path:
-    """Diretório de configuração do aparta (override via APARTA_CONFIG_DIR p/ testes)."""
+    """Config directory; APARTA_CONFIG_DIR overrides it (used by tests)."""
     override = os.environ.get("APARTA_CONFIG_DIR")
     if override:
         return Path(override)
@@ -32,17 +32,17 @@ def profiles_path() -> Path:
 @dataclass
 class Profile:
     name: str
-    root: str  # pasta raiz dos projetos (ex.: ~/pessoal)
+    root: str  # projects root folder (e.g. ~/personal)
     git_email: str
     git_name: str = ""
-    ssh_key: str = ""  # caminho da chave SSH específica
-    ssh_alias: str = ""  # alias de host p/ reescrever remotes https (url insteadOf)
-    gh_user: str = ""  # conta do GitHub CLI
+    ssh_key: str = ""  # dedicated SSH key path
+    ssh_alias: str = ""  # SSH host alias for url insteadOf remote rewriting
+    gh_user: str = ""  # GitHub CLI account
     gcloud_account: str = ""
     gcloud_project: str = ""
     agents: list[str] = field(default_factory=lambda: ["claude-code"])
-    # repos fora da pasta raiz que pertencem a este perfil (identidade aplicada
-    # localmente no .git/config de cada um, sem mover a pasta)
+    # repos outside root owned by this profile; identity is applied via a
+    # local include in each .git/config, without moving the folder
     adopted_repos: list[str] = field(default_factory=list)
 
     @property
@@ -54,7 +54,7 @@ class Profile:
         return Path.home() / ".config" / f"gh-{self.name}"
 
     def env(self) -> dict[str, str]:
-        """Variáveis de ambiente que este perfil injeta nos agentes."""
+        """Environment variables this profile injects into agents."""
         env: dict[str, str] = {}
         if self.gh_user:
             env["GH_CONFIG_DIR"] = str(self.gh_config_dir)

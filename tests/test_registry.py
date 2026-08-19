@@ -1,4 +1,4 @@
-"""Registry central de adapters: auto-registro e display_name."""
+"""Adapter registry: auto-registration and display_name."""
 
 from pathlib import Path
 
@@ -35,7 +35,7 @@ def test_new_adapter_file_registers_itself():
 
     try:
         assert REGISTRY["fake-test-adapter"] is FakeAdapter
-        assert FakeAdapter.display_name == "fake-test-adapter"  # fallback = name
+        assert FakeAdapter.display_name == "fake-test-adapter"  # falls back to name
         assert isinstance(get_adapters(["fake-test-adapter"])[0], FakeAdapter)
     finally:
         del REGISTRY["fake-test-adapter"]

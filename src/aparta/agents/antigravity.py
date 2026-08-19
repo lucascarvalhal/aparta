@@ -1,15 +1,9 @@
-"""Adapter Antigravity (IDE agent-first do Google).
+"""Antigravity adapter (Google's agent-first IDE, a VS Code fork).
 
-O Antigravity é um fork do VS Code e lê as configurações de workspace em
-.vscode/settings.json; o terminal integrado (usado também pelos agentes ao
-executar comandos) honra "terminal.integrated.env.<plataforma>". Injetamos as
-variáveis em terminal.integrated.env.osx e .linux, preservando o resto.
-
-Limitação conhecida: não há (até o momento) um mecanismo documentado do
-Antigravity para injetar env diretamente no processo do agente fora do
-terminal integrado. Se os comandos do agente não herdarem essas variáveis na
-sua versão, combine este adapter com o adapter `direnv` (.envrc) como
-fallback — o direnv aplica o env a qualquer shell que entre na pasta.
+Injects into "terminal.integrated.env.{osx,linux}" in .vscode/settings.json,
+which the integrated terminal (and agent-run commands) honors. If agent
+commands do not inherit these variables in your build, combine with the
+`direnv` adapter as a fallback.
 """
 
 from __future__ import annotations
@@ -24,7 +18,7 @@ _PLATFORM_KEYS = ("terminal.integrated.env.osx", "terminal.integrated.env.linux"
 
 
 def merge_vscode_settings(existing_text: str, env: dict[str, str]) -> str:
-    """Faz merge do env em terminal.integrated.env.{osx,linux} preservando o resto."""
+    """Merge env into terminal.integrated.env.{osx,linux}, preserving the rest."""
     data = json.loads(existing_text) if existing_text.strip() else {}
     if not isinstance(data, dict):
         raise ValueError(".vscode/settings.json não contém um objeto JSON")
@@ -44,8 +38,7 @@ class AntigravityAdapter(AgentAdapter):
         return repo / ".vscode" / "settings.json"
 
     def detect(self, repo: Path) -> bool:
-        # Workspace settings valem para qualquer repo aberto no Antigravity.
-        return True
+        return True  # workspace settings apply to any repo
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.settings_path(repo)

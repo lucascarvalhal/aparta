@@ -1,4 +1,4 @@
-"""Adapter Claude Code: campo "env" em .claude/settings.local.json (merge, nunca substitui)."""
+"""Claude Code adapter: "env" field in .claude/settings.local.json (merged)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from .base import AgentAdapter
 
 
 def merge_settings_env(existing_text: str, env: dict[str, str]) -> str:
-    """Faz merge do objeto env preservando todo o resto do JSON."""
+    """Merge the env object, preserving everything else in the JSON."""
     data = json.loads(existing_text) if existing_text.strip() else {}
     if not isinstance(data, dict):
         raise ValueError("settings.local.json não contém um objeto JSON")
@@ -29,8 +29,7 @@ class ClaudeCodeAdapter(AgentAdapter):
         return repo / ".claude" / "settings.local.json"
 
     def detect(self, repo: Path) -> bool:
-        # Claude Code funciona em qualquer repo; consideramos sempre aplicável.
-        return True
+        return True  # applies to any repo
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.settings_path(repo)

@@ -1,17 +1,8 @@
-"""Wizard interativo do aparta: agentes primeiro, depois contextos guiados.
+"""Interactive wizard: agents, then start mode, then guided profiles.
 
-Fluxo:
-1. Escolha dos agentes de IA (checkbox multi-seleção, vindos do registry).
-2. Modo: "detectar o que já uso" (varredura via discovery.discover, sugestões
-   pré-preenchidas com nome/pasta/e-mail/chave/contas) ou "começar do zero".
-3. Por perfil: nome → pasta raiz → e-mail git → chave SSH (lista ~/.ssh +
-   gerar nova com ssh-keygen e oferta de enviar via `gh ssh-key add`)
-   → conta gh (contas logadas + conectar nova no config dir do perfil)
-   → conta gcloud (idem, na configuração nomeada do perfil).
-4. No modo detectar, repos soltos (fora das raízes) podem ser adotados por um
-   perfil: include.path local no .git/config, sem mover a pasta.
-5. Resumo rico de tudo que será feito + confirmação única + apply automático
-   (ou só salvar sem aplicar).
+Flow: pick AI agents; choose "detect" (disk scan pre-fills every answer) or
+"from scratch" (connect accounts and generate keys along the way); configure
+each profile; optionally adopt stray repos; confirm a single summary.
 """
 
 from __future__ import annotations
@@ -38,10 +29,10 @@ NEW_GCLOUD_LOGIN = "(conectar nova conta Google...)"
 NEW_SSH_KEY = "(gerar nova chave SSH para este perfil...)"
 
 
-# ---------------------------------------------------------------- descoberta
+# ----------------------------------------------------------------- discovery
 
 def list_ssh_keys(ssh_dir: Path | None = None) -> list[str]:
-    """Chaves privadas em ~/.ssh (arquivos com par .pub correspondente)."""
+    """Private keys in ~/.ssh (files with a matching .pub)."""
     ssh_dir = ssh_dir or Path.home() / ".ssh"
     if not ssh_dir.exists():
         return []
@@ -54,11 +45,10 @@ def list_ssh_keys(ssh_dir: Path | None = None) -> list[str]:
 
 
 def list_ssh_host_aliases(config: Path | None = None) -> list[dict[str, str]]:
-    """Atalhos de host do ~/.ssh/config: [{alias, hostname, identity}].
+    """Host aliases from ~/.ssh/config: [{alias, hostname, identity}].
 
-    Só entram blocos com HostName definido e alias diferente do host real
-    (apelidos de verdade, ex.: github.com-pessoal → github.com); curingas
-    (*, ?) são ignorados.
+    Only blocks with a HostName and an alias that differs from it count as
+    real aliases; wildcard entries are skipped.
     """
     config = config or Path.home() / ".ssh" / "config"
     if not config.exists():
@@ -90,7 +80,7 @@ def list_ssh_host_aliases(config: Path | None = None) -> list[dict[str, str]]:
 
 
 def parse_gh_accounts(status_output: str) -> list[str]:
-    """Extrai usuários logados da saída de `gh auth status` (todas as contas)."""
+    """Logged-in users from `gh auth status` output (every account)."""
     return list(dict.fromkeys(re.findall(r"Logged in to \S+ account (\S+)", status_output)))
 
 
@@ -119,13 +109,13 @@ def list_gcloud_accounts() -> list[str]:
     return [line.strip() for line in r.stdout.splitlines() if line.strip()]
 
 
-# -------------------------------------------------------------- login novo
+# ------------------------------------------------------------ new accounts
 
 def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
-    """`gh auth login` interativo já dentro de ~/.config/gh-<perfil>.
+    """Interactive `gh auth login` inside ~/.config/gh-<profile>.
 
-    A conta nova nasce isolada no config dir do perfil — a config global do gh
-    não é tocada. Retorna o usuário logado ('' se falhou/cancelou/dry-run).
+    The new account is born isolated in the profile's config dir; the global
+    gh config is untouched. Returns the logged-in user ('' on failure).
     """
     dst = Path.home() / ".config" / f"gh-{profile_name}"
     if dry_run:
@@ -134,7 +124,7 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
     dst.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, GH_CONFIG_DIR=str(dst))
     try:
-        r = subprocess.run(["gh", "auth", "login"], env=env)  # interativo, herda o TTY
+        r = subprocess.run(["gh", "auth", "login"], env=env)  # interactive, inherits TTY
     except FileNotFoundError:
         console.print("[red]gh não encontrado no PATH.[/red]")
         return ""
@@ -152,11 +142,11 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
 
 
 def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
-    """`gcloud auth login` interativo dentro da configuração nomeada do perfil.
+    """Interactive `gcloud auth login` inside the profile's named config.
 
-    A configuração é criada com --no-activate antes, e o login roda com
-    CLOUDSDK_ACTIVE_CONFIG_NAME apontando para ela — a conta ativa da sua
-    configuração global não muda. Retorna a conta logada ('' se falhou).
+    The configuration is created with --no-activate first and the login runs
+    with CLOUDSDK_ACTIVE_CONFIG_NAME pointing at it, so the globally active
+    account never changes. Returns the logged-in account ('' on failure).
     """
     if dry_run:
         console.print(
@@ -168,9 +158,9 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
             ["gcloud", "config", "configurations", "create", profile_name, "--no-activate"],
             capture_output=True,
             text=True,
-        )  # "already exists" é ok — o login abaixo só usa a config
+        )  # "already exists" is fine; the login below only uses the config
         env = dict(os.environ, CLOUDSDK_ACTIVE_CONFIG_NAME=profile_name)
-        r = subprocess.run(["gcloud", "auth", "login"], env=env)  # interativo
+        r = subprocess.run(["gcloud", "auth", "login"], env=env)  # interactive
         if r.returncode != 0:
             console.print("[yellow]Login cancelado ou falhou; pulando gcloud.[/yellow]")
             return ""
@@ -191,8 +181,8 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
 
 
 def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
-    """Gera ~/.ssh/id_ed25519_<perfil> (ed25519, sem passphrase) e mostra a
-    chave pública. Retorna o caminho da chave privada ('' se falhou/dry-run)."""
+    """Generate ~/.ssh/id_ed25519_<profile> (no passphrase) and show the
+    public key. Returns the private key path ('' on failure/dry-run)."""
     key = Path.home() / ".ssh" / f"id_ed25519_{profile_name}"
     if dry_run:
         console.print(f"[yellow]--dry-run[/yellow] ssh-keygen -t ed25519 -f {key}")
@@ -220,7 +210,7 @@ def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
 
 
 def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
-    """Oferece enviar a chave pública recém-criada para a conta gh via API."""
+    """Offer to upload the freshly created public key via `gh ssh-key add`."""
     import questionary
 
     if not questionary.confirm(
@@ -259,8 +249,8 @@ def _choose_from(
     allow_manual: bool = True,
     default: str = "",
 ) -> str:
-    """Select com opção de pular; retorna '' quando pulado. `default` (se
-    estiver entre as opções) começa selecionado — Enter direto confirma."""
+    """Select with a skip option; returns '' when skipped. `default` starts
+    selected when it is among the options, so plain Enter confirms it."""
     import questionary
 
     choices = options + ([SKIP] if SKIP not in options else [])
@@ -273,10 +263,10 @@ def _choose_from(
 
 
 def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
-    """Pergunta o atalho SSH dos remotes, listando os Hosts do ~/.ssh/config.
+    """Ask for the remotes SSH alias, listing ~/.ssh/config hosts.
 
-    Com o atalho, o gitconfig do perfil reescreve URLs do GitHub (https e
-    git@) para git@<atalho>:, garantindo a chave certa em qualquer clone.
+    With an alias, the profile gitconfig rewrites GitHub URLs (https and
+    git@) to git@<alias>:, guaranteeing the right key on any clone.
     """
     import questionary
 
@@ -434,8 +424,8 @@ def _suggestion_label(s: ContextSuggestion) -> str:
 
 
 def _adopt_loose_repos(all_profiles: list[Profile]) -> None:
-    """Oferece repos fora das raízes dos perfis para adoção (identidade local,
-    sem mover pastas). Altera all_profiles in-place via adopted_repos."""
+    """Offer repos outside every profile root for adoption (local identity,
+    no folder moves). Mutates all_profiles in place via adopted_repos."""
     import questionary
 
     from .discovery import loose_repos
@@ -506,7 +496,7 @@ def _summary(new_profiles: list[Profile]) -> None:
 
 
 def run_wizard(dry_run: bool = False) -> None:
-    """Wizard completo. Levanta KeyboardInterrupt/retorna cedo se cancelado."""
+    """Full wizard. Raises KeyboardInterrupt/returns early when cancelled."""
     import questionary
 
     console.print(
@@ -517,7 +507,7 @@ def run_wizard(dry_run: bool = False) -> None:
         )
     )
 
-    # Passo 1: agentes de IA (do registry — novos adapters aparecem sozinhos)
+    # step 1: AI agents (from the registry; new adapters show up on their own)
     agents = questionary.checkbox(
         "Quais agentes de IA devem receber as variáveis de ambiente?",
         choices=[
@@ -528,7 +518,7 @@ def run_wizard(dry_run: bool = False) -> None:
     if agents is None:
         return
 
-    # Passo 2: modo — detectar o que já existe ou começar do zero
+    # step 2: start mode, detect existing setup or build from scratch
     mode = questionary.select(
         "Como você quer começar?",
         choices=[
@@ -545,7 +535,7 @@ def run_wizard(dry_run: bool = False) -> None:
     if mode is None:
         return
 
-    # Passo 3: descoberta — varre o disco e sugere grupos prontos
+    # step 3: discovery, scan the disk and suggest ready-made groups
     profiles = load_profiles()
     new_profiles: list[Profile] = []
 
@@ -586,7 +576,7 @@ def run_wizard(dry_run: bool = False) -> None:
             if profile is not None:
                 new_profiles.append(profile)
 
-    # Grupos manuais (primeiro obrigatório se nada foi descoberto/selecionado)
+    # manual profiles (the first is mandatory when nothing was detected/selected)
     while True:
         if new_profiles and not questionary.confirm(
             "Configurar outro perfil?", default=False
@@ -606,11 +596,11 @@ def run_wizard(dry_run: bool = False) -> None:
         console.print("[yellow]Nenhum contexto configurado.[/yellow]")
         return
 
-    # Repos soltos — fora das raízes dos perfis — podem ser adotados (só no scan)
+    # stray repos outside profile roots can be adopted (detect mode only)
     if mode == "scan":
         _adopt_loose_repos(list(profiles.values()) + new_profiles)
 
-    # Resumo + confirmação única
+    # summary + single confirmation
     _summary(new_profiles)
     action = questionary.select(
         "Como prosseguir?",

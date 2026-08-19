@@ -1,4 +1,4 @@
-"""Adapters Gemini CLI (.gemini/.env) e Antigravity (.vscode/settings.json)."""
+"""Gemini CLI (.gemini/.env) and Antigravity (.vscode/settings.json) adapters."""
 
 import json
 from pathlib import Path

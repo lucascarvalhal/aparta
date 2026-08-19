@@ -1,4 +1,4 @@
-"""Merge de gitconfig: includeIf adicionado só se ausente, resto preservado."""
+"""gitconfig merging: includeIf added only when absent, the rest preserved."""
 
 from pathlib import Path
 

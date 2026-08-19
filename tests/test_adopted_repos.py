@@ -1,4 +1,4 @@
-"""Testes da adoção de repos soltos (adopted_repos + include.path local)."""
+"""Stray-repo adoption: adopted_repos plus the local include.path."""
 
 from __future__ import annotations
 
@@ -17,16 +17,16 @@ def _make_repo(path: Path) -> Path:
     return path
 
 
-def test_loose_repos_ignora_os_cobertos_por_perfis(tmp_path: Path):
-    _make_repo(tmp_path / "projects" / "eneva" / "api")  # coberto
-    solto = _make_repo(tmp_path / "projects" / "avulso")  # solto
+def test_loose_repos_skips_profile_covered_ones(tmp_path: Path):
+    _make_repo(tmp_path / "projects" / "eneva" / "api")  # covered
+    solto = _make_repo(tmp_path / "projects" / "avulso")  # stray
     result = loose_repos(
         [tmp_path / "projects" / "eneva"], scan_roots=[str(tmp_path / "projects")]
     )
     assert result == [solto]
 
 
-def test_adopted_repos_persiste_no_toml(tmp_path: Path):
+def test_adopted_repos_roundtrip_in_toml(tmp_path: Path):
     path = tmp_path / "profiles.toml"
     p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=["~/projects/avulso"])
     save_profiles({"x": p}, SafeWriter(), path)
@@ -34,7 +34,7 @@ def test_adopted_repos_persiste_no_toml(tmp_path: Path):
     assert loaded["x"].adopted_repos == ["~/projects/avulso"]
 
 
-def test_apply_adopted_adiciona_include_local(tmp_path: Path):
+def test_apply_adopted_adds_local_include(tmp_path: Path):
     repo = _make_repo(tmp_path / "avulso")
     p = Profile(name="eneva", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
     (tmp_path / ".gitconfig-eneva").write_text("[user]\n\temail = a@b.c\n")
@@ -48,14 +48,14 @@ def test_apply_adopted_adiciona_include_local(tmp_path: Path):
         text=True,
     )
     assert include in r.stdout.splitlines()
-    # e-mail herdado do gitconfig do perfil
+    # e-mail inherited from the profile's gitconfig
     r = subprocess.run(
         ["git", "-C", str(repo), "config", "user.email"], capture_output=True, text=True
     )
     assert r.stdout.strip() == "a@b.c"
 
 
-def test_apply_adopted_e_idempotente(tmp_path: Path):
+def test_apply_adopted_is_idempotent(tmp_path: Path):
     repo = _make_repo(tmp_path / "avulso")
     p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
     apply_adopted_git(p, SafeWriter(), home=tmp_path)
@@ -68,7 +68,7 @@ def test_apply_adopted_e_idempotente(tmp_path: Path):
     assert len(r.stdout.splitlines()) == 1
 
 
-def test_apply_adopted_dry_run_nao_escreve(tmp_path: Path):
+def test_apply_adopted_dry_run_writes_nothing(tmp_path: Path):
     repo = _make_repo(tmp_path / "avulso")
     p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
     apply_adopted_git(p, SafeWriter(dry_run=True), home=tmp_path)
@@ -80,7 +80,7 @@ def test_apply_adopted_dry_run_nao_escreve(tmp_path: Path):
     assert r.stdout.strip() == ""
 
 
-def test_apply_adopted_pasta_nao_git_avisa(tmp_path: Path):
+def test_apply_adopted_warns_on_non_git_dir(tmp_path: Path):
     (tmp_path / "nao-repo").mkdir()
     p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(tmp_path / "nao-repo")])
-    apply_adopted_git(p, SafeWriter(), home=tmp_path)  # não deve lançar
+    apply_adopted_git(p, SafeWriter(), home=tmp_path)  # must not raise

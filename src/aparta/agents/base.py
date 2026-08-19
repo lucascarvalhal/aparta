@@ -1,8 +1,7 @@
-"""Interface comum dos adapters de agentes: detect, inject, validate.
+"""Agent adapter interface: detect, inject, validate.
 
-Registry central: qualquer subclasse concreta de AgentAdapter com `name`
-definido é registrada automaticamente. Adicionar um agente novo = criar um
-arquivo neste pacote (os módulos são importados por aparta.agents).
+Any concrete AgentAdapter subclass with a `name` registers itself; adding
+an agent is just dropping a module in this package.
 """
 
 from __future__ import annotations
@@ -16,7 +15,7 @@ REGISTRY: dict[str, type["AgentAdapter"]] = {}
 
 
 class AgentAdapter(ABC):
-    """Um adapter sabe injetar variáveis de ambiente em um agente para um repo."""
+    """Injects per-profile environment variables into one agent's config."""
 
     name: str = ""
     display_name: str = ""
@@ -29,12 +28,12 @@ class AgentAdapter(ABC):
 
     @abstractmethod
     def detect(self, repo: Path) -> bool:
-        """True se o agente é usado (ou faz sentido) neste repositório."""
+        """Whether this agent applies to the given repo."""
 
     @abstractmethod
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
-        """Faz merge das variáveis no arquivo de config do agente. True se mudou algo."""
+        """Merge `env` into the agent's config file; True if anything changed."""
 
     @abstractmethod
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
-        """(ok, mensagem) — as variáveis esperadas estão presentes?"""
+        """Return (ok, message): are the expected variables in place?"""

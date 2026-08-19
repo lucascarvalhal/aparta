@@ -1,11 +1,12 @@
-"""Backend GitHub CLI: diretório de config paralelo ~/.config/gh-<contexto>.
+"""GitHub CLI backend: parallel config directory ~/.config/gh-<profile>.
 
-Os tokens ficam no keyring do macOS, então copiar ~/.config/gh e trocar o
-usuário ativo com GH_CONFIG_DIR apontando para a cópia funciona sem novo login.
+Tokens live in the OS keyring, so copying ~/.config/gh and switching the
+active user inside the copy (via GH_CONFIG_DIR) needs no re-login.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -25,8 +26,8 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
     src = home / ".config" / "gh"
     dst = home / ".config" / f"gh-{profile.name}"
 
-    # dst já existente (ex.: login feito pelo wizard direto no dir do perfil)
-    # dispensa a cópia; a config global só é necessária para clonar a sessão.
+    # an existing dst (e.g. wizard logged in straight into the profile dir)
+    # needs no copy; the global config is only used to clone a session
     if not dst.exists() and not src.exists():
         console.print("[yellow]aviso:[/yellow] ~/.config/gh não existe — rode `gh auth login` antes.")
         return
@@ -45,7 +46,7 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
 
     result = subprocess.run(
         ["gh", "auth", "switch", "--user", profile.gh_user],
-        env={"GH_CONFIG_DIR": str(dst), "PATH": _path_env()},
+        env=dict(os.environ, GH_CONFIG_DIR=str(dst)),
         capture_output=True,
         text=True,
     )
@@ -53,9 +54,3 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
         console.print(f"[red]gh auth switch falhou:[/red] {result.stderr.strip()}")
     else:
         console.print(f"[green]gh:[/green] usuário ativo em {dst.name}: {profile.gh_user}")
-
-
-def _path_env() -> str:
-    import os
-
-    return os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin")

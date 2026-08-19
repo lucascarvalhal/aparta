@@ -1,4 +1,4 @@
-"""Fluxo `aparta` sem argumentos: wizard na primeira execução, menu depois."""
+"""No-args flow: wizard on first run, menu afterwards."""
 
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-"""Backend gcloud: configurations nomeadas selecionadas por CLOUDSDK_ACTIVE_CONFIG_NAME."""
+"""gcloud backend: named configurations selected via CLOUDSDK_ACTIVE_CONFIG_NAME."""
 
 from __future__ import annotations
 

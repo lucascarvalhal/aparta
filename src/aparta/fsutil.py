@@ -1,4 +1,4 @@
-"""Utilitários de escrita segura: backup, merge e dry-run com diff."""
+"""Safe file writing: automatic backups, merges and dry-run diffs."""
 
 from __future__ import annotations
 
@@ -20,17 +20,17 @@ def backup_path(path: Path) -> Path:
 
 @dataclass
 class SafeWriter:
-    """Escreve arquivos com backup automático e suporte a --dry-run.
+    """Writes files with automatic backups and --dry-run support.
 
-    Toda escrita em arquivo existente gera <arquivo>.bak-aparta-<timestamp>
-    antes de alterar. Em dry-run nada é tocado; apenas o diff é exibido.
+    Existing files are copied to <file>.bak-aparta-<timestamp> before any
+    change. In dry-run mode nothing is touched; only the diff is shown.
     """
 
     dry_run: bool = False
     changes: list[str] = field(default_factory=list)
 
     def write_text(self, path: Path, new_content: str, label: str | None = None) -> bool:
-        """Escreve `new_content` em `path`. Retorna True se houve (ou haveria) mudança."""
+        """Write `new_content` to `path`; True if anything changed (or would)."""
         label = label or str(path)
         old_content = path.read_text() if path.exists() else None
         if old_content == new_content:

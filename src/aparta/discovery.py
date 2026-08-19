@@ -1,15 +1,8 @@
-"""Descoberta automática de contextos: varre o disco em busca de repositórios
-git existentes e infere grupos (pasta raiz + e-mail) para pré-preencher o wizard.
+"""Context discovery: scan the disk and infer profile suggestions.
 
-Sinais, do mais forte ao mais fraco:
-1. Blocos includeIf do ~/.gitconfig (configuração manual prévia) — mapa pronto
-   de pasta → identidade.
-2. user.email efetivo de cada repositório encontrado nas raízes comuns
-   (~/pessoal, ~/projects, ~/dev, ...), agrupado pela pasta-mãe.
-3. Rastros de adapters já configurados (.claude/settings.local.json, .envrc,
-   .gemini/.env) para inferir gh/gcloud.
-
-Tudo aqui é somente leitura — nada é escrito no disco.
+Signals, strongest first: existing ~/.gitconfig includeIf blocks, the
+effective user.email of repos under common roots grouped by parent folder,
+and traces left by agent adapters. Everything here is read-only.
 """
 
 from __future__ import annotations
@@ -39,16 +32,16 @@ IGNORED_DIRS = {"node_modules", ".venv", "venv", "__pycache__", "dist", "build"}
 @dataclass
 class ContextSuggestion:
     name: str
-    root: str  # exibido com ~ quando possível
+    root: str  # shown with ~ when possible
     git_email: str = ""
     repo_count: int = 0
-    gh_config: str = ""  # ex.: "gh-pessoal" (dir detectado em env de agente)
-    gcloud_config: str = ""  # ex.: "pessoal" (CLOUDSDK_ACTIVE_CONFIG_NAME)
-    ssh_key: str = ""  # do core.sshCommand do gitconfig incluído
-    ssh_alias: str = ""  # do bloco [url "git@<alias>:"] insteadOf
-    gh_user: str = ""  # do hosts.yml do gh_config
-    gcloud_account: str = ""  # da configuração nomeada do gcloud
-    gcloud_project: str = ""  # idem (linha project = ...)
+    gh_config: str = ""  # e.g. "gh-personal" (dir found in agent env)
+    gcloud_config: str = ""  # e.g. "personal" (CLOUDSDK_ACTIVE_CONFIG_NAME)
+    ssh_key: str = ""  # from core.sshCommand in the included gitconfig
+    ssh_alias: str = ""  # from the [url "git@<alias>:"] insteadOf block
+    gh_user: str = ""  # from the gh_config hosts.yml
+    gcloud_account: str = ""  # from the named gcloud configuration
+    gcloud_project: str = ""  # same source (project = ... line)
     source: str = "repos"  # "gitconfig" | "repos"
 
 
@@ -58,10 +51,10 @@ def _tilde(path: Path) -> str:
     return "~" + s[len(home):] if s.startswith(home) else s
 
 
-# ------------------------------------------------------- sinal 1: ~/.gitconfig
+# ---------------------------------------------------- signal 1: ~/.gitconfig
 
 def parse_includeifs(gitconfig_text: str) -> list[tuple[str, str]]:
-    """Extrai pares (gitdir, path) dos blocos [includeIf "gitdir:..."] do texto."""
+    """Extract (gitdir, path) pairs from [includeIf "gitdir:..."] blocks."""
     pairs: list[tuple[str, str]] = []
     current_gitdir: str | None = None
     for line in gitconfig_text.splitlines():
@@ -82,7 +75,7 @@ def parse_includeifs(gitconfig_text: str) -> list[tuple[str, str]]:
 
 
 def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSuggestion]:
-    """Configuração manual prévia (includeIf) vira sugestões prontas."""
+    """Turn pre-existing manual includeIf setup into ready suggestions."""
     gitconfig = gitconfig or Path.home() / ".gitconfig"
     if not gitconfig.exists():
         return []
@@ -116,10 +109,10 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
     return suggestions
 
 
-# --------------------------------------------------- sinal 2: repos no disco
+# --------------------------------------------------- signal 2: repos on disk
 
 def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
-    """Repositórios git sob root, com profundidade limitada e pastas pesadas puladas."""
+    """git repos under root, depth-limited, skipping heavy directories."""
     repos: list[Path] = []
     if not root.exists():
         return repos
@@ -148,7 +141,7 @@ def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
 
 
 def repo_git_email(repo: Path) -> str:
-    """E-mail efetivo do repo (local > includeIf > global)."""
+    """Effective repo e-mail (local > includeIf > global)."""
     try:
         r = subprocess.run(
             ["git", "-C", str(repo), "config", "user.email"],
@@ -161,10 +154,10 @@ def repo_git_email(repo: Path) -> str:
     return r.stdout.strip()
 
 
-# ------------------------------------------- sinal 3: rastros de adapters
+# --------------------------------------------- signal 3: adapter traces
 
 def read_agent_env(repo: Path) -> dict[str, str]:
-    """Env já injetado por configurações anteriores (aparta ou manuais)."""
+    """Env already injected by previous setups (aparta or manual)."""
     env: dict[str, str] = {}
     settings = repo / ".claude" / "settings.local.json"
     if settings.exists():
@@ -184,7 +177,7 @@ def read_agent_env(repo: Path) -> dict[str, str]:
 # ------------------------------------------------------------------ discover
 
 def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
-    """Agrupa repos pela pasta-mãe e resume e-mail/gh/gcloud majoritários."""
+    """Group repos by parent folder; summarize majority e-mail/gh/gcloud."""
     groups: dict[Path, list[Path]] = {}
     for root in roots:
         for repo in find_repos(root):
@@ -215,7 +208,7 @@ def _scan_groups(roots: list[Path]) -> list[ContextSuggestion]:
 
 
 def gh_user_from_config_dir(dirname: str, config_root: Path | None = None) -> str:
-    """Usuário ativo de um config dir do gh (ex.: gh-pessoal), via hosts.yml."""
+    """Active user of a gh config dir, read from its hosts.yml."""
     config_root = config_root or Path.home() / ".config"
     hosts = config_root / dirname / "hosts.yml"
     if not hosts.exists():
@@ -225,7 +218,7 @@ def gh_user_from_config_dir(dirname: str, config_root: Path | None = None) -> st
 
 
 def gcloud_config_values(name: str, gcloud_dir: Path | None = None) -> tuple[str, str]:
-    """(conta, projeto) de uma configuração nomeada do gcloud (config_<name>)."""
+    """(account, project) of a named gcloud configuration (config_<name>)."""
     gcloud_dir = gcloud_dir or Path.home() / ".config" / "gcloud"
     cfg = gcloud_dir / "configurations" / f"config_{name}"
     if not cfg.exists():
@@ -237,16 +230,13 @@ def gcloud_config_values(name: str, gcloud_dir: Path | None = None) -> tuple[str
 
 
 def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str:
-    """Conta de uma configuração nomeada do gcloud (arquivo config_<name>)."""
+    """Account of a named gcloud configuration."""
     return gcloud_config_values(name, gcloud_dir)[0]
 
 
 def _enrich_accounts(s: ContextSuggestion, config_root: Path | None = None) -> None:
-    """Resolve usuário gh e conta gcloud a partir dos configs no disco.
-
-    Sem gh_config/gcloud_config detectados por env, tenta a convenção de
-    nomes do próprio aparta (gh-<name> e config_<name>).
-    """
+    """Resolve gh user and gcloud account from configs on disk, falling
+    back to aparta's own naming convention (gh-<name>, config_<name>)."""
     config_root = config_root or Path.home() / ".config"
     gh_dir = s.gh_config or f"gh-{s.name}"
     if (config_root / gh_dir).exists():
@@ -264,7 +254,7 @@ def loose_repos(
     profile_roots: list[Path | str],
     scan_roots: list[str] | None = None,
 ) -> list[Path]:
-    """Repos nas raízes de varredura que não estão sob nenhuma raiz de perfil."""
+    """Repos under scan roots that no profile root covers."""
     roots = [Path(r).expanduser() for r in (scan_roots or DEFAULT_SCAN_ROOTS)]
     covered = [Path(p).expanduser() for p in profile_roots]
     out: set[Path] = set()
@@ -280,10 +270,10 @@ def discover(
     gitconfig: Path | None = None,
     config_root: Path | None = None,
 ) -> list[ContextSuggestion]:
-    """Sugestões de contexto: includeIf do gitconfig primeiro, depois varredura.
+    """Context suggestions: gitconfig includeIfs first, then the disk scan.
 
-    Grupos da varredura cujo root já está coberto por um includeIf apenas
-    enriquecem a sugestão existente (contagem de repos, gh/gcloud detectados).
+    Scan groups whose root an includeIf already covers only enrich the
+    existing suggestion (repo count, detected accounts).
     """
     roots = [Path(r).expanduser() for r in (scan_roots or DEFAULT_SCAN_ROOTS)]
     by_root: dict[str, ContextSuggestion] = {}

@@ -1,4 +1,4 @@
-"""Adapter genérico direnv: linhas `export VAR=...` no .envrc (adiciona só se ausentes)."""
+"""Generic direnv adapter: `export VAR=...` lines in .envrc (merged)."""
 
 from __future__ import annotations
 

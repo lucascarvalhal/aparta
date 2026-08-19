@@ -1,4 +1,4 @@
-"""Dry-run: nada é escrito, nenhum backup criado, mudanças apenas reportadas."""
+"""Dry-run: nothing written, no backups, changes only reported."""
 
 import json
 from pathlib import Path
@@ -22,8 +22,8 @@ def test_dry_run_apply_git_touches_nothing(tmp_path: Path):
     writer = SafeWriter(dry_run=True)
     apply_git(profile, writer, home=home)
 
-    assert snapshot(home) == before  # nada mudou, nenhum .bak
-    assert writer.changes  # mas mudanças foram detectadas e reportadas
+    assert snapshot(home) == before  # nothing changed, no .bak
+    assert writer.changes  # but changes were detected and reported
     assert all(c.startswith("[dry-run]") for c in writer.changes)
 
 

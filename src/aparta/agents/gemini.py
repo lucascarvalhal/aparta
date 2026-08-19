@@ -1,11 +1,7 @@
-"""Adapter Gemini CLI: variáveis em <repo>/.gemini/.env (mecanismo nativo).
+"""Gemini CLI adapter: variables in <repo>/.gemini/.env (native mechanism).
 
-O Gemini CLI carrega automaticamente variáveis de ambiente de arquivos .env,
-procurando primeiro <projeto>/.gemini/.env, depois <projeto>/.env, subindo
-até a raiz do projeto (.git) ou a home. Usamos .gemini/.env porque é o local
-específico do Gemini (não interfere no .env da aplicação) e porque algumas
-variáveis só são lidas de lá.
-Ref.: google-gemini/gemini-cli docs/reference/configuration.md
+Gemini CLI loads .env files automatically, checking .gemini/.env before the
+project's own .env, so this location never clashes with application config.
 """
 
 from __future__ import annotations
@@ -18,7 +14,7 @@ from .base import AgentAdapter
 
 
 def merge_dotenv(existing_text: str, env: dict[str, str]) -> str:
-    """Atualiza/adiciona linhas KEY="value" preservando o resto do arquivo."""
+    """Update or append KEY="value" lines, preserving the rest of the file."""
     lines = existing_text.splitlines()
     out = list(lines)
     for key, value in env.items():
@@ -42,8 +38,7 @@ class GeminiAdapter(AgentAdapter):
         return repo / ".gemini" / ".env"
 
     def detect(self, repo: Path) -> bool:
-        # O Gemini CLI cria .gemini/ sob demanda; o adapter é sempre aplicável.
-        return True
+        return True  # .gemini/ is created on demand; always applicable
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.env_path(repo)

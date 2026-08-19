@@ -1,4 +1,4 @@
-"""Helpers de descoberta do wizard: chaves SSH e parsing de contas gh."""
+"""Wizard discovery helpers: SSH keys, host aliases and gh account parsing."""
 
 from pathlib import Path
 
@@ -20,7 +20,7 @@ Host meu-servidor
     HostName 10.0.0.5
     User root
 
-# alias == hostname não é apelido
+# alias == hostname is not a real alias
 Host github.com
     IdentityFile ~/.ssh/id_ed25519
 """
@@ -37,10 +37,10 @@ def test_list_ssh_host_aliases(tmp_path: Path):
     ]
     assert aliases[0]["hostname"] == "github.com"
     assert aliases[0]["identity"] == "~/.ssh/github_pessoal"
-    assert aliases[2]["identity"] == ""  # sem IdentityFile
+    assert aliases[2]["identity"] == ""  # no IdentityFile
 
 
-def test_list_ssh_host_aliases_sem_config(tmp_path: Path):
+def test_list_ssh_host_aliases_without_config(tmp_path: Path):
     assert list_ssh_host_aliases(tmp_path / "nao-existe") == []
 
 

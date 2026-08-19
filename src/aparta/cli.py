@@ -1,4 +1,4 @@
-"""CLI do aparta: sem argumentos cai no wizard/menu; comandos init, apply, doctor, list."""
+"""aparta CLI: no args opens the wizard or menu; subcommands do the rest."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ _state = {"dry_run": False}
 
 
 def default_action(profiles_file: Path | None = None) -> str:
-    """Roteamento do `aparta` sem argumentos: 'wizard' na primeira execução, senão 'menu'."""
+    """No-args routing: 'wizard' on first run, 'menu' afterwards."""
     profiles_file = profiles_file or profiles_path()
     return "menu" if profiles_file.exists() else "wizard"
 

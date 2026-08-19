@@ -1,8 +1,7 @@
-"""Adapters de agentes de IA de terminal.
+"""Terminal AI agent adapters.
 
-Todos os módulos deste pacote são importados automaticamente; qualquer
-subclasse de AgentAdapter com `name` definido entra no REGISTRY sozinha.
-Adicionar um agente novo = criar um arquivo aqui.
+Every module here is imported automatically, so each AgentAdapter subclass
+self-registers. Adding an agent is just adding a file.
 """
 
 from __future__ import annotations

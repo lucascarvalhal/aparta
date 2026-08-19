@@ -1,4 +1,4 @@
-"""Adapter Codex: seção [env] em .codex/config.toml do repositório (merge)."""
+"""Codex CLI adapter: [env] section in the repo's .codex/config.toml (merged)."""
 
 from __future__ import annotations
 
