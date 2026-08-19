@@ -268,7 +268,7 @@ def _confirm(question: str, default: bool = False) -> bool:
 
     yes = _("y")
     suffix = f" ({yes.upper()}/n)" if default else f" ({yes}/N)"
-    answer = questionary.text(question + suffix).ask()
+    answer = questionary.text(question + suffix, qmark="").ask()
     if answer is None:
         raise KeyboardInterrupt
     answer = answer.strip().lower()
@@ -293,7 +293,7 @@ def _choose_from(
     choices = [questionary.Choice(o, value=o) for o in options]
     choices += [questionary.Choice(_(s), value=s) for s in sentinels]
     default_choice = next((c for c in choices if default and c.value == default), None)
-    answer = questionary.select(question, choices=choices, default=default_choice).ask()
+    answer = questionary.select(question, choices=choices, default=default_choice, qmark="").ask()
     if answer is None:
         raise KeyboardInterrupt
     return "" if answer == SKIP else answer
@@ -314,6 +314,7 @@ def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
             questionary.text(
                 _("Remotes SSH shortcut (a Host from ~/.ssh/config; empty = use the key directly):"),
                 default=suggested,
+                qmark="",
             ).ask()
             or ""
         ).strip()
@@ -341,6 +342,7 @@ def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
         _("SSH shortcut for this profile's remotes (rewrites GitHub URLs to use the right key):"),
         choices=choices,
         default=default_choice,
+        qmark="",
     ).ask()
     if answer is None:
         raise KeyboardInterrupt
@@ -359,6 +361,7 @@ def _ask_identity(
         else _("New profile name (e.g. personal, work, client-x):"),
         default=suggestion.name if suggestion else "",
         validate=lambda v: bool(v.strip()) or _("required"),
+        qmark="",
     ).ask()
     if name is None:
         return None
@@ -370,6 +373,7 @@ def _ask_identity(
     root = questionary.path(
         _("Root folder of this profile's projects:"),
         default=suggestion.root if suggestion else f"~/{name}",
+        qmark="",
     ).ask()
     if root is None:
         return None
@@ -378,6 +382,7 @@ def _ask_identity(
         _("git e-mail for these repositories:"),
         default=suggestion.git_email if suggestion else "",
         validate=lambda v: "@" in v or _("enter a valid e-mail"),
+        qmark="",
     ).ask()
     if git_email is None:
         return None
@@ -446,6 +451,7 @@ def _ask_gcloud(
             questionary.text(
                 _("GCP project id for this profile (e.g. my-project-123; empty = set later):"),
                 default=suggestion.gcloud_project if suggestion else "",
+                qmark="",
             ).ask()
             or ""
         ).strip()
@@ -523,6 +529,7 @@ def _adopt_loose_repos(all_profiles: list[Profile]) -> None:
         chosen = questionary.checkbox(
             _("Which of these belong to '{name}'? (Enter = none)", name=p.name),
             choices=remaining,
+            qmark="",
         ).ask()
         if chosen is None:
             return
@@ -592,6 +599,7 @@ def _ask_language() -> bool:
             questionary.Choice("English", value="en"),
             questionary.Choice("Português (Brasil)", value="pt"),
         ],
+        qmark="",
     ).ask()
     if choice is None:
         return False
@@ -623,6 +631,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
             questionary.Choice(cls.display_name, value=name, checked=(name == "claude-code"))
             for name, cls in sorted(ADAPTERS.items())
         ],
+        qmark="",
     ).ask()
     if agents is None:
         return
@@ -640,6 +649,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
                 value="zero",
             ),
         ],
+        qmark="",
     ).ask()
     if mode is None:
         return
@@ -656,7 +666,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         suggestions = [s for s in discover() if s.name not in profiles]
         extra = ""
         if _confirm(_("Scan an extra folder outside your home?")):
-            extra = (questionary.path(_("Which folder?"), default="").ask() or "").strip()
+            extra = (questionary.path(_("Which folder?"), default="", qmark="").ask() or "").strip()
         if extra:
             known_roots = {s.root for s in suggestions}
             suggestions += [
@@ -678,6 +688,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
                 questionary.Choice(_suggestion_label(s), value=s, checked=True)
                 for s in suggestions
             ],
+            qmark="",
         ).ask()
         for i, s in enumerate(chosen or [], start=1):
             console.print(
@@ -728,6 +739,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
             questionary.Choice(_("Just save the profiles (apply later with `aparta apply`)"), value="save"),
             questionary.Choice(_("Cancel"), value="cancel"),
         ],
+        qmark="",
     ).ask()
     if action in (None, "cancel"):
         console.print(_("[yellow]Cancelled; nothing was saved.[/yellow]"))
@@ -744,6 +756,6 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         from .apply import apply_profile
 
         for p in new_profiles:
-            apply_profile(p, writer)
+            apply_profile(p, writer, siblings=profiles)
     else:
         console.print(_("Whenever you want to apply: [bold]aparta apply {name}[/bold]", name=new_profiles[0].name))

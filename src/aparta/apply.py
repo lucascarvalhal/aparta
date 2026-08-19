@@ -31,23 +31,29 @@ BACKENDS: list[tuple[str, Callable[[Profile, SafeWriter], "list[Note]"]]] = [
 ]
 
 
-def _nested_profile_roots(profile: Profile) -> list[Path]:
-    """Roots of sibling profiles nested inside this profile's root."""
+def _nested_profile_roots(
+    profile: Profile, siblings: dict[str, Profile] | None = None
+) -> list[Path]:
+    """Roots of sibling profiles nested inside this profile's root.
+
+    `siblings` allows callers holding unsaved profiles (wizard dry-run) to
+    pass them in; otherwise the saved profiles are loaded.
+    """
     root = profile.root_path
     return [
         p.root_path
-        for p in load_profiles().values()
+        for p in (siblings or load_profiles()).values()
         if p.name != profile.name and p.root_path != root and root in p.root_path.parents
     ]
 
 
-def profile_repos(profile: Profile) -> list[Path]:
+def profile_repos(profile: Profile, siblings: dict[str, Profile] | None = None) -> list[Path]:
     """The profile's repos: root scan minus nested sibling profiles, plus adopted.
 
     A repo under a more specific profile's root belongs to that profile, so
     a broad profile (e.g. ~/projects) never overwrites a nested one's env.
     """
-    nested = _nested_profile_roots(profile)
+    nested = _nested_profile_roots(profile, siblings)
     repos = [
         r
         for r in find_repos(profile.root_path)
@@ -56,11 +62,15 @@ def profile_repos(profile: Profile) -> list[Path]:
     return repos + [Path(r).expanduser() for r in profile.adopted_repos]
 
 
-def apply_profile(profile: Profile, writer: SafeWriter) -> None:
+def apply_profile(
+    profile: Profile,
+    writer: SafeWriter,
+    siblings: dict[str, Profile] | None = None,
+) -> None:
     """Apply every backend, then inject env into the profile's repos."""
     console.print(_("[bold]Applying profile '{name}'[/bold] (root: {root})", name=profile.name, root=profile.root_path))
 
-    nested = _nested_profile_roots(profile)
+    nested = _nested_profile_roots(profile, siblings)
     if nested:
         console.print(
             _(
@@ -82,7 +92,7 @@ def apply_profile(profile: Profile, writer: SafeWriter) -> None:
     if not env:
         console.print(_("[dim]Profile has no gh/gcloud: no env to inject into agents.[/dim]"))
     else:
-        repos = profile_repos(profile)
+        repos = profile_repos(profile, siblings)
         if not repos:
             console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
         before = len(writer.changes)

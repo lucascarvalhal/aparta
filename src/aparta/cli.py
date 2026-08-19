@@ -74,6 +74,7 @@ def _run_menu(dry_run: bool, verbose: bool = False) -> None:
                 questionary.Choice(_("List profiles (list)"), value="list"),
                 questionary.Choice(_("Quit"), value="quit"),
             ],
+            qmark="",
         ).ask()
         if choice in (None, "quit"):
             return
@@ -84,7 +85,7 @@ def _run_menu(dry_run: bool, verbose: bool = False) -> None:
             if not profiles:
                 console.print(_("[yellow]No profile configured yet.[/yellow]"))
                 continue
-            name = questionary.select(_("Which profile?"), choices=list(profiles)).ask()
+            name = questionary.select(_("Which profile?"), choices=list(profiles), qmark="").ask()
             if name:
                 apply_profile(profiles[name], SafeWriter(dry_run=dry_run, verbose=verbose))
         elif choice == "doctor":
@@ -206,12 +207,11 @@ def remove(
         console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
         raise typer.Exit(1)
     if not yes:
-        import questionary
+        from .wizard import _confirm
 
-        confirmed = questionary.confirm(
-            _("Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?", name=profile_name),
-            default=False,
-        ).ask()
+        confirmed = _confirm(
+            _("Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?", name=profile_name)
+        )
         if not confirmed:
             console.print(_("[yellow]Cancelled.[/yellow]"))
             raise typer.Exit(0)
