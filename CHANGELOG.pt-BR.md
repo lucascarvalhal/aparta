@@ -8,6 +8,22 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.4.4] - 2026-08-19
+
+### Segurança
+
+- Os sdists da 0.4.1 à 0.4.3 incluíram por acidente arquivos locais de
+  desenvolvimento e foram removidos do PyPI (os wheels nunca foram
+  afetados). Os sdists agora são montados a partir de uma allowlist
+  explícita, então arquivos perdidos não embarcam mais.
+
+### Alterado
+
+- As plataformas suportadas ficam explícitas: macOS, Linux e Windows via
+  WSL. O suporte nativo a Windows sai do roadmap.
+- O README recomenda o Orca e o Universal Memory como ferramentas
+  companheiras.
+
 ## [0.4.3] - 2026-08-19
 
 ### Alterado
@@ -112,7 +128,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/lucascarvalhal/aparta/compare/v0.4.0...v0.4.1

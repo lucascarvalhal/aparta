@@ -8,6 +8,20 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-08-19
+
+### Security
+
+- The sdists of 0.4.1 through 0.4.3 accidentally included local development
+  files and were removed from PyPI (the wheels were never affected). Sdists
+  now build from an explicit allowlist, so stray files cannot ship again.
+
+### Changed
+
+- Supported platforms are stated explicitly: macOS, Linux and Windows
+  through WSL. Native Windows support leaves the roadmap.
+- The README recommends Orca and Universal Memory as companion tools.
+
 ## [0.4.3] - 2026-08-19
 
 ### Changed
@@ -109,7 +123,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/lucascarvalhal/aparta/compare/v0.4.0...v0.4.1
