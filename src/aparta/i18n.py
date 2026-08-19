@@ -103,6 +103,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "Check the real state: e-mail per repo, gh auth, gcloud config, agent env.": "Valida o estado real: e-mail por repo, auth do gh, config do gcloud, env dos agentes.",
         "List configured profiles.": "Lista os perfis configurados.",
         "This screen.": "Esta tela.",
+        "Shell autocompletion: [bold]aparta --install-completion[/bold].": "Autocompletar no shell: [bold]aparta --install-completion[/bold].",
         "Name of the profile to remove.": "Nome do perfil a remover.",
         "Do not ask for confirmation.": "Não pedir confirmação.",
         "Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?": "Remover '{name}' e desfazer gitconfig, gh, gcloud e env dos agentes?",

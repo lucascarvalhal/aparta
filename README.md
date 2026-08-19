@@ -46,7 +46,7 @@ One command, one interactive wizard:
 
 *One summary, one confirmation, with a safety net:*
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/resumo.svg" alt="aparta summary" width="820">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/summary.svg" alt="aparta summary" width="820">
 
 *`aparta scan` shows what it found without touching anything:*
 
@@ -76,7 +76,7 @@ pip install aparta    # plain pip, goes into the active environment
 npx aparta-cli        # Node ecosystem launcher (needs uv or pipx installed)
 ```
 
-Upgrading later: `uv tool upgrade aparta` (or the equivalent in your chosen tool).
+Upgrading later: `uv tool upgrade aparta` (or the equivalent in your chosen tool). Shell autocompletion: `aparta --install-completion`.
 
 ## Languages
 
@@ -140,7 +140,7 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 
 ## Contributing
 
-Issues and PRs are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and PRs are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Release history lives in the [CHANGELOG](CHANGELOG.md).
 
 ## License
 

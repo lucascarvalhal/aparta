@@ -243,6 +243,7 @@ def show_help() -> None:
         )
     )
     console.print(_("More detail per command: [bold]aparta <command> --help[/bold]."))
+    console.print(_("Shell autocompletion: [bold]aparta --install-completion[/bold]."))
 
 
 if __name__ == "__main__":

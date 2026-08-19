@@ -15,7 +15,7 @@
 
 O **aparta** isola suas contas de desenvolvimento, git, GitHub CLI, gcloud, chaves SSH, por pasta de projeto, e faz seus agentes de IA de terminal (Claude Code, Codex, Gemini CLI, Antigravity) usarem a identidade certa, sempre.
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.gif" alt="aparta demo" width="900">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/demo.pt-BR.gif" alt="aparta demo" width="900">
 
 ## Por que o aparta existe?
 
@@ -42,19 +42,19 @@ Um comando, um wizard interativo:
 
 *O wizard detecta sua configuração e pré-preenche tudo:*
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/wizard.svg" alt="wizard do aparta" width="820">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/wizard.pt-BR.svg" alt="wizard do aparta" width="820">
 
 *Um resumo, uma confirmação, com rede de proteção:*
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/resumo.svg" alt="resumo do aparta" width="820">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/summary.pt-BR.svg" alt="resumo do aparta" width="820">
 
 *`aparta scan` mostra o que foi encontrado sem tocar em nada:*
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/scan.svg" alt="aparta scan" width="820">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/scan.pt-BR.svg" alt="aparta scan" width="820">
 
 *`aparta doctor` prova que cada perfil está funcionando:*
 
-<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/doctor.svg" alt="aparta doctor" width="680">
+<img src="https://raw.githubusercontent.com/lucascarvalhal/aparta/main/docs/doctor.pt-BR.svg" alt="aparta doctor" width="680">
 
 ## Instalação
 
@@ -76,7 +76,7 @@ pip install aparta    # pip puro, vai para o ambiente ativo
 npx aparta-cli        # lançador do ecossistema Node (requer uv ou pipx instalado)
 ```
 
-Para atualizar depois: `uv tool upgrade aparta` (ou o equivalente da ferramenta escolhida).
+Para atualizar depois: `uv tool upgrade aparta` (ou o equivalente da ferramenta escolhida). Autocompletar no shell: `aparta --install-completion`.
 
 ## Idiomas
 
@@ -140,7 +140,7 @@ Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (r
 
 ## Contribuindo
 
-Issues e PRs são bem-vindos, veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md).
+Issues e PRs são bem-vindos, veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md). O histórico de versões está no [CHANGELOG](CHANGELOG.pt-BR.md).
 
 ## Licença
 
