@@ -222,10 +222,10 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
     """Offer to upload the freshly created public key via `gh ssh-key add`."""
     import questionary
 
-    if not questionary.confirm(
+    if not _confirm(
         _("Upload this key to the GitHub account '{user}' now? (gh ssh-key add)", user=gh_user),
         default=True,
-    ).ask():
+    ):
         console.print(
             _("[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]", key=ssh_key, name=profile_name)
         )
@@ -257,6 +257,25 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
 
 
 # ------------------------------------------------------------------- wizard
+
+def _confirm(question: str, default: bool = False) -> bool:
+    """Yes/no with localized keys: y/N in English, s/N in Portuguese.
+
+    Typed answer plus Enter; empty keeps the default. Both the localized
+    letter and y/s are accepted regardless of language.
+    """
+    import questionary
+
+    yes = _("y")
+    suffix = f" ({yes.upper()}/n)" if default else f" ({yes}/N)"
+    answer = questionary.text(question + suffix).ask()
+    if answer is None:
+        raise KeyboardInterrupt
+    answer = answer.strip().lower()
+    if not answer:
+        return default
+    return answer[0] in (yes, "y", "s")
+
 
 def _choose_from(
     question: str,
@@ -347,7 +366,7 @@ def _ask_context(
         return None
     name = name.strip()
     if name in existing_names:
-        if not questionary.confirm(_("'{name}' already exists. Overwrite?", name=name), default=False).ask():
+        if not _confirm(_("'{name}' already exists. Overwrite?", name=name)):
             return None
 
     root = questionary.path(
@@ -600,13 +619,9 @@ def run_wizard(dry_run: bool = False) -> None:
             _("[dim]Scanning your home for git repositories (read-only)...[/dim]")
         )
         suggestions = [s for s in discover() if s.name not in profiles]
-        extra = (
-            questionary.path(
-                _("Any folder outside your home to scan as well? (empty = none)"),
-                default="",
-            ).ask()
-            or ""
-        ).strip()
+        extra = ""
+        if _confirm(_("Scan an extra folder outside your home?")):
+            extra = (questionary.path(_("Which folder?"), default="").ask() or "").strip()
         if extra:
             known_roots = {s.root for s in suggestions}
             suggestions += [
@@ -649,9 +664,7 @@ def run_wizard(dry_run: bool = False) -> None:
 
     # manual profiles (the first is mandatory when nothing was detected/selected)
     while True:
-        if new_profiles and not questionary.confirm(
-            _("Configure another profile?"), default=False
-        ).ask():
+        if new_profiles and not _confirm(_("Configure another profile?")):
             break
         profile = _ask_context(
             agents, list(profiles) + [p.name for p in new_profiles], dry_run=dry_run
@@ -660,7 +673,7 @@ def run_wizard(dry_run: bool = False) -> None:
             new_profiles.append(profile)
         elif new_profiles:
             break
-        elif not questionary.confirm(_("Try again?"), default=True).ask():
+        elif not _confirm(_("Try again?"), default=True):
             break
 
     if not new_profiles:
