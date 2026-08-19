@@ -267,7 +267,7 @@ def _confirm(question: str, default: bool = False) -> bool:
     import questionary
 
     yes = _("y")
-    suffix = f" ({yes.upper()}/n)" if default else f" ({yes}/N)"
+    suffix = f" ({yes}/n)"
     answer = questionary.text(question + suffix, qmark="").ask()
     if answer is None:
         raise KeyboardInterrupt
