@@ -122,7 +122,7 @@ aparta --dry-run  # qualquer comando: mostra diffs, não altera nada
 | Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` |
 | opencode | plugin `shell.env` gerado em `.opencode/plugins/aparta-env.js` |
 | Cursor CLI | sem env nativo por projeto, herda o shell, coberto pelo adapter direnv |
-| direnv (genérico) | linhas `export` no `.envrc`, funciona para qualquer ferramenta |
+| direnv (genérico) | linhas `export` no `.envrc`, funciona para qualquer ferramenta (requer o [direnv](https://direnv.net) instalado e um `direnv allow` por repo) |
 
 Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (registro automático).
 
