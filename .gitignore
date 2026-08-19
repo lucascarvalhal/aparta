@@ -28,6 +28,12 @@ env/
 htmlcov/
 coverage.xml
 
+# Local AI-agent memory (personal context, never commit)
+.umem/
+.claude/
+CLAUDE.md
+AGENTS.md
+
 # Local credentials and environment (never commit)
 .env
 .env.*
