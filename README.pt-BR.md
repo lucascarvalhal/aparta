@@ -139,7 +139,7 @@ Adicionar suporte a um agente novo = criar um arquivo em `src/aparta/agents/` (r
 
 ## Contribuindo
 
-Issues e PRs são bem-vindos, veja o [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues e PRs são bem-vindos, veja o [CONTRIBUTING.pt-BR.md](CONTRIBUTING.pt-BR.md).
 
 ## Licença
 
