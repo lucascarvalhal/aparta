@@ -74,7 +74,7 @@ pipx install aparta
 pip install aparta
 
 # ecossistema Node: o mesmo CLI pelo lançador npm (requer uv ou pipx)
-npx aparta
+npx aparta-cli
 ```
 
 ## Começando

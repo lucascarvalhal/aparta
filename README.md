@@ -76,7 +76,7 @@ pipx install aparta
 pip install aparta
 
 # Node ecosystem: same CLI through the npm launcher (needs uv or pipx)
-npx aparta
+npx aparta-cli
 ```
 
 ## Quick start
