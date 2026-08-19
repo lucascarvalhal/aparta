@@ -8,6 +8,16 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.4.2] - 2026-08-19
+
+### Alterado
+
+- A documentação em português do Brasil foi reescrita como texto nativo, com
+  uma voz mais amigável, em vez de tradução literal (README, CONTRIBUTING,
+  SECURITY).
+- As mensagens de conversa do CLI em português passaram pela mesma revisão de
+  voz natural.
+
 ## [0.4.1] - 2026-08-19
 
 ### Adicionado
@@ -95,7 +105,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/lucascarvalhal/aparta/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/lucascarvalhal/aparta/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lucascarvalhal/aparta/compare/v0.2.0...v0.3.0

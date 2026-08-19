@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-19
+
+### Changed
+
+- The Brazilian Portuguese documentation is rewritten as native text with a
+  friendlier voice instead of a literal translation (README, CONTRIBUTING,
+  SECURITY).
+- Conversational CLI messages in Portuguese got the same natural-voice pass.
+
 ## [0.4.1] - 2026-08-19
 
 ### Added
@@ -93,7 +102,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/lucascarvalhal/aparta/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/lucascarvalhal/aparta/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/lucascarvalhal/aparta/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lucascarvalhal/aparta/compare/v0.2.0...v0.3.0
