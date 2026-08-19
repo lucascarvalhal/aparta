@@ -60,22 +60,23 @@ One command, one interactive wizard:
 
 Requires Python ≥ 3.10. `gh` and `gcloud` are optional, aparta selects credentials for the tools you use; it never logs in for you (unless you ask it to, in the wizard).
 
+**Recommended:** install it as a permanent tool with [uv](https://docs.astral.sh/uv/), it is fast, isolated from your projects, and trivial to upgrade:
+
 ```bash
-# run without installing (recommended to try it out)
-uvx aparta
-
-# install as a permanent tool with uv
-uv tool install aparta
-
-# or with pipx
-pipx install aparta
-
-# or plain pip
-pip install aparta
-
-# Node ecosystem: same CLI through the npm launcher (needs uv or pipx)
-npx aparta-cli
+uv tool install aparta     # recommended
+aparta                     # from now on it is just this
 ```
+
+Other ways, whatever fits your setup:
+
+```bash
+uvx aparta            # try it without installing anything
+pipx install aparta   # same idea as uv tool, using pipx
+pip install aparta    # plain pip, goes into the active environment
+npx aparta-cli        # Node ecosystem launcher (needs uv or pipx installed)
+```
+
+Upgrading later: `uv tool upgrade aparta` (or the equivalent in your chosen tool).
 
 ## Languages
 

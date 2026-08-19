@@ -60,22 +60,23 @@ Um comando, um wizard interativo:
 
 Requer Python ≥ 3.10. `gh` e `gcloud` são opcionais, o aparta seleciona credenciais das ferramentas que você usa; ele nunca faz login sozinho (a menos que você peça, no wizard).
 
+**Recomendado:** instale como ferramenta permanente com o [uv](https://docs.astral.sh/uv/), é rápido, isolado dos seus projetos e trivial de atualizar:
+
 ```bash
-# rodar sem instalar (recomendado para experimentar)
-uvx aparta
-
-# instalar como ferramenta permanente com uv
-uv tool install aparta
-
-# ou com pipx
-pipx install aparta
-
-# ou pip puro
-pip install aparta
-
-# ecossistema Node: o mesmo CLI pelo lançador npm (requer uv ou pipx)
-npx aparta-cli
+uv tool install aparta     # recomendado
+aparta                     # daqui em diante é só isso
 ```
+
+Outros caminhos, conforme o seu setup:
+
+```bash
+uvx aparta            # experimentar sem instalar nada
+pipx install aparta   # mesma ideia do uv tool, usando pipx
+pip install aparta    # pip puro, vai para o ambiente ativo
+npx aparta-cli        # lançador do ecossistema Node (requer uv ou pipx instalado)
+```
+
+Para atualizar depois: `uv tool upgrade aparta` (ou o equivalente da ferramenta escolhida).
 
 ## Idiomas
 
