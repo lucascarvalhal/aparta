@@ -133,6 +133,9 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
     dst.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, GH_CONFIG_DIR=str(dst))
     try:
+        from .auth import _flush_stdin
+
+        _flush_stdin()  # stray terminal escapes on stdin abort gh's prompt
         r = subprocess.run(["gh", "auth", "login"], env=env)  # interactive, inherits TTY
     except FileNotFoundError:
         console.print(_("[red]gh not found in PATH.[/red]"))

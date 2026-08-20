@@ -178,6 +178,22 @@ def problems(profiles: list[Profile]) -> list[tuple[str, AuthStatus]]:
 
 # ------------------------------------------------------------------ login
 
+def _flush_stdin() -> None:
+    """Drop stray bytes pending on stdin before an interactive prompt.
+
+    Terminals answer status queries with escape sequences on stdin; gh's
+    prompt library aborts on them ("unexpected escape sequence from
+    terminal") instead of ignoring them.
+    """
+    try:
+        import sys
+        import termios
+
+        termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
+    except Exception:
+        pass
+
+
 def login_profile(profile: Profile, provider: str = "") -> bool:
     """Run the interactive login for a profile, in the profile's own scope.
 
@@ -195,42 +211,62 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
         env.update(
             {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
         )
-        console.print(
-            _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
-        )
-        try:
-            r = subprocess.run(["gcloud", "auth", "login", profile.gcloud_account], env=env)
-        except FileNotFoundError:
-            console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
-            return False
-        if r.returncode == 0:
-            # a login can leave another account selected; put ours back
-            subprocess.run(
-                ["gcloud", "config", "set", "account", profile.gcloud_account],
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=PROBE_TIMEOUT,
+        # asked for the whole profile, not gcloud specifically: skip the
+        # browser dance when the credential is still good
+        status = check_gcloud(profile) if provider == "" else None
+        if status is not None and status.state == OK:
+            console.print(
+                _("[green]gcloud:[/green] '{account}' is still valid; skipping the browser login", account=profile.gcloud_account)
             )
-            console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
             _offer_adc(profile, env, console)
         else:
-            ok = False
+            console.print(
+                _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
+            )
+            try:
+                r = subprocess.run(["gcloud", "auth", "login", profile.gcloud_account], env=env)
+            except FileNotFoundError:
+                console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
+                return False
+            if r.returncode == 0:
+                # a login can leave another account selected; put ours back
+                subprocess.run(
+                    ["gcloud", "config", "set", "account", profile.gcloud_account],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=PROBE_TIMEOUT,
+                )
+                console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
+                _offer_adc(profile, env, console)
+            else:
+                ok = False
 
     if profile.gh_user and provider in ("", "gh"):
         env = dict(os.environ, GH_CONFIG_DIR=str(profile.gh_config_dir))
-        console.print(
-            _("Opening the GitHub login for '{user}' (profile {name})...", user=profile.gh_user, name=profile.name)
-        )
-        try:
-            r = subprocess.run(["gh", "auth", "login"], env=env)
-        except FileNotFoundError:
-            console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gh"))
-            return False
-        if r.returncode == 0:
-            console.print(_("[green]gh:[/green] '{user}' reauthenticated", user=profile.gh_user))
+        status = check_gh(profile) if provider == "" else None
+        if status is not None and status.state == OK:
+            console.print(
+                _(
+                    "[green]gh:[/green] '{user}' is still valid; use `aparta login {name} --provider gh` to force a new login",
+                    user=profile.gh_user,
+                    name=profile.name,
+                )
+            )
         else:
-            ok = False
+            console.print(
+                _("Opening the GitHub login for '{user}' (profile {name})...", user=profile.gh_user, name=profile.name)
+            )
+            try:
+                _flush_stdin()
+                r = subprocess.run(["gh", "auth", "login"], env=env)
+            except FileNotFoundError:
+                console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gh"))
+                return False
+            if r.returncode == 0:
+                console.print(_("[green]gh:[/green] '{user}' reauthenticated", user=profile.gh_user))
+            else:
+                ok = False
 
     # the cached verdict is stale now
     cached_check(profile, force=True)
@@ -240,17 +276,41 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
 def _offer_adc(profile: Profile, env: dict, console) -> None:
     """An isolated profile needs its own application default credentials.
 
-    Without them, SDKs and Terraform have nothing to fall back to inside the
-    profile, which is the safe outcome, but the user should know the command
-    that gives the profile its own.
+    Telling the user the command is not enough: run in their own shell,
+    without the profile's CLOUDSDK_CONFIG, it would create the GLOBAL ADC
+    shared by every profile, the exact leak the isolation exists to prevent.
+    So the login runs right here with the profile's environment, and the
+    profile is re-applied afterwards so the SDKs that only honor
+    GOOGLE_APPLICATION_CREDENTIALS see the new file.
     """
+    import sys
+
     from .backends.gcloud import has_adc
 
     if not profile.gcloud_isolated or has_adc(profile.gcloud_config_dir):
         return
     console.print(
-        _(
-            "[dim]This profile has no application credentials of its own yet. "
-            "For SDKs and Terraform, run: gcloud auth application-default login[/dim]"
-        )
+        _("[dim]This profile has no application credentials of its own yet; SDKs and Terraform need them.[/dim]")
     )
+    if not sys.stdin.isatty():
+        console.print(_("Create them with: aparta login {name}", name=profile.name))
+        return
+    from .wizard import _confirm
+
+    if not _confirm(_("Create them now? (opens the browser)"), default=True):
+        return
+    _flush_stdin()
+    r = subprocess.run(["gcloud", "auth", "application-default", "login"], env=env)
+    if r.returncode != 0 or not has_adc(profile.gcloud_config_dir):
+        console.print(
+            _("[yellow]The ADC login did not complete; run `aparta login {name}` to try again.[/yellow]", name=profile.name)
+        )
+        return
+    console.print(_("[green]gcloud:[/green] application credentials created for this profile"))
+    # the env of every repo must now point GOOGLE_APPLICATION_CREDENTIALS
+    # at the new file; a fresh apply reconciles that
+    from .apply import apply_profile
+    from .fsutil import SafeWriter
+    from .profiles import load_profiles
+
+    apply_profile(profile, SafeWriter(), siblings=load_profiles())

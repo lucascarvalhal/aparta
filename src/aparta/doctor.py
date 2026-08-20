@@ -131,7 +131,7 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
                 "gcloud",
                 "ADC",
                 None,
-                _("none yet; SDKs need `gcloud auth application-default login`"),
+                _("none yet; `aparta login {name}` offers to create them", name=profile.name),
             )
 
     # aws: the named profile must exist in ~/.aws

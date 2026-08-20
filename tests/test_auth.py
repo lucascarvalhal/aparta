@@ -150,6 +150,104 @@ def test_problems_lists_only_what_needs_a_human(monkeypatch):
     assert [(name, s.provider) for name, s in found] == [("acme", "gcloud")]
 
 
+def test_login_skips_providers_whose_credential_is_still_valid(monkeypatch, capsys):
+    """`aparta login <profile>` must not drag the user through browser flows
+    for credentials that are already good."""
+    monkeypatch.setattr(auth, "check_gcloud", lambda p: auth.AuthStatus("gcloud", auth.OK))
+    monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+    monkeypatch.setattr(auth, "_offer_adc", lambda *a: None)
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("no interactive login for a valid credential")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+    assert auth.login_profile(PROFILE) is True
+
+
+def test_explicit_provider_forces_the_login_even_when_valid(monkeypatch):
+    monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+    calls = []
+
+    def run(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    auth.login_profile(PROFILE, provider="gh")
+    assert ["gh", "auth", "login"] in calls
+
+
+ISOLATED = Profile(
+    name="acme",
+    root="~/acme",
+    git_email="a@b.c",
+    gcloud_account="ana@acme.com",
+    gcloud_isolated=True,
+)
+
+
+def test_adc_offer_runs_inside_the_profile_scope(monkeypatch, tmp_path, capsys):
+    """The ADC login must run right here, with the profile's env; telling the
+    user to run it in their own shell would create the GLOBAL ADC instead."""
+    import sys
+
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    profile_dir = ISOLATED.gcloud_config_dir
+    profile_dir.mkdir(parents=True)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("aparta.wizard._confirm", lambda q, default=False: True)
+    applied = []
+    monkeypatch.setattr("aparta.apply.apply_profile", lambda p, w, siblings=None: applied.append(p.name))
+    seen = {}
+
+    def run(args, env=None, **kwargs):
+        seen["args"] = args
+        seen["config"] = (env or {}).get("CLOUDSDK_CONFIG")
+        (profile_dir / "application_default_credentials.json").write_text("{}")
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    env = dict(ISOLATED.env())
+    auth._offer_adc(ISOLATED, env, Console())
+    assert seen["args"] == ["gcloud", "auth", "application-default", "login"]
+    assert seen["config"] == str(profile_dir)
+    assert applied == ["acme"]  # repos re-applied so GOOGLE_APPLICATION_CREDENTIALS lands
+
+
+def test_adc_offer_is_a_hint_when_there_is_no_tty(monkeypatch, tmp_path):
+    import sys
+
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    ISOLATED.gcloud_config_dir.mkdir(parents=True)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("no subprocess without a human at the terminal")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+    auth._offer_adc(ISOLATED, {}, Console())
+
+
+def test_adc_offer_noop_when_the_profile_already_has_one(monkeypatch, tmp_path):
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    ISOLATED.gcloud_config_dir.mkdir(parents=True)
+    (ISOLATED.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("nothing to do when the ADC exists")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+    auth._offer_adc(ISOLATED, {}, Console())
+
+
 def test_account_without_credentials_is_missing(monkeypatch):
     """The wording gcloud actually uses when the account has no credential."""
     monkeypatch.setattr(
