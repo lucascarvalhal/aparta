@@ -117,6 +117,7 @@ Cloud sessions do not last forever: Google Workspace defaults to 16 hours for ne
 - **Silent renewal while it is possible.** As long as the refresh token lives, aparta renews the access token for you and you never notice anything.
 - **A warning before it hurts, not after.** When a credential really needs a human, aparta says so the next time you run it, naming the profile and the command to fix it. The check is cached, never blocks, and `APARTA_AUTH_CHECK=off` disables it.
 - **One command that cannot land in the wrong place.** `aparta login <profile>` runs the provider's login inside that profile's own scope and reasserts the expected account afterwards.
+- **The warning shows up where the accident happens.** aparta installs a startup check through each agent's own mechanism, so the message appears inside Claude Code, Codex, Gemini CLI, Antigravity or opencode, not only when you run aparta yourself. The check reads a cache, so nothing waits on the network.
 
 Reauthentication itself cannot be automated: the browser step and the security key exist precisely to require a person. What aparta removes is the guessing, the wrong terminal and the surprise.
 
@@ -140,14 +141,14 @@ When a profile uses Google Cloud, the wizard asks how far the separation should 
 
 ## Supported AI agents
 
-| Agent | Injection mechanism |
-|---|---|
-| Claude Code | `env` field in `.claude/settings.local.json` (merged) |
-| Codex CLI | `[env]` section in the repo's `.codex/config.toml` |
-| Gemini CLI | project `.gemini/.env` (loaded natively by the CLI) |
-| Antigravity | `terminal.integrated.env.{osx,linux}` in `.vscode/settings.json` |
-| opencode | generated `shell.env` plugin in `.opencode/plugins/aparta-env.js` |
-| Cursor CLI | no native per-project env, inherits the shell, covered by the direnv adapter |
+| Agent | Injection mechanism | Expiry warning |
+|---|---|---|
+| Claude Code | `env` field in `.claude/settings.local.json` (merged) | `SessionStart` hook |
+| Codex CLI | `[env]` section in the repo's `.codex/config.toml` | `SessionStart` hook (Codex asks you to trust it once) |
+| Gemini CLI | project `.gemini/.env` (loaded natively by the CLI) | `SessionStart` hook in `.gemini/settings.json` |
+| Antigravity | `terminal.integrated.env.{osx,linux}` in `.vscode/settings.json` | task that runs on folder open |
+| opencode | generated `shell.env` plugin in `.opencode/plugins/aparta-env.js` | same plugin, at startup and on each new session |
+| Cursor CLI | no native per-project env, inherits the shell, covered by the direnv adapter | through direnv |
 | direnv (generic) | `export` lines in `.envrc`, works for any tool (needs [direnv](https://direnv.net) installed and a one-time `direnv allow` per repo) |
 
 Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered).

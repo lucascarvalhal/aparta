@@ -16,6 +16,8 @@ REGISTRY: dict[str, type["AgentAdapter"]] = {}
 
 # What every startup hook runs: cached, silent while credentials are healthy.
 CHECK_COMMAND = "aparta check --quiet"
+# Gemini's hook contract forbids anything but JSON on stdout
+CHECK_JSON_COMMAND = "aparta check --quiet --json"
 
 
 def merge_env_lines(existing_text: str, env: dict[str, str], template: str) -> str:

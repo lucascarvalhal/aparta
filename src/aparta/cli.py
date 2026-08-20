@@ -283,29 +283,43 @@ def check(
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help=_("Print nothing when every credential is valid (for startup hooks).")
     ),
+    as_json: bool = typer.Option(
+        False, "--json", help=_("Emit a JSON hook payload instead of text (for Gemini CLI).")
+    ),
 ) -> None:
     """Check the credentials of every profile, quiet when all is well."""
+    import json as jsonlib
+
     from .auth import cached_check, OK
 
     profiles = load_profiles()
     if not profiles:
-        if quiet:
+        if quiet or as_json:
+            if as_json:
+                print("{}")
             return
         console.print(_("[yellow]No profile configured. Run `aparta init`.[/yellow]"))
         raise typer.Exit(1)
-    bad = False
+
+    lines: list[str] = []
     for profile in profiles.values():
         # hooks use the cache so opening an agent never waits on the network
-        for status in cached_check(profile, force=not quiet):
+        for status in cached_check(profile, force=not (quiet or as_json)):
             if status.state == OK:
                 continue
-            bad = True
-            console.print(
-                _("[yellow]{provider} in '{name}': {detail}[/yellow]", provider=status.provider, name=profile.name, detail=status.detail)
+            lines.append(
+                _("{provider} in '{name}': {detail}", provider=status.provider, name=profile.name, detail=status.detail)
             )
             if status.needs_human:
-                console.print(_("  run [bold]aparta login {name}[/bold]", name=profile.name))
-    if not bad and not quiet:
+                lines.append(_("  run `aparta login {name}`", name=profile.name))
+
+    if as_json:
+        # the Gemini hook contract: JSON on stdout and nothing else
+        print(jsonlib.dumps({"systemMessage": "\n".join(lines)} if lines else {}))
+        return
+    for line in lines:
+        console.print(f"[yellow]{line}[/yellow]" if not line.startswith("  ") else line)
+    if not lines and not quiet:
         console.print(_("[green]Every credential is valid.[/green]"))
 
 

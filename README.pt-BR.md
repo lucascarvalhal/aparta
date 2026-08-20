@@ -117,6 +117,7 @@ Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clien
 - **Renovação silenciosa enquanto é possível.** Enquanto o refresh token vale, o aparta renova o access token por você e você nem percebe.
 - **Aviso antes de doer, não depois.** Quando a credencial realmente precisa de uma pessoa, o aparta avisa na próxima vez que você o executa, dizendo qual perfil e qual comando resolve. A verificação é cacheada, nunca trava nada, e `APARTA_AUTH_CHECK=off` desliga.
 - **Um comando que não tem como cair no lugar errado.** O `aparta login <perfil>` roda o login do provedor dentro do escopo daquele perfil e reafirma a conta certa no final.
+- **O aviso aparece onde o acidente acontece.** O aparta instala uma verificação de início pelo mecanismo nativo de cada agente, então a mensagem surge dentro do Claude Code, Codex, Gemini CLI, Antigravity ou opencode, e não só quando você mesmo roda o aparta. A verificação lê um cache, então nada fica esperando a rede.
 
 A reautenticação em si não dá para automatizar: o passo no navegador e o toque na chave de segurança existem justamente para exigir uma pessoa. O que o aparta tira do caminho é a adivinhação, o terminal errado e a surpresa.
 
@@ -140,14 +141,14 @@ Quando um perfil usa Google Cloud, o assistente pergunta até onde a separação
 
 ## Agentes de IA suportados
 
-| Agente | Mecanismo de injeção |
-|---|---|
-| Claude Code | campo `env` em `.claude/settings.local.json` (merge) |
-| Codex CLI | seção `[env]` em `.codex/config.toml` do repositório |
-| Gemini CLI | `.gemini/.env` do projeto (carregado nativamente pelo CLI) |
-| Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` |
-| opencode | plugin `shell.env` gerado em `.opencode/plugins/aparta-env.js` |
-| Cursor CLI | não tem env por projeto, herda o shell, então o adapter direnv já resolve |
+| Agente | Mecanismo de injeção | Aviso de expiração |
+|---|---|---|
+| Claude Code | campo `env` em `.claude/settings.local.json` (merge) | hook `SessionStart` |
+| Codex CLI | seção `[env]` em `.codex/config.toml` do repositório | hook `SessionStart` (o Codex pede sua confirmação uma vez) |
+| Gemini CLI | `.gemini/.env` do projeto (carregado nativamente pelo CLI) | hook `SessionStart` em `.gemini/settings.json` |
+| Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` | task que roda ao abrir a pasta |
+| opencode | plugin `shell.env` gerado em `.opencode/plugins/aparta-env.js` | o mesmo plugin, no início e a cada sessão nova |
+| Cursor CLI | não tem env por projeto, herda o shell, então o adapter direnv já resolve | pelo direnv |
 | direnv (genérico) | linhas `export` no `.envrc`, funciona para qualquer ferramenta (precisa do [direnv](https://direnv.net) instalado e de um `direnv allow` por repo) |
 
 Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o registro é automático.
