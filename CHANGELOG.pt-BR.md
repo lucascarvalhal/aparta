@@ -8,6 +8,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.1] - 2026-08-20
+
 ### Corrigido
 
 - Perfis isolados não herdam mais o application default credentials global.
@@ -189,7 +191,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.0...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/lucascarvalhal/aparta/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
