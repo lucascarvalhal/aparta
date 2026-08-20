@@ -199,6 +199,50 @@ CATALOG: dict[str, dict[str, str]] = {
         "[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]": "[yellow]--dry-run: {n} mudança(s) prevista(s); nada foi alterado.[/yellow]",
         "[green]Everything was already applied; nothing to change.[/green]": "[green]Tudo já estava em dia; nada para mudar.[/green]",
         "[green]Done: {n} file(s) updated.[/green]": "[green]Pronto: {n} arquivo(s) atualizado(s).[/green]",
+        # fallback
+        "Make the global default neutral, so commands outside a profile fail instead of using someone's account.":
+            "Deixa o padrão global neutro: fora de um perfil, o comando falha em vez de usar a conta de alguém.",
+        "Put the configuration that was global before --secure back.":
+            "Devolve a configuração que era a global antes do --secure.",
+        "[red]Use --secure or --restore, not both.[/red]": "[red]Use --secure ou --restore, não os dois.[/red]",
+        "Show what runs outside any profile; --secure makes it neutral, --restore undoes it.":
+            "Mostra o que roda fora de qualquer perfil; --secure deixa neutro, --restore desfaz.",
+        "Outside any aparta profile": "Fora de qualquer perfil do aparta",
+        "Tool": "Ferramenta",
+        "Identity in use": "Identidade em uso",
+        "Where it comes from": "De onde vem",
+        "not installed": "não instalado",
+        "no active configuration": "nenhuma configuração ativa",
+        "no account": "sem conta",
+        "no active account": "nenhuma conta ativa",
+        "(unnamed account)": "(conta sem nome)",
+        "configuration '{name}'": "configuração '{name}'",
+        "[green]Safe fallback is on:[/green] outside a profile gcloud has no account.":
+            "[green]O fallback seguro está ligado:[/green] fora de um perfil, o gcloud fica sem conta.",
+        "[yellow]Risk:[/yellow] any terminal, script or AI agent outside a configured folder acts as [bold]{account}[/bold] without asking. Run [bold]aparta fallback --secure[/bold] to make the global default neutral, so those commands fail loudly instead.":
+            "[yellow]Risco:[/yellow] qualquer terminal, script ou agente de IA fora de uma pasta configurada age como [bold]{account}[/bold] sem avisar. Rode [bold]aparta fallback --secure[/bold] para deixar o padrão global neutro e fazer esses comandos falharem na cara em vez disso.",
+        "[yellow]gh:[/yellow] the global GitHub account is only reported, never changed. gh keeps the active token in the OS keyring and falls back to it even with no active user in hosts.yml, so the only way to deactivate it is `gh auth logout`, which deletes the token. Keep using a config dir per profile (aparta already sets GH_CONFIG_DIR in every configured folder).":
+            "[yellow]gh:[/yellow] a conta global do GitHub é só mostrada, nunca alterada. O gh guarda o token ativo no chaveiro do sistema e recorre a ele mesmo sem usuário ativo no hosts.yml, então a única forma de desativar seria o `gh auth logout`, que apaga o token. Siga com um config dir por perfil (o aparta já define GH_CONFIG_DIR em toda pasta configurada).",
+        "[yellow]gcloud is not installed, nothing to secure.[/yellow]": "[yellow]gcloud não está instalado, não há o que proteger.[/yellow]",
+        "[green]Nothing to do:[/green] '{name}' is already the global default.":
+            "[green]Nada a fazer:[/green] '{name}' já é o padrão global.",
+        "[bold]This is what will happen:[/bold]": "[bold]É isto que vai acontecer:[/bold]",
+        "  - create the gcloud configuration '{name}' (no account, no project)":
+            "  - criar a configuração '{name}' do gcloud (sem conta, sem projeto)",
+        "  - remember '{name}' in {path}": "  - guardar '{name}' em {path}",
+        "  - make '{name}' the globally active configuration": "  - tornar '{name}' a configuração ativa global",
+        "  - your other configurations, credentials and projects stay untouched":
+            "  - suas outras configurações, credenciais e projetos ficam intactos",
+        "(none)": "(nenhuma)",
+        "Make the global fallback neutral?": "Deixar o fallback global neutro?",
+        "[green]Done:[/green] outside a profile gcloud now has no account. Undo with [bold]aparta fallback --restore[/bold].":
+            "[green]Pronto:[/green] fora de um perfil, o gcloud agora fica sem conta. Para desfazer, rode [bold]aparta fallback --restore[/bold].",
+        "[yellow]Nothing to restore:[/yellow] no previous configuration saved in {path}.":
+            "[yellow]Nada para restaurar:[/yellow] nenhuma configuração anterior guardada em {path}.",
+        "[yellow]gcloud is not installed, nothing to restore.[/yellow]": "[yellow]gcloud não está instalado, não há o que restaurar.[/yellow]",
+        "[green]Restored:[/green] '{name}' is the global default again.": "[green]Restaurado:[/green] '{name}' voltou a ser o padrão global.",
+        "[red]gcloud configurations activate failed:[/red] {error}": "[red]gcloud configurations activate falhou:[/red] {error}",
+        "gcloud not found": "gcloud não encontrado",
         # backends
         "[yellow]warning:[/yellow] {repo} is not a git repository; skipping.": "[yellow]aviso:[/yellow] {repo} não é um repositório git; pulando.",
         "[red]adopting {repo} failed:[/red] {error}": "[red]adoção de {repo} falhou:[/red] {error}",

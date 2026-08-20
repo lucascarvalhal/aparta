@@ -104,6 +104,7 @@ aparta remove X   # remove um perfil e desfaz o que ele aplicou (com backups)
 aparta list       # lista os perfis configurados
 aparta login X    # reautentica um perfil, no escopo dele mesmo
 aparta check      # confere as credenciais, silencioso quando está tudo certo
+aparta fallback   # o que roda fora dos perfis; --secure deixa neutro, --restore desfaz
 aparta update     # atualiza o aparta para a versão mais recente
 aparta help       # todos os comandos e o que cada um faz
 aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar nada

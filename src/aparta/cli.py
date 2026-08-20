@@ -265,6 +265,34 @@ def remove(
 
 
 @app.command()
+def fallback(
+    ctx: typer.Context,
+    secure: bool = typer.Option(
+        False, "--secure", help=_("Make the global default neutral, so commands outside a profile fail instead of using someone's account.")
+    ),
+    restore: bool = typer.Option(
+        False, "--restore", help=_("Put the configuration that was global before --secure back.")
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help=_("Do not ask for confirmation.")),
+) -> None:
+    """Show, neutralize or restore what runs outside any profile."""
+    from . import fallback as fallback_mod
+
+    if secure and restore:
+        console.print(_("[red]Use --secure or --restore, not both.[/red]"))
+        raise typer.Exit(1)
+    writer = SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"])
+    if secure:
+        if not fallback_mod.make_secure(writer, assume_yes=yes):
+            raise typer.Exit(1)
+    elif restore:
+        if not fallback_mod.restore(writer):
+            raise typer.Exit(1)
+    else:
+        fallback_mod.show_state()
+
+
+@app.command()
 def update() -> None:
     """Update aparta to the latest release."""
     from . import __version__
@@ -357,6 +385,7 @@ def show_help() -> None:
     table.add_row("aparta list", _("List configured profiles."))
     table.add_row("aparta login <profile>", _("Reauthenticate a profile, in its own scope."))
     table.add_row("aparta check", _("Check every credential, quiet when all is well."))
+    table.add_row("aparta fallback", _("Show what runs outside any profile; --secure makes it neutral, --restore undoes it."))
     table.add_row("aparta update", _("Update aparta to the latest release."))
     table.add_row("aparta help", _("This screen."))
     console.print(table)
