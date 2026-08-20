@@ -321,7 +321,7 @@ def update() -> None:
         console.print(_("[green]You are already on the latest version ({current}).[/green]", current=__version__))
         return
     console.print(_("Updating {current} -> {latest}...", current=__version__, latest=latest))
-    if not run_update():
+    if not run_update(latest):
         raise typer.Exit(1)
 
 

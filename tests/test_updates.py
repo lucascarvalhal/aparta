@@ -115,9 +115,9 @@ def test_autoupdate_runs_in_auto_mode(monkeypatch):
     updates.set_update_mode("auto")
     monkeypatch.setattr(updates, "check_for_update", lambda force=False: "99.0.0")
     ran = []
-    monkeypatch.setattr(updates, "run_update", lambda: ran.append(1) or True)
+    monkeypatch.setattr(updates, "run_update", lambda target="": ran.append(target) or True)
     updates.notify_or_autoupdate()
-    assert ran == [1]
+    assert ran == ["99.0.0"]
 
 
 def test_profiles_applied_by_an_older_version_are_flagged(tmp_path, monkeypatch):
@@ -165,3 +165,14 @@ def test_installed_version_parses_the_binary_output(monkeypatch):
         lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "aparta 1.2.3\n"})(),
     )
     assert updates.installed_version() == "1.2.3"
+
+
+def test_update_flags_a_release_the_index_has_not_published(monkeypatch, capsys):
+    """PyPI's JSON announces a version before installers can fetch it."""
+    monkeypatch.setattr(updates, "detect_install_method", lambda: "uv-tool")
+    monkeypatch.setattr(updates, "installed_version", lambda: updates.__version__)
+    monkeypatch.setattr(
+        updates.subprocess, "run", lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": ""})()
+    )
+    assert updates.run_update("99.0.0") is False
+    assert "not installable yet" in capsys.readouterr().out

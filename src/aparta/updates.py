@@ -137,8 +137,12 @@ def installed_version() -> str:
     return match.group(0) if match else ""
 
 
-def run_update() -> bool:
-    """Upgrade aparta in place; True when the upgrade command succeeded."""
+def run_update(target: str = "") -> bool:
+    """Upgrade aparta in place; True when the upgrade command succeeded.
+
+    `target` is the release the caller expects to land, so the outcome can be
+    told apart from an index that has not published it yet.
+    """
     method = detect_install_method()
     commands = {
         "uv-tool": ["uv", "tool", "upgrade", "aparta"],
@@ -163,6 +167,15 @@ def run_update() -> bool:
         # what actually happened instead of claiming an update either way
         now = installed_version()
         if now and now == __version__:
+            if target and target != now:
+                # PyPI announces a release through its JSON API before the
+                # index the installers read, so the upgrade finds nothing
+                console.print(_(
+                    "[yellow]{target} is announced but not installable yet; PyPI's index "
+                    "takes a few minutes to catch up. Try again shortly.[/yellow]",
+                    target=target,
+                ))
+                return False
             console.print(_("[green]You are already on the latest version ({current}).[/green]", current=now))
             return True
         if now:
@@ -190,7 +203,7 @@ def notify_or_autoupdate() -> None:
         return
     if update_mode() == "auto":
         console.print(_("[dim]aparta {latest} is out, updating automatically...[/dim]", latest=latest))
-        run_update()
+        run_update(latest)
     else:
         console.print(_(
             "[yellow]aparta {latest} is available (you have {current}). Run [bold]aparta update[/bold].[/yellow]",
