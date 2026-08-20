@@ -141,8 +141,15 @@ def apply(
 
 @app.command()
 def doctor(
+    ctx: typer.Context,
     profile_name: str = typer.Argument(
         None, help=_("Profile to check (empty = all).")
+    ),
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        "-f",
+        help=_("Repair what is deterministic and safe; credentials still need `aparta login`."),
     ),
 ) -> None:
     """Check the real state: git user.email per repo, gh auth status, gcloud config."""
@@ -157,7 +164,18 @@ def doctor(
 
     # list comprehension on purpose: all() must not short-circuit, every
     # profile's table should render even after a failure
-    ok = all([check_profile(p) for p in selected])
+    options = ctx.obj or {}
+    ok = all(
+        [
+            check_profile(
+                p,
+                fix=fix,
+                dry_run=options.get("dry_run", False),
+                verbose=options.get("verbose", False),
+            )
+            for p in selected
+        ]
+    )
     raise typer.Exit(0 if ok else 1)
 
 
