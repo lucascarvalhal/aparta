@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-08-20
+
+### Fixed
+
+- `aparta update` says what the upgrade actually did. The upgrade command
+  exits successfully even when it changes nothing, which is what happens
+  while a fresh release has not propagated to PyPI's index yet, and aparta
+  reported an update either way. It now names the version it moved to, or
+  says the install was already current.
+
 ## [0.6.2] - 2026-08-20
 
 ### Fixed
