@@ -104,6 +104,7 @@ aparta remove X   # remove a profile and undo what it applied (backups kept)
 aparta list       # list configured profiles
 aparta login X    # reauthenticate a profile, in its own scope
 aparta check      # check every credential, quiet when all is well
+aparta fallback   # what runs outside any profile; --secure makes it neutral, --restore undoes it
 aparta update     # update aparta to the latest release
 aparta help       # every command and what it does
 aparta --dry-run  # any command: show diffs, change nothing
