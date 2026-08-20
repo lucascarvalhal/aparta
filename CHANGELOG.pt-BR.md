@@ -8,6 +8,14 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Corrigido
+
+- Perfis isolados não herdam mais o application default credentials global.
+  Existe um único arquivo desses por máquina, de quem rodou
+  `gcloud auth application-default login` por último, então copiá-lo daria a
+  todos os perfis a mesma identidade. O perfil agora começa sem ele, o
+  doctor avisa, e o `aparta login` mostra o comando que cria o dele.
+
 ## [0.6.0] - 2026-08-20
 
 ### Adicionado

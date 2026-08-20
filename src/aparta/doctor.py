@@ -121,6 +121,19 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
             if not ok:
                 issues.append(Issue(GCLOUD_PROJECT, project))
 
+    if profile.gcloud_isolated and profile.gcloud_config_dir.exists():
+        from .backends.gcloud import has_adc
+
+        # not an error: no ADC is safer than the wrong ADC
+        if not has_adc(profile.gcloud_config_dir):
+            _row(
+                rows,
+                "gcloud",
+                "ADC",
+                None,
+                _("none yet; SDKs need `gcloud auth application-default login`"),
+            )
+
     # aws: the named profile must exist in ~/.aws
     if profile.aws_profile:
         from .backends.aws import aws_profile_exists

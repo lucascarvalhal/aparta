@@ -92,7 +92,7 @@ def _fake_global_gcloud(tmp_path):
     return source
 
 
-def test_seed_copies_credentials_and_adc_but_not_logs(tmp_path):
+def test_seed_copies_credentials_but_never_the_shared_adc(tmp_path):
     from aparta.backends.gcloud import seed_isolated_dir
 
     source = _fake_global_gcloud(tmp_path)
@@ -101,7 +101,9 @@ def test_seed_copies_credentials_and_adc_but_not_logs(tmp_path):
 
     assert (target / "credentials.db").read_text() == "creds"
     assert not (target / "access_tokens.db").exists()  # cache, gcloud re-mints it
-    assert (target / "application_default_credentials.json").exists()
+    # the global ADC belongs to whoever logged in last, so it must not be
+    # handed to a profile: no credentials beats the wrong credentials
+    assert not (target / "application_default_credentials.json").exists()
     assert (target / "configurations" / "config_default").exists()
     # the heavy, disposable parts stay behind
     assert not (target / "logs").exists()
@@ -191,3 +193,11 @@ def test_isolated_env_points_sdks_at_the_profile_adc(tmp_path, monkeypatch):
     env = profile.env()
     assert env["GOOGLE_APPLICATION_CREDENTIALS"] == str(adc)
     assert env["CLOUDSDK_CORE_DISABLE_FILE_LOGGING"] == "1"
+
+
+def test_has_adc_reports_the_profile_own_credentials(tmp_path):
+    from aparta.backends.gcloud import has_adc
+
+    assert has_adc(tmp_path) is False
+    (tmp_path / "application_default_credentials.json").write_text("{}")
+    assert has_adc(tmp_path) is True

@@ -103,6 +103,8 @@ CATALOG: dict[str, dict[str, str]] = {
         "Check the real state: e-mail per repo, gh auth, gcloud config, agent env.": "Valida o estado real: e-mail por repo, auth do gh, config do gcloud, env dos agentes.",
         "List configured profiles.": "Lista os perfis configurados.",
         "This screen.": "Esta tela.",
+        "[dim]This profile has no application credentials of its own yet. For SDKs and Terraform, run: gcloud auth application-default login[/dim]": "[dim]Este perfil ainda não tem credenciais de aplicação próprias. Para SDKs e Terraform, rode: gcloud auth application-default login[/dim]",
+        "none yet; SDKs need `gcloud auth application-default login`": "ainda não existe; os SDKs precisam de `gcloud auth application-default login`",
         "[dim]Run `aparta apply <profile>` to bring your profiles to the new behaviour.[/dim]": "[dim]Rode `aparta apply <perfil>` para trazer seus perfis para o comportamento novo.[/dim]",
         "[yellow]These profiles were set up by an older aparta and may miss new behaviour: {names}. Run [bold]aparta apply <profile>[/bold] to bring them up to date.[/yellow]": "[yellow]Estes perfis foram configurados por uma versão anterior do aparta e podem estar sem os recursos novos: {names}. Rode [bold]aparta apply <perfil>[/bold] para atualizá-los.[/yellow]",
         "Emit a JSON hook payload instead of text (for Gemini CLI).": "Emite um payload JSON de hook em vez de texto (para o Gemini CLI).",

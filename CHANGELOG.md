@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Isolated profiles no longer inherit the global application default
+  credentials. There is only one such file per machine, from whoever ran
+  `gcloud auth application-default login` last, so copying it would give
+  every profile the same identity. A profile now starts without it, doctor
+  says so, and `aparta login` points at the command that creates its own.
+
 ## [0.6.0] - 2026-08-20
 
 ### Added

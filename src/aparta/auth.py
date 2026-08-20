@@ -213,6 +213,7 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
                 timeout=PROBE_TIMEOUT,
             )
             console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
+            _offer_adc(profile, env, console)
         else:
             ok = False
 
@@ -234,3 +235,22 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
     # the cached verdict is stale now
     cached_check(profile, force=True)
     return ok
+
+
+def _offer_adc(profile: Profile, env: dict, console) -> None:
+    """An isolated profile needs its own application default credentials.
+
+    Without them, SDKs and Terraform have nothing to fall back to inside the
+    profile, which is the safe outcome, but the user should know the command
+    that gives the profile its own.
+    """
+    from .backends.gcloud import has_adc
+
+    if not profile.gcloud_isolated or has_adc(profile.gcloud_config_dir):
+        return
+    console.print(
+        _(
+            "[dim]This profile has no application credentials of its own yet. "
+            "For SDKs and Terraform, run: gcloud auth application-default login[/dim]"
+        )
+    )

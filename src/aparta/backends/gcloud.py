@@ -27,10 +27,14 @@ from . import Note
 # The minimum that makes an isolated dir start authenticated. access_tokens.db
 # is a cache gcloud re-mints, and logs/, virtenv/ and cache/ are the bulk of
 # the global dir (over 200MB on a working machine), so none of them are copied.
+#
+# The ADC file is deliberately NOT copied: there is a single global one, from
+# whoever ran `gcloud auth application-default login` last, so seeding it would
+# hand every profile the same identity, which is the leak isolation exists to
+# close. A profile starts without ADC and `aparta login` creates its own.
 SEED_FILES = (
     "credentials.db",
     "active_config",
-    "application_default_credentials.json",
 )
 SEED_DIRS = ("configurations",)
 
@@ -84,6 +88,11 @@ def prune_credentials(db_path: Path, keep_account: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def has_adc(profile_dir: Path) -> bool:
+    """Whether the isolated dir already has its own application credentials."""
+    return (profile_dir / "application_default_credentials.json").exists()
 
 
 def seed_isolated_dir(
