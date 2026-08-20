@@ -486,7 +486,7 @@ def _ask_aws(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> 
 
 def _ask_gcloud(
     name: str, suggestion: ContextSuggestion | None, dry_run: bool
-) -> tuple[str, str]:
+) -> tuple[str, str, bool]:
     import questionary
 
     accounts = list_gcloud_accounts()
@@ -501,6 +501,7 @@ def _ask_gcloud(
     if account == NEW_GCLOUD_LOGIN:
         account = login_new_gcloud_account(name, dry_run=dry_run)
     project = ""
+    isolated = False
     if account:
         project = (
             questionary.text(
@@ -510,7 +511,15 @@ def _ask_gcloud(
             ).ask()
             or ""
         ).strip()
-    return account, project
+        isolated = _confirm(
+            _(
+                "Give this profile its own gcloud config? Recommended: credentials "
+                "and application default credentials stay separate, so SDKs, "
+                "Terraform and your agents follow the profile too"
+            ),
+            default=True,
+        )
+    return account, project, isolated
 
 
 def _ask_context(
@@ -533,9 +542,9 @@ def _ask_context(
         gh_user = _ask_gh(name, suggestion, dry_run)
         if gh_user and generated_key:
             offer_upload_ssh_key(ssh_key, gh_user, name)
-    gcloud_account, gcloud_project = ("", "")
+    gcloud_account, gcloud_project, gcloud_isolated = ("", "", False)
     if "gcloud" in providers:
-        gcloud_account, gcloud_project = _ask_gcloud(name, suggestion, dry_run)
+        gcloud_account, gcloud_project, gcloud_isolated = _ask_gcloud(name, suggestion, dry_run)
     aws_profile = ""
     if "aws" in providers:
         aws_profile = _ask_aws(name, suggestion, dry_run)
@@ -550,6 +559,7 @@ def _ask_context(
         gh_user=gh_user,
         gcloud_account=gcloud_account,
         gcloud_project=gcloud_project,
+        gcloud_isolated=gcloud_isolated,
         aws_profile=aws_profile,
         agents=agents,
     )
@@ -631,6 +641,8 @@ def _summary(new_profiles: list[Profile]) -> None:
         if p.gcloud_account:
             proj = _(" (project {project})", project=p.gcloud_project) if p.gcloud_project else ""
             actions.append(_("gcloud: configuration '{name}' with {account}{proj}", name=p.name, account=p.gcloud_account, proj=proj))
+            if p.gcloud_isolated:
+                actions.append(_("gcloud: isolated config dir ~/.config/gcloud-{name} (own credentials and ADC)", name=p.name))
         if p.aws_profile:
             actions.append(_("aws: select profile '{name}' via AWS_PROFILE", name=p.aws_profile))
         env = p.env()

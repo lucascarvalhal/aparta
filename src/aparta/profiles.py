@@ -35,6 +35,11 @@ def gh_config_dir(profile_name: str, config_root: Path | None = None) -> Path:
     return (config_root or config_home()) / f"gh-{profile_name}"
 
 
+def gcloud_config_dir(profile_name: str, config_root: Path | None = None) -> Path:
+    """Isolated gcloud config dir for a profile (CLOUDSDK_CONFIG)."""
+    return (config_root or config_home()) / f"gcloud-{profile_name}"
+
+
 def profiles_path() -> Path:
     return config_dir() / "profiles.toml"
 
@@ -51,6 +56,9 @@ class Profile:
     gh_user: str = ""  # GitHub CLI account
     gcloud_account: str = ""
     gcloud_project: str = ""
+    # isolated mode gives the profile its own gcloud config dir, which also
+    # isolates credentials and the application default credentials the SDKs use
+    gcloud_isolated: bool = False
     aws_profile: str = ""  # named profile in ~/.aws/config, selected via AWS_PROFILE
     agents: list[str] = field(default_factory=lambda: ["claude-code"])
     # repos outside root owned by this profile; identity is applied via a
@@ -65,13 +73,30 @@ class Profile:
     def gh_config_dir(self) -> Path:
         return gh_config_dir(self.name)
 
+    @property
+    def gcloud_config_dir(self) -> Path:
+        return gcloud_config_dir(self.name)
+
     def env(self) -> dict[str, str]:
         """Environment variables this profile injects into agents."""
         env: dict[str, str] = {}
         if self.gh_user:
             env["GH_CONFIG_DIR"] = str(self.gh_config_dir)
         if self.gcloud_account or self.gcloud_project:
-            env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
+            if self.gcloud_isolated:
+                # the whole gcloud config dir is the profile's, so credentials
+                # and ADC are isolated too, not just the active configuration
+                env["CLOUDSDK_CONFIG"] = str(self.gcloud_config_dir)
+                # gcloud, Python and Java honor CLOUDSDK_CONFIG, but the Node
+                # and Go libraries (so Terraform too) hardcode the global ADC
+                # path; pointing at the file directly is honored by all of them
+                adc = self.gcloud_config_dir / "application_default_credentials.json"
+                if adc.exists():
+                    env["GOOGLE_APPLICATION_CREDENTIALS"] = str(adc)
+                # each isolated dir would otherwise grow its own log tree
+                env["CLOUDSDK_CORE_DISABLE_FILE_LOGGING"] = "1"
+            else:
+                env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
         if self.aws_profile:
             env["AWS_PROFILE"] = self.aws_profile
         return env

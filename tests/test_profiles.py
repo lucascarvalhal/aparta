@@ -68,3 +68,20 @@ def test_gh_config_dir_honors_xdg(tmp_path, monkeypatch):
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     assert gh_config_dir("acme") == tmp_path / "xdg" / "gh-acme"
+
+
+def test_isolated_gcloud_uses_its_own_config_dir(monkeypatch, tmp_path):
+    from aparta.profiles import Profile
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    light = Profile(name="acme", root="~/a", git_email="a@b.c", gcloud_account="a@b.c")
+    assert light.env()["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "acme"
+    assert "CLOUDSDK_CONFIG" not in light.env()
+
+    isolated = Profile(
+        name="acme", root="~/a", git_email="a@b.c", gcloud_account="a@b.c", gcloud_isolated=True
+    )
+    env = isolated.env()
+    assert env["CLOUDSDK_CONFIG"] == str(tmp_path / "gcloud-acme")
+    # the isolated dir replaces the named-configuration selector
+    assert "CLOUDSDK_ACTIVE_CONFIG_NAME" not in env

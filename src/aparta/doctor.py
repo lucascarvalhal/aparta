@@ -69,7 +69,18 @@ def check_profile(profile: Profile) -> bool:
 
     # gcloud: account/project of the profile's configuration
     if profile.gcloud_account or profile.gcloud_project:
-        env = {"CLOUDSDK_ACTIVE_CONFIG_NAME": profile.name}
+        if profile.gcloud_isolated:
+            env = {"CLOUDSDK_CONFIG": str(profile.gcloud_config_dir)}
+            if not profile.gcloud_config_dir.exists():
+                all_ok &= _row(
+                    table,
+                    "gcloud",
+                    str(profile.gcloud_config_dir),
+                    False,
+                    _("config dir missing, run `aparta apply`"),
+                )
+        else:
+            env = {"CLOUDSDK_ACTIVE_CONFIG_NAME": profile.name}
         if profile.gcloud_account:
             r = _run(["gcloud", "config", "get", "account"], env)
             account = r.stdout.strip()
