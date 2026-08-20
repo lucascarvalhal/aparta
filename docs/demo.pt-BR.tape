@@ -52,6 +52,9 @@ Sleep 900ms
 Enter
 Sleep 900ms
 Enter
+Sleep 900ms
+# name on commits: keep the suggested one
+Enter
 Sleep 1.2s
 # ssh key: first one (id_ed25519_acme)
 Enter
@@ -75,6 +78,9 @@ Enter
 Sleep 900ms
 Enter
 Sleep 900ms
+Enter
+Sleep 900ms
+# name on commits: keep the suggested one
 Enter
 Sleep 1.2s
 # ssh key: second one (id_ed25519_personal)

@@ -112,7 +112,8 @@ def apply_profile(
                     console.print(
                         _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
                     )
-        touched = len(writer.changes) - before
+        # env and the startup hook can land in the same file: count files, not writes
+        touched = len(set(writer.changes[before:]))
         if repos:
             console.print(
                 _("  [green]OK[/green] agents: {n} config file(s) updated across {total} repo(s)", n=touched, total=len(repos))

@@ -1,4 +1,4 @@
-<svg class="rich-terminal" viewBox="0 0 1238 586.8" xmlns="http://www.w3.org/2000/svg">
+<svg class="rich-terminal" viewBox="0 0 1238 635.5999999999999" xmlns="http://www.w3.org/2000/svg">
     <!-- Generated with Rich https://www.textualize.io -->
     <style>
 
@@ -19,133 +19,141 @@
         font-weight: 700;
     }
 
-    .terminal-3699666002-matrix {
+    .terminal-807685113-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-3699666002-title {
+    .terminal-807685113-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-3699666002-r1 { fill: #68a0b3 }
-.terminal-3699666002-r2 { fill: #c5c8c6 }
-.terminal-3699666002-r3 { fill: #c5c8c6;font-weight: bold }
-.terminal-3699666002-r4 { fill: #68a0b3;font-weight: bold }
-.terminal-3699666002-r5 { fill: #868887 }
-.terminal-3699666002-r6 { fill: #868887;font-weight: bold }
-.terminal-3699666002-r7 { fill: #8d7b39 }
-.terminal-3699666002-r8 { fill: #98729f;font-weight: bold }
-.terminal-3699666002-r9 { fill: #98a84b }
-.terminal-3699666002-r10 { fill: #98729f }
-.terminal-3699666002-r11 { fill: #ff2c7a }
+    .terminal-807685113-r1 { fill: #68a0b3 }
+.terminal-807685113-r2 { fill: #c5c8c6 }
+.terminal-807685113-r3 { fill: #c5c8c6;font-weight: bold }
+.terminal-807685113-r4 { fill: #68a0b3;font-weight: bold }
+.terminal-807685113-r5 { fill: #868887 }
+.terminal-807685113-r6 { fill: #868887;font-weight: bold }
+.terminal-807685113-r7 { fill: #8d7b39 }
+.terminal-807685113-r8 { fill: #98729f;font-weight: bold }
+.terminal-807685113-r9 { fill: #98a84b }
+.terminal-807685113-r10 { fill: #98729f }
+.terminal-807685113-r11 { fill: #ff2c7a }
     </style>
 
     <defs>
-    <clipPath id="terminal-3699666002-clip-terminal">
-      <rect x="0" y="0" width="1219.0" height="535.8" />
+    <clipPath id="terminal-807685113-clip-terminal">
+      <rect x="0" y="0" width="1219.0" height="584.5999999999999" />
     </clipPath>
-    <clipPath id="terminal-3699666002-line-0">
+    <clipPath id="terminal-807685113-line-0">
     <rect x="0" y="1.5" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-1">
+<clipPath id="terminal-807685113-line-1">
     <rect x="0" y="25.9" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-2">
+<clipPath id="terminal-807685113-line-2">
     <rect x="0" y="50.3" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-3">
+<clipPath id="terminal-807685113-line-3">
     <rect x="0" y="74.7" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-4">
+<clipPath id="terminal-807685113-line-4">
     <rect x="0" y="99.1" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-5">
+<clipPath id="terminal-807685113-line-5">
     <rect x="0" y="123.5" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-6">
+<clipPath id="terminal-807685113-line-6">
     <rect x="0" y="147.9" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-7">
+<clipPath id="terminal-807685113-line-7">
     <rect x="0" y="172.3" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-8">
+<clipPath id="terminal-807685113-line-8">
     <rect x="0" y="196.7" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-9">
+<clipPath id="terminal-807685113-line-9">
     <rect x="0" y="221.1" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-10">
+<clipPath id="terminal-807685113-line-10">
     <rect x="0" y="245.5" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-11">
+<clipPath id="terminal-807685113-line-11">
     <rect x="0" y="269.9" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-12">
+<clipPath id="terminal-807685113-line-12">
     <rect x="0" y="294.3" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-13">
+<clipPath id="terminal-807685113-line-13">
     <rect x="0" y="318.7" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-14">
+<clipPath id="terminal-807685113-line-14">
     <rect x="0" y="343.1" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-15">
+<clipPath id="terminal-807685113-line-15">
     <rect x="0" y="367.5" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-16">
+<clipPath id="terminal-807685113-line-16">
     <rect x="0" y="391.9" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-17">
+<clipPath id="terminal-807685113-line-17">
     <rect x="0" y="416.3" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-18">
+<clipPath id="terminal-807685113-line-18">
     <rect x="0" y="440.7" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-19">
+<clipPath id="terminal-807685113-line-19">
     <rect x="0" y="465.1" width="1220" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-3699666002-line-20">
+<clipPath id="terminal-807685113-line-20">
     <rect x="0" y="489.5" width="1220" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-807685113-line-21">
+    <rect x="0" y="513.9" width="1220" height="24.65"/>
+            </clipPath>
+<clipPath id="terminal-807685113-line-22">
+    <rect x="0" y="538.3" width="1220" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1236" height="584.8" rx="8"/><text class="terminal-3699666002-title" fill="#c5c8c6" text-anchor="middle" x="618" y="27">aparta&#160;wizard</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1236" height="633.6" rx="8"/><text class="terminal-807685113-title" fill="#c5c8c6" text-anchor="middle" x="618" y="27">aparta&#160;wizard</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-3699666002-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-807685113-clip-terminal)">
     
-    <g class="terminal-3699666002-matrix">
-    <text class="terminal-3699666002-r1" x="0" y="20" textLength="1220" clip-path="url(#terminal-3699666002-line-0)">╭──────────────────────────────────────────────────────────────────────────────────────────────────╮</text><text class="terminal-3699666002-r2" x="1220" y="20" textLength="12.2" clip-path="url(#terminal-3699666002-line-0)">
-</text><text class="terminal-3699666002-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-1)">│</text><text class="terminal-3699666002-r2" x="24.4" y="44.4" textLength="134.2" clip-path="url(#terminal-3699666002-line-1)">Welcome&#160;to&#160;</text><text class="terminal-3699666002-r3" x="158.6" y="44.4" textLength="73.2" clip-path="url(#terminal-3699666002-line-1)">aparta</text><text class="terminal-3699666002-r2" x="231.8" y="44.4" textLength="744.2" clip-path="url(#terminal-3699666002-line-1)">!&#160;Let&#x27;s&#160;isolate&#160;your&#160;development&#160;accounts&#160;per&#160;project&#160;folder.</text><text class="terminal-3699666002-r1" x="1207.8" y="44.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-1)">│</text><text class="terminal-3699666002-r2" x="1220" y="44.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-1)">
-</text><text class="terminal-3699666002-r1" x="0" y="68.8" textLength="1220" clip-path="url(#terminal-3699666002-line-2)">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3699666002-r2" x="1220" y="68.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-2)">
-</text><text class="terminal-3699666002-r2" x="0" y="93.2" textLength="719.8" clip-path="url(#terminal-3699666002-line-3)">Which&#160;AI&#160;agents&#160;should&#160;receive&#160;the&#160;environment&#160;variables?&#160;&#160;</text><text class="terminal-3699666002-r1" x="719.8" y="93.2" textLength="280.6" clip-path="url(#terminal-3699666002-line-3)">Claude&#160;Code,&#160;Gemini&#160;CLI</text><text class="terminal-3699666002-r2" x="1220" y="93.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-3)">
-</text><text class="terminal-3699666002-r2" x="0" y="117.6" textLength="512.4" clip-path="url(#terminal-3699666002-line-4)">Which&#160;providers&#160;do&#160;you&#160;want&#160;to&#160;configure?&#160;</text><text class="terminal-3699666002-r3" x="512.4" y="117.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-4)">(</text><text class="terminal-3699666002-r2" x="524.6" y="117.6" textLength="683.2" clip-path="url(#terminal-3699666002-line-4)">git&#160;and&#160;SSH&#160;are&#160;always&#160;on;&#160;keep&#160;all&#160;selected&#160;for&#160;a&#160;full&#160;</text><text class="terminal-3699666002-r2" x="1220" y="117.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-4)">
-</text><text class="terminal-3699666002-r2" x="0" y="142" textLength="61" clip-path="url(#terminal-3699666002-line-5)">sweep</text><text class="terminal-3699666002-r3" x="61" y="142" textLength="12.2" clip-path="url(#terminal-3699666002-line-5)">)</text><text class="terminal-3699666002-r1" x="97.6" y="142" textLength="61" clip-path="url(#terminal-3699666002-line-5)">done&#160;</text><text class="terminal-3699666002-r4" x="158.6" y="142" textLength="12.2" clip-path="url(#terminal-3699666002-line-5)">(</text><text class="terminal-3699666002-r4" x="170.8" y="142" textLength="12.2" clip-path="url(#terminal-3699666002-line-5)">3</text><text class="terminal-3699666002-r1" x="183" y="142" textLength="134.2" clip-path="url(#terminal-3699666002-line-5)">&#160;selections</text><text class="terminal-3699666002-r4" x="317.2" y="142" textLength="12.2" clip-path="url(#terminal-3699666002-line-5)">)</text><text class="terminal-3699666002-r2" x="1220" y="142" textLength="12.2" clip-path="url(#terminal-3699666002-line-5)">
-</text><text class="terminal-3699666002-r2" x="0" y="166.4" textLength="329.4" clip-path="url(#terminal-3699666002-line-6)">How&#160;do&#160;you&#160;want&#160;to&#160;start?&#160;&#160;</text><text class="terminal-3699666002-r1" x="329.4" y="166.4" textLength="305" clip-path="url(#terminal-3699666002-line-6)">Detect&#160;what&#160;I&#160;already&#160;use</text><text class="terminal-3699666002-r2" x="1220" y="166.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-6)">
-</text><text class="terminal-3699666002-r5" x="0" y="190.8" textLength="488" clip-path="url(#terminal-3699666002-line-7)">Scanning&#160;your&#160;home&#160;for&#160;git&#160;repositories&#160;</text><text class="terminal-3699666002-r6" x="488" y="190.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-7)">(</text><text class="terminal-3699666002-r5" x="500.2" y="190.8" textLength="109.8" clip-path="url(#terminal-3699666002-line-7)">read-only</text><text class="terminal-3699666002-r6" x="610" y="190.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-7)">)</text><text class="terminal-3699666002-r7" x="622.2" y="190.8" textLength="36.6" clip-path="url(#terminal-3699666002-line-7)">...</text><text class="terminal-3699666002-r2" x="1220" y="190.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-7)">
-</text><text class="terminal-3699666002-r2" x="0" y="215.2" textLength="73.2" clip-path="url(#terminal-3699666002-line-8)">Found&#160;</text><text class="terminal-3699666002-r4" x="73.2" y="215.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-8)">2</text><text class="terminal-3699666002-r2" x="85.4" y="215.2" textLength="109.8" clip-path="url(#terminal-3699666002-line-8)">&#160;project&#160;</text><text class="terminal-3699666002-r8" x="195.2" y="215.2" textLength="61" clip-path="url(#terminal-3699666002-line-8)">group</text><text class="terminal-3699666002-r3" x="256.2" y="215.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-8)">(</text><text class="terminal-3699666002-r2" x="268.4" y="215.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-8)">s</text><text class="terminal-3699666002-r3" x="280.6" y="215.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-8)">)</text><text class="terminal-3699666002-r2" x="292.8" y="215.2" textLength="195.2" clip-path="url(#terminal-3699666002-line-8)">&#160;already&#160;in&#160;use:</text><text class="terminal-3699666002-r2" x="1220" y="215.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-8)">
-</text><text class="terminal-3699666002-r9" x="24.4" y="239.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-9)">●</text><text class="terminal-3699666002-r2" x="36.6" y="239.6" textLength="24.4" clip-path="url(#terminal-3699666002-line-9)">&#160;~</text><text class="terminal-3699666002-r10" x="61" y="239.6" textLength="73.2" clip-path="url(#terminal-3699666002-line-9)">/work/</text><text class="terminal-3699666002-r11" x="134.2" y="239.6" textLength="48.8" clip-path="url(#terminal-3699666002-line-9)">acme</text><text class="terminal-3699666002-r3" x="195.2" y="239.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-9)">(</text><text class="terminal-3699666002-r4" x="207.4" y="239.6" textLength="24.4" clip-path="url(#terminal-3699666002-line-9)">14</text><text class="terminal-3699666002-r2" x="231.8" y="239.6" textLength="402.6" clip-path="url(#terminal-3699666002-line-9)">&#160;repos,&#160;ana@acme.com,&#160;gh:ana-acme</text><text class="terminal-3699666002-r3" x="634.4" y="239.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-9)">)</text><text class="terminal-3699666002-r2" x="1220" y="239.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-9)">
-</text><text class="terminal-3699666002-r9" x="24.4" y="264" textLength="12.2" clip-path="url(#terminal-3699666002-line-10)">●</text><text class="terminal-3699666002-r2" x="36.6" y="264" textLength="24.4" clip-path="url(#terminal-3699666002-line-10)">&#160;~</text><text class="terminal-3699666002-r10" x="61" y="264" textLength="12.2" clip-path="url(#terminal-3699666002-line-10)">/</text><text class="terminal-3699666002-r11" x="73.2" y="264" textLength="97.6" clip-path="url(#terminal-3699666002-line-10)">personal</text><text class="terminal-3699666002-r3" x="183" y="264" textLength="12.2" clip-path="url(#terminal-3699666002-line-10)">(</text><text class="terminal-3699666002-r4" x="195.2" y="264" textLength="12.2" clip-path="url(#terminal-3699666002-line-10)">5</text><text class="terminal-3699666002-r2" x="207.4" y="264" textLength="439.2" clip-path="url(#terminal-3699666002-line-10)">&#160;repos,&#160;ana.dev@gmail.com,&#160;gh:anadev</text><text class="terminal-3699666002-r3" x="646.6" y="264" textLength="12.2" clip-path="url(#terminal-3699666002-line-10)">)</text><text class="terminal-3699666002-r2" x="1220" y="264" textLength="12.2" clip-path="url(#terminal-3699666002-line-10)">
-</text><text class="terminal-3699666002-r1" x="0" y="288.4" textLength="24.4" clip-path="url(#terminal-3699666002-line-11)">╭─</text><text class="terminal-3699666002-r1" x="24.4" y="288.4" textLength="439.2" clip-path="url(#terminal-3699666002-line-11)">────────────────────────────────────</text><text class="terminal-3699666002-r1" x="463.6" y="288.4" textLength="292.8" clip-path="url(#terminal-3699666002-line-11)">&#160;Group&#160;1/2:&#160;~/work/acme&#160;</text><text class="terminal-3699666002-r1" x="756.4" y="288.4" textLength="439.2" clip-path="url(#terminal-3699666002-line-11)">────────────────────────────────────</text><text class="terminal-3699666002-r1" x="1195.6" y="288.4" textLength="24.4" clip-path="url(#terminal-3699666002-line-11)">─╮</text><text class="terminal-3699666002-r2" x="1220" y="288.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-11)">
-</text><text class="terminal-3699666002-r1" x="0" y="312.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-12)">│</text><text class="terminal-3699666002-r2" x="24.4" y="312.8" textLength="597.8" clip-path="url(#terminal-3699666002-line-12)">~/work/acme&#160;(14&#160;repos,&#160;ana@acme.com,&#160;gh:ana-acme)</text><text class="terminal-3699666002-r1" x="1207.8" y="312.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-12)">│</text><text class="terminal-3699666002-r2" x="1220" y="312.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-12)">
-</text><text class="terminal-3699666002-r1" x="0" y="337.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-13)">│</text><text class="terminal-3699666002-r5" x="24.4" y="337.2" textLength="719.8" clip-path="url(#terminal-3699666002-line-13)">Enter&#160;accepts&#160;the&#160;suggested&#160;values;&#160;edit&#160;whatever&#160;you&#160;want.</text><text class="terminal-3699666002-r1" x="1207.8" y="337.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-13)">│</text><text class="terminal-3699666002-r2" x="1220" y="337.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-13)">
-</text><text class="terminal-3699666002-r1" x="0" y="361.6" textLength="1220" clip-path="url(#terminal-3699666002-line-14)">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-3699666002-r2" x="1220" y="361.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-14)">
-</text><text class="terminal-3699666002-r2" x="0" y="386" textLength="219.6" clip-path="url(#terminal-3699666002-line-15)">Profile&#160;name&#160;for&#160;~</text><text class="terminal-3699666002-r10" x="219.6" y="386" textLength="73.2" clip-path="url(#terminal-3699666002-line-15)">/work/</text><text class="terminal-3699666002-r11" x="292.8" y="386" textLength="48.8" clip-path="url(#terminal-3699666002-line-15)">acme</text><text class="terminal-3699666002-r2" x="341.6" y="386" textLength="36.6" clip-path="url(#terminal-3699666002-line-15)">:&#160;&#160;</text><text class="terminal-3699666002-r1" x="378.2" y="386" textLength="48.8" clip-path="url(#terminal-3699666002-line-15)">acme</text><text class="terminal-3699666002-r2" x="1220" y="386" textLength="12.2" clip-path="url(#terminal-3699666002-line-15)">
-</text><text class="terminal-3699666002-r2" x="0" y="410.4" textLength="500.2" clip-path="url(#terminal-3699666002-line-16)">Root&#160;folder&#160;of&#160;this&#160;profile&#x27;s&#160;projects:&#160;&#160;</text><text class="terminal-3699666002-r1" x="500.2" y="410.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-16)">~</text><text class="terminal-3699666002-r1" x="512.4" y="410.4" textLength="73.2" clip-path="url(#terminal-3699666002-line-16)">/work/</text><text class="terminal-3699666002-r1" x="585.6" y="410.4" textLength="48.8" clip-path="url(#terminal-3699666002-line-16)">acme</text><text class="terminal-3699666002-r2" x="1220" y="410.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-16)">
-</text><text class="terminal-3699666002-r2" x="0" y="434.8" textLength="439.2" clip-path="url(#terminal-3699666002-line-17)">git&#160;e-mail&#160;for&#160;these&#160;repositories:&#160;&#160;</text><text class="terminal-3699666002-r1" x="439.2" y="434.8" textLength="146.4" clip-path="url(#terminal-3699666002-line-17)">ana@acme.com</text><text class="terminal-3699666002-r2" x="1220" y="434.8" textLength="12.2" clip-path="url(#terminal-3699666002-line-17)">
-</text><text class="terminal-3699666002-r2" x="0" y="459.2" textLength="451.4" clip-path="url(#terminal-3699666002-line-18)">Dedicated&#160;SSH&#160;key&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-3699666002-r1" x="451.4" y="459.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-18)">~</text><text class="terminal-3699666002-r1" x="463.6" y="459.2" textLength="73.2" clip-path="url(#terminal-3699666002-line-18)">/.ssh/</text><text class="terminal-3699666002-r1" x="536.8" y="459.2" textLength="183" clip-path="url(#terminal-3699666002-line-18)">id_ed25519_acme</text><text class="terminal-3699666002-r2" x="1220" y="459.2" textLength="12.2" clip-path="url(#terminal-3699666002-line-18)">
-</text><text class="terminal-3699666002-r2" x="0" y="483.6" textLength="463.6" clip-path="url(#terminal-3699666002-line-19)">GitHub&#160;CLI&#160;account&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-3699666002-r1" x="463.6" y="483.6" textLength="97.6" clip-path="url(#terminal-3699666002-line-19)">ana-acme</text><text class="terminal-3699666002-r2" x="1220" y="483.6" textLength="12.2" clip-path="url(#terminal-3699666002-line-19)">
-</text><text class="terminal-3699666002-r2" x="0" y="508" textLength="414.8" clip-path="url(#terminal-3699666002-line-20)">gcloud&#160;account&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-3699666002-r1" x="414.8" y="508" textLength="146.4" clip-path="url(#terminal-3699666002-line-20)">ana@acme.com</text><text class="terminal-3699666002-r2" x="1220" y="508" textLength="12.2" clip-path="url(#terminal-3699666002-line-20)">
-</text><text class="terminal-3699666002-r2" x="0" y="532.4" textLength="378.2" clip-path="url(#terminal-3699666002-line-21)">AWS&#160;profile&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-3699666002-r1" x="378.2" y="532.4" textLength="48.8" clip-path="url(#terminal-3699666002-line-21)">acme</text><text class="terminal-3699666002-r2" x="1220" y="532.4" textLength="12.2" clip-path="url(#terminal-3699666002-line-21)">
+    <g class="terminal-807685113-matrix">
+    <text class="terminal-807685113-r1" x="0" y="20" textLength="1220" clip-path="url(#terminal-807685113-line-0)">╭──────────────────────────────────────────────────────────────────────────────────────────────────╮</text><text class="terminal-807685113-r2" x="1220" y="20" textLength="12.2" clip-path="url(#terminal-807685113-line-0)">
+</text><text class="terminal-807685113-r1" x="0" y="44.4" textLength="12.2" clip-path="url(#terminal-807685113-line-1)">│</text><text class="terminal-807685113-r2" x="24.4" y="44.4" textLength="134.2" clip-path="url(#terminal-807685113-line-1)">Welcome&#160;to&#160;</text><text class="terminal-807685113-r3" x="158.6" y="44.4" textLength="73.2" clip-path="url(#terminal-807685113-line-1)">aparta</text><text class="terminal-807685113-r2" x="231.8" y="44.4" textLength="744.2" clip-path="url(#terminal-807685113-line-1)">!&#160;Let&#x27;s&#160;isolate&#160;your&#160;development&#160;accounts&#160;per&#160;project&#160;folder.</text><text class="terminal-807685113-r1" x="1207.8" y="44.4" textLength="12.2" clip-path="url(#terminal-807685113-line-1)">│</text><text class="terminal-807685113-r2" x="1220" y="44.4" textLength="12.2" clip-path="url(#terminal-807685113-line-1)">
+</text><text class="terminal-807685113-r1" x="0" y="68.8" textLength="1220" clip-path="url(#terminal-807685113-line-2)">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-807685113-r2" x="1220" y="68.8" textLength="12.2" clip-path="url(#terminal-807685113-line-2)">
+</text><text class="terminal-807685113-r2" x="0" y="93.2" textLength="719.8" clip-path="url(#terminal-807685113-line-3)">Which&#160;AI&#160;agents&#160;should&#160;receive&#160;the&#160;environment&#160;variables?&#160;&#160;</text><text class="terminal-807685113-r1" x="719.8" y="93.2" textLength="280.6" clip-path="url(#terminal-807685113-line-3)">Claude&#160;Code,&#160;Gemini&#160;CLI</text><text class="terminal-807685113-r2" x="1220" y="93.2" textLength="12.2" clip-path="url(#terminal-807685113-line-3)">
+</text><text class="terminal-807685113-r2" x="0" y="117.6" textLength="512.4" clip-path="url(#terminal-807685113-line-4)">Which&#160;providers&#160;do&#160;you&#160;want&#160;to&#160;configure?&#160;</text><text class="terminal-807685113-r3" x="512.4" y="117.6" textLength="12.2" clip-path="url(#terminal-807685113-line-4)">(</text><text class="terminal-807685113-r2" x="524.6" y="117.6" textLength="683.2" clip-path="url(#terminal-807685113-line-4)">git&#160;and&#160;SSH&#160;are&#160;always&#160;on;&#160;keep&#160;all&#160;selected&#160;for&#160;a&#160;full&#160;</text><text class="terminal-807685113-r2" x="1220" y="117.6" textLength="12.2" clip-path="url(#terminal-807685113-line-4)">
+</text><text class="terminal-807685113-r2" x="0" y="142" textLength="61" clip-path="url(#terminal-807685113-line-5)">sweep</text><text class="terminal-807685113-r3" x="61" y="142" textLength="12.2" clip-path="url(#terminal-807685113-line-5)">)</text><text class="terminal-807685113-r1" x="97.6" y="142" textLength="61" clip-path="url(#terminal-807685113-line-5)">done&#160;</text><text class="terminal-807685113-r4" x="158.6" y="142" textLength="12.2" clip-path="url(#terminal-807685113-line-5)">(</text><text class="terminal-807685113-r4" x="170.8" y="142" textLength="12.2" clip-path="url(#terminal-807685113-line-5)">3</text><text class="terminal-807685113-r1" x="183" y="142" textLength="134.2" clip-path="url(#terminal-807685113-line-5)">&#160;selections</text><text class="terminal-807685113-r4" x="317.2" y="142" textLength="12.2" clip-path="url(#terminal-807685113-line-5)">)</text><text class="terminal-807685113-r2" x="1220" y="142" textLength="12.2" clip-path="url(#terminal-807685113-line-5)">
+</text><text class="terminal-807685113-r2" x="0" y="166.4" textLength="329.4" clip-path="url(#terminal-807685113-line-6)">How&#160;do&#160;you&#160;want&#160;to&#160;start?&#160;&#160;</text><text class="terminal-807685113-r1" x="329.4" y="166.4" textLength="305" clip-path="url(#terminal-807685113-line-6)">Detect&#160;what&#160;I&#160;already&#160;use</text><text class="terminal-807685113-r2" x="1220" y="166.4" textLength="12.2" clip-path="url(#terminal-807685113-line-6)">
+</text><text class="terminal-807685113-r5" x="0" y="190.8" textLength="488" clip-path="url(#terminal-807685113-line-7)">Scanning&#160;your&#160;home&#160;for&#160;git&#160;repositories&#160;</text><text class="terminal-807685113-r6" x="488" y="190.8" textLength="12.2" clip-path="url(#terminal-807685113-line-7)">(</text><text class="terminal-807685113-r5" x="500.2" y="190.8" textLength="109.8" clip-path="url(#terminal-807685113-line-7)">read-only</text><text class="terminal-807685113-r6" x="610" y="190.8" textLength="12.2" clip-path="url(#terminal-807685113-line-7)">)</text><text class="terminal-807685113-r7" x="622.2" y="190.8" textLength="36.6" clip-path="url(#terminal-807685113-line-7)">...</text><text class="terminal-807685113-r2" x="1220" y="190.8" textLength="12.2" clip-path="url(#terminal-807685113-line-7)">
+</text><text class="terminal-807685113-r2" x="0" y="215.2" textLength="73.2" clip-path="url(#terminal-807685113-line-8)">Found&#160;</text><text class="terminal-807685113-r4" x="73.2" y="215.2" textLength="12.2" clip-path="url(#terminal-807685113-line-8)">2</text><text class="terminal-807685113-r2" x="85.4" y="215.2" textLength="109.8" clip-path="url(#terminal-807685113-line-8)">&#160;project&#160;</text><text class="terminal-807685113-r8" x="195.2" y="215.2" textLength="61" clip-path="url(#terminal-807685113-line-8)">group</text><text class="terminal-807685113-r3" x="256.2" y="215.2" textLength="12.2" clip-path="url(#terminal-807685113-line-8)">(</text><text class="terminal-807685113-r2" x="268.4" y="215.2" textLength="12.2" clip-path="url(#terminal-807685113-line-8)">s</text><text class="terminal-807685113-r3" x="280.6" y="215.2" textLength="12.2" clip-path="url(#terminal-807685113-line-8)">)</text><text class="terminal-807685113-r2" x="292.8" y="215.2" textLength="195.2" clip-path="url(#terminal-807685113-line-8)">&#160;already&#160;in&#160;use:</text><text class="terminal-807685113-r2" x="1220" y="215.2" textLength="12.2" clip-path="url(#terminal-807685113-line-8)">
+</text><text class="terminal-807685113-r9" x="24.4" y="239.6" textLength="12.2" clip-path="url(#terminal-807685113-line-9)">●</text><text class="terminal-807685113-r2" x="36.6" y="239.6" textLength="24.4" clip-path="url(#terminal-807685113-line-9)">&#160;~</text><text class="terminal-807685113-r10" x="61" y="239.6" textLength="73.2" clip-path="url(#terminal-807685113-line-9)">/work/</text><text class="terminal-807685113-r11" x="134.2" y="239.6" textLength="48.8" clip-path="url(#terminal-807685113-line-9)">acme</text><text class="terminal-807685113-r3" x="195.2" y="239.6" textLength="12.2" clip-path="url(#terminal-807685113-line-9)">(</text><text class="terminal-807685113-r4" x="207.4" y="239.6" textLength="24.4" clip-path="url(#terminal-807685113-line-9)">14</text><text class="terminal-807685113-r2" x="231.8" y="239.6" textLength="402.6" clip-path="url(#terminal-807685113-line-9)">&#160;repos,&#160;ana@acme.com,&#160;gh:ana-acme</text><text class="terminal-807685113-r3" x="634.4" y="239.6" textLength="12.2" clip-path="url(#terminal-807685113-line-9)">)</text><text class="terminal-807685113-r2" x="1220" y="239.6" textLength="12.2" clip-path="url(#terminal-807685113-line-9)">
+</text><text class="terminal-807685113-r9" x="24.4" y="264" textLength="12.2" clip-path="url(#terminal-807685113-line-10)">●</text><text class="terminal-807685113-r2" x="36.6" y="264" textLength="24.4" clip-path="url(#terminal-807685113-line-10)">&#160;~</text><text class="terminal-807685113-r10" x="61" y="264" textLength="12.2" clip-path="url(#terminal-807685113-line-10)">/</text><text class="terminal-807685113-r11" x="73.2" y="264" textLength="97.6" clip-path="url(#terminal-807685113-line-10)">personal</text><text class="terminal-807685113-r3" x="183" y="264" textLength="12.2" clip-path="url(#terminal-807685113-line-10)">(</text><text class="terminal-807685113-r4" x="195.2" y="264" textLength="12.2" clip-path="url(#terminal-807685113-line-10)">5</text><text class="terminal-807685113-r2" x="207.4" y="264" textLength="439.2" clip-path="url(#terminal-807685113-line-10)">&#160;repos,&#160;ana.dev@gmail.com,&#160;gh:anadev</text><text class="terminal-807685113-r3" x="646.6" y="264" textLength="12.2" clip-path="url(#terminal-807685113-line-10)">)</text><text class="terminal-807685113-r2" x="1220" y="264" textLength="12.2" clip-path="url(#terminal-807685113-line-10)">
+</text><text class="terminal-807685113-r1" x="0" y="288.4" textLength="24.4" clip-path="url(#terminal-807685113-line-11)">╭─</text><text class="terminal-807685113-r1" x="24.4" y="288.4" textLength="439.2" clip-path="url(#terminal-807685113-line-11)">────────────────────────────────────</text><text class="terminal-807685113-r1" x="463.6" y="288.4" textLength="292.8" clip-path="url(#terminal-807685113-line-11)">&#160;Group&#160;1/2:&#160;~/work/acme&#160;</text><text class="terminal-807685113-r1" x="756.4" y="288.4" textLength="439.2" clip-path="url(#terminal-807685113-line-11)">────────────────────────────────────</text><text class="terminal-807685113-r1" x="1195.6" y="288.4" textLength="24.4" clip-path="url(#terminal-807685113-line-11)">─╮</text><text class="terminal-807685113-r2" x="1220" y="288.4" textLength="12.2" clip-path="url(#terminal-807685113-line-11)">
+</text><text class="terminal-807685113-r1" x="0" y="312.8" textLength="12.2" clip-path="url(#terminal-807685113-line-12)">│</text><text class="terminal-807685113-r2" x="24.4" y="312.8" textLength="597.8" clip-path="url(#terminal-807685113-line-12)">~/work/acme&#160;(14&#160;repos,&#160;ana@acme.com,&#160;gh:ana-acme)</text><text class="terminal-807685113-r1" x="1207.8" y="312.8" textLength="12.2" clip-path="url(#terminal-807685113-line-12)">│</text><text class="terminal-807685113-r2" x="1220" y="312.8" textLength="12.2" clip-path="url(#terminal-807685113-line-12)">
+</text><text class="terminal-807685113-r1" x="0" y="337.2" textLength="12.2" clip-path="url(#terminal-807685113-line-13)">│</text><text class="terminal-807685113-r5" x="24.4" y="337.2" textLength="719.8" clip-path="url(#terminal-807685113-line-13)">Enter&#160;accepts&#160;the&#160;suggested&#160;values;&#160;edit&#160;whatever&#160;you&#160;want.</text><text class="terminal-807685113-r1" x="1207.8" y="337.2" textLength="12.2" clip-path="url(#terminal-807685113-line-13)">│</text><text class="terminal-807685113-r2" x="1220" y="337.2" textLength="12.2" clip-path="url(#terminal-807685113-line-13)">
+</text><text class="terminal-807685113-r1" x="0" y="361.6" textLength="1220" clip-path="url(#terminal-807685113-line-14)">╰──────────────────────────────────────────────────────────────────────────────────────────────────╯</text><text class="terminal-807685113-r2" x="1220" y="361.6" textLength="12.2" clip-path="url(#terminal-807685113-line-14)">
+</text><text class="terminal-807685113-r2" x="0" y="386" textLength="219.6" clip-path="url(#terminal-807685113-line-15)">Profile&#160;name&#160;for&#160;~</text><text class="terminal-807685113-r10" x="219.6" y="386" textLength="73.2" clip-path="url(#terminal-807685113-line-15)">/work/</text><text class="terminal-807685113-r11" x="292.8" y="386" textLength="48.8" clip-path="url(#terminal-807685113-line-15)">acme</text><text class="terminal-807685113-r2" x="341.6" y="386" textLength="36.6" clip-path="url(#terminal-807685113-line-15)">:&#160;&#160;</text><text class="terminal-807685113-r1" x="378.2" y="386" textLength="48.8" clip-path="url(#terminal-807685113-line-15)">acme</text><text class="terminal-807685113-r2" x="1220" y="386" textLength="12.2" clip-path="url(#terminal-807685113-line-15)">
+</text><text class="terminal-807685113-r2" x="0" y="410.4" textLength="500.2" clip-path="url(#terminal-807685113-line-16)">Root&#160;folder&#160;of&#160;this&#160;profile&#x27;s&#160;projects:&#160;&#160;</text><text class="terminal-807685113-r1" x="500.2" y="410.4" textLength="12.2" clip-path="url(#terminal-807685113-line-16)">~</text><text class="terminal-807685113-r1" x="512.4" y="410.4" textLength="73.2" clip-path="url(#terminal-807685113-line-16)">/work/</text><text class="terminal-807685113-r1" x="585.6" y="410.4" textLength="48.8" clip-path="url(#terminal-807685113-line-16)">acme</text><text class="terminal-807685113-r2" x="1220" y="410.4" textLength="12.2" clip-path="url(#terminal-807685113-line-16)">
+</text><text class="terminal-807685113-r2" x="0" y="434.8" textLength="439.2" clip-path="url(#terminal-807685113-line-17)">git&#160;e-mail&#160;for&#160;these&#160;repositories:&#160;&#160;</text><text class="terminal-807685113-r1" x="439.2" y="434.8" textLength="146.4" clip-path="url(#terminal-807685113-line-17)">ana@acme.com</text><text class="terminal-807685113-r2" x="1220" y="434.8" textLength="12.2" clip-path="url(#terminal-807685113-line-17)">
+</text><text class="terminal-807685113-r2" x="0" y="459.2" textLength="268.4" clip-path="url(#terminal-807685113-line-18)">Name&#160;shown&#160;on&#160;commits&#160;</text><text class="terminal-807685113-r3" x="268.4" y="459.2" textLength="12.2" clip-path="url(#terminal-807685113-line-18)">(</text><text class="terminal-807685113-r2" x="280.6" y="459.2" textLength="463.6" clip-path="url(#terminal-807685113-line-18)">empty&#160;=&#160;keep&#160;whatever&#160;git&#160;already&#160;uses</text><text class="terminal-807685113-r3" x="744.2" y="459.2" textLength="12.2" clip-path="url(#terminal-807685113-line-18)">)</text><text class="terminal-807685113-r2" x="756.4" y="459.2" textLength="36.6" clip-path="url(#terminal-807685113-line-18)">:&#160;&#160;</text><text class="terminal-807685113-r1" x="793" y="459.2" textLength="85.4" clip-path="url(#terminal-807685113-line-18)">Ana&#160;Dev</text><text class="terminal-807685113-r2" x="1220" y="459.2" textLength="12.2" clip-path="url(#terminal-807685113-line-18)">
+</text><text class="terminal-807685113-r2" x="0" y="483.6" textLength="451.4" clip-path="url(#terminal-807685113-line-19)">Dedicated&#160;SSH&#160;key&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-807685113-r1" x="451.4" y="483.6" textLength="12.2" clip-path="url(#terminal-807685113-line-19)">~</text><text class="terminal-807685113-r1" x="463.6" y="483.6" textLength="73.2" clip-path="url(#terminal-807685113-line-19)">/.ssh/</text><text class="terminal-807685113-r1" x="536.8" y="483.6" textLength="183" clip-path="url(#terminal-807685113-line-19)">id_ed25519_acme</text><text class="terminal-807685113-r2" x="1220" y="483.6" textLength="12.2" clip-path="url(#terminal-807685113-line-19)">
+</text><text class="terminal-807685113-r2" x="0" y="508" textLength="463.6" clip-path="url(#terminal-807685113-line-20)">GitHub&#160;CLI&#160;account&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-807685113-r1" x="463.6" y="508" textLength="97.6" clip-path="url(#terminal-807685113-line-20)">ana-acme</text><text class="terminal-807685113-r2" x="1220" y="508" textLength="12.2" clip-path="url(#terminal-807685113-line-20)">
+</text><text class="terminal-807685113-r2" x="0" y="532.4" textLength="414.8" clip-path="url(#terminal-807685113-line-21)">gcloud&#160;account&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-807685113-r1" x="414.8" y="532.4" textLength="146.4" clip-path="url(#terminal-807685113-line-21)">ana@acme.com</text><text class="terminal-807685113-r2" x="1220" y="532.4" textLength="12.2" clip-path="url(#terminal-807685113-line-21)">
+</text><text class="terminal-807685113-r2" x="0" y="556.8" textLength="610" clip-path="url(#terminal-807685113-line-22)">How&#160;should&#160;gcloud&#160;be&#160;separated&#160;for&#160;this&#160;profile?&#160;&#160;</text><text class="terminal-807685113-r1" x="610" y="556.8" textLength="109.8" clip-path="url(#terminal-807685113-line-22)">Isolated&#160;</text><text class="terminal-807685113-r4" x="719.8" y="556.8" textLength="12.2" clip-path="url(#terminal-807685113-line-22)">(</text><text class="terminal-807685113-r1" x="732" y="556.8" textLength="134.2" clip-path="url(#terminal-807685113-line-22)">recommended</text><text class="terminal-807685113-r4" x="866.2" y="556.8" textLength="12.2" clip-path="url(#terminal-807685113-line-22)">)</text><text class="terminal-807685113-r2" x="1220" y="556.8" textLength="12.2" clip-path="url(#terminal-807685113-line-22)">
+</text><text class="terminal-807685113-r2" x="0" y="581.2" textLength="378.2" clip-path="url(#terminal-807685113-line-23)">AWS&#160;profile&#160;for&#160;this&#160;profile:&#160;&#160;</text><text class="terminal-807685113-r1" x="378.2" y="581.2" textLength="48.8" clip-path="url(#terminal-807685113-line-23)">acme</text><text class="terminal-807685113-r2" x="1220" y="581.2" textLength="12.2" clip-path="url(#terminal-807685113-line-23)">
 </text>
     </g>
     </g>

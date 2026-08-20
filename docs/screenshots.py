@@ -63,9 +63,11 @@ def render(lang: str, suffix: str) -> None:
     root_prompt = _("Root folder of this profile's projects:")
     c.print(f"{root_prompt}  [cyan]~/work/acme[/cyan]")
     c.print(f"{_('git e-mail for these repositories:')}  [cyan]ana@acme.com[/cyan]")
+    c.print(f"{_('Name shown on commits (empty = keep whatever git already uses):')}  [cyan]Ana Dev[/cyan]")
     c.print(f"{_('Dedicated SSH key for this profile:')}  [cyan]~/.ssh/id_ed25519_acme[/cyan]")
     c.print(f"{_('GitHub CLI account for this profile:')}  [cyan]ana-acme[/cyan]")
     c.print(f"{_('gcloud account for this profile:')}  [cyan]ana@acme.com[/cyan]")
+    c.print(f"{_('How should gcloud be separated for this profile?')}  [cyan]{_('Isolated (recommended): own credentials, so SDKs and Terraform follow it too').split(':')[0]}[/cyan]")
     c.print(f"{_('AWS profile for this profile:')}  [cyan]acme[/cyan]")
     c.save_svg(str(DOCS / f"wizard{suffix}.svg"), title="aparta wizard")
 
@@ -83,6 +85,8 @@ def render(lang: str, suffix: str) -> None:
         + _("gh: copy ~/.config/gh to ~/.config/gh-{name} and activate '{user}'", name="acme", user="ana-acme")
         + "\n"
         + _("gcloud: configuration '{name}' with {account}{proj}", name="acme", account="ana@acme.com", proj=_(" (project {project})", project="acme-data-prod"))
+        + "\n"
+        + _("gcloud: isolated config dir ~/.config/gcloud-{name} (own credentials and ADC)", name="acme")
         + "\n"
         + _("aws: select profile '{name}' via AWS_PROFILE", name="acme")
         + "\n"
@@ -116,6 +120,8 @@ def render(lang: str, suffix: str) -> None:
     t.add_row("gcloud", "account", ok, "ana@acme.com")
     t.add_row("gcloud", "project", ok, "acme-data-prod")
     t.add_row("aws", "acme", ok, _("profile found in ~/.aws"))
+    t.add_row("gcloud", _("credential"), ok, _("valid"))
+    t.add_row("gh", _("credential"), ok, _("valid"))
     t.add_row("claude-code", "api-gateway", ok, _("env ok"))
     t.add_row("gemini", "api-gateway", ok, _("env ok"))
     c.print(t)
