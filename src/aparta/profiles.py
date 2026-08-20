@@ -44,6 +44,20 @@ def profiles_path() -> Path:
     return config_dir() / "profiles.toml"
 
 
+
+# Every variable aparta may inject. A profile sets a subset of these, so apply
+# has to clear the ones that dropped out (an isolated dir that lost its ADC,
+# a profile that switched gcloud mode) instead of leaving them dangling.
+MANAGED_ENV_KEYS = (
+    "GH_CONFIG_DIR",
+    "CLOUDSDK_CONFIG",
+    "CLOUDSDK_ACTIVE_CONFIG_NAME",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "CLOUDSDK_CORE_DISABLE_FILE_LOGGING",
+    "AWS_PROFILE",
+)
+
+
 @dataclass
 class Profile:
     name: str

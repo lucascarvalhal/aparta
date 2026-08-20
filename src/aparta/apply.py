@@ -22,7 +22,7 @@ from .discovery import find_repos
 from .fsutil import SafeWriter
 from .i18n import _
 from . import __version__
-from .profiles import Profile, load_profiles, save_profiles
+from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles, save_profiles
 
 console = Console()
 
@@ -106,6 +106,14 @@ def apply_profile(
                     continue
                 try:
                     adapter.inject(repo, env, writer)
+                    # a variable this profile no longer sets must go, or it keeps
+                    # pointing at a config the profile has moved away from
+                    stale = [
+                        k for k in MANAGED_ENV_KEYS
+                        if k not in env and k in adapter.read_env(repo)
+                    ]
+                    if stale:
+                        adapter.remove_env(repo, stale, writer)
                     # the same agent should also warn when a credential dies
                     adapter.install_check(repo, writer)
                 except ValueError as exc:

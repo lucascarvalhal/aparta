@@ -71,6 +71,21 @@ class AntigravityAdapter(AgentAdapter):
             return False
         return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
+    def read_env(self, repo: Path) -> dict[str, str]:
+        path = self.settings_path(repo)
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return {}
+        env: dict[str, str] = {}
+        for key in _PLATFORM_KEYS:
+            current = data.get(key)
+            if isinstance(current, dict):
+                env.update(current)
+        return env
+
     def install_check(self, repo: Path, writer: SafeWriter) -> bool:
         """Add a task that runs on folder open, the VS Code way."""
         path = repo / ".vscode" / "tasks.json"
