@@ -8,6 +8,16 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.4] - 2026-08-20
+
+### Corrigido
+
+- O `aparta update` não diz mais que sua instalação está em dia quando uma
+  versão foi anunciada mas ainda não dá para instalar. A API JSON do PyPI
+  lista a versão antes do índice que os instaladores leem, e nessa janela a
+  atualização não acha o que fazer; agora o aparta explica a espera em vez de
+  contradizer a linha que acabou de imprimir.
+
 ## [0.6.3] - 2026-08-20
 
 ### Corrigido

@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-08-20
+
+### Fixed
+
+- `aparta update` no longer says an install is current when a release was
+  announced but is not installable yet. PyPI's JSON API lists a version
+  before the index installers read, and in that window the upgrade finds
+  nothing to do; aparta now names the wait instead of contradicting the
+  line it just printed.
+
 ## [0.6.3] - 2026-08-20
 
 ### Fixed
