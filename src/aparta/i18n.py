@@ -148,6 +148,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "Updating with: {cmd}": "Atualizando com: {cmd}",
         "[red]{cmd} not found in PATH.[/red]": "[red]{cmd} não encontrado no PATH.[/red]",
         "[green]aparta updated. The new version applies on the next run.[/green]": "[green]aparta atualizado. A nova versão vale a partir da próxima execução.[/green]",
+        "[green]aparta updated to {version}. It applies on the next run.[/green]": "[green]aparta atualizado para a {version}. Vale a partir da próxima execução.[/green]",
         "[red]The update command failed; try it manually.[/red]": "[red]O comando de atualização falhou; tente manualmente.[/red]",
         "[dim]aparta {latest} is out, updating automatically...[/dim]": "[dim]Saiu o aparta {latest}, atualizando automaticamente...[/dim]",
         "[yellow]aparta {latest} is available (you have {current}). Run [bold]aparta update[/bold].[/yellow]": "[yellow]O aparta {latest} está disponível (você tem o {current}). Rode [bold]aparta update[/bold].[/yellow]",

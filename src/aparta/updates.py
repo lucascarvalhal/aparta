@@ -110,6 +110,33 @@ def detect_install_method() -> str:
     return "pip"
 
 
+def installed_version() -> str:
+    """Version of the aparta on PATH, which after an upgrade is the new one.
+
+    The running process still holds the old code, so it cannot report what the
+    upgrade produced; '' when the binary cannot be asked.
+    """
+    import os
+    import re
+    import shutil
+
+    binary = shutil.which("aparta")
+    if not binary:
+        return ""
+    try:
+        r = subprocess.run(
+            [binary, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env={**os.environ, "APARTA_UPDATES": "off"},
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    match = re.search(r"\d+\.\d+\.\d+", r.stdout)
+    return match.group(0) if match else ""
+
+
 def run_update() -> bool:
     """Upgrade aparta in place; True when the upgrade command succeeded."""
     method = detect_install_method()
@@ -132,7 +159,16 @@ def run_update() -> bool:
         console.print(_("[red]{cmd} not found in PATH.[/red]", cmd=command[0]))
         return False
     if result.returncode == 0:
-        console.print(_("[green]aparta updated. The new version applies on the next run.[/green]"))
+        # the upgrade command succeeds even when it changed nothing, so say
+        # what actually happened instead of claiming an update either way
+        now = installed_version()
+        if now and now == __version__:
+            console.print(_("[green]You are already on the latest version ({current}).[/green]", current=now))
+            return True
+        if now:
+            console.print(_("[green]aparta updated to {version}. It applies on the next run.[/green]", version=now))
+        else:
+            console.print(_("[green]aparta updated. The new version applies on the next run.[/green]"))
         try:
             from .profiles import load_profiles
 

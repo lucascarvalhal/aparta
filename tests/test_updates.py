@@ -77,11 +77,12 @@ def test_run_update_uses_detected_method(monkeypatch):
     ran = {}
     monkeypatch.setattr(updates, "detect_install_method", lambda: "uv-tool")
 
-    def fake_run(cmd, timeout=None):
-        ran["cmd"] = cmd
+    def fake_run(cmd, timeout=None, **kwargs):
+        ran.setdefault("cmd", cmd)
 
         class R:
             returncode = 0
+            stdout = ""
 
         return R()
 
@@ -131,3 +132,36 @@ def test_profiles_applied_by_an_older_version_are_flagged(tmp_path, monkeypatch)
     save_profiles({"legacy": old, "fresh": current, "never": never}, SafeWriter())
 
     assert sorted(stale_profiles()) == ["legacy", "never"]
+
+
+def test_update_says_so_when_nothing_changed(monkeypatch, capsys):
+    """The upgrade command exits 0 even with nothing to do; do not claim more."""
+    monkeypatch.setattr(updates, "detect_install_method", lambda: "uv-tool")
+    monkeypatch.setattr(updates, "installed_version", lambda: updates.__version__)
+    monkeypatch.setattr(
+        updates.subprocess, "run", lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": ""})()
+    )
+    assert updates.run_update() is True
+    assert "already on the latest version" in capsys.readouterr().out
+
+
+def test_update_reports_the_new_version(monkeypatch, capsys):
+    monkeypatch.setattr(updates, "detect_install_method", lambda: "uv-tool")
+    monkeypatch.setattr(updates, "installed_version", lambda: "99.0.0")
+    monkeypatch.setattr(
+        updates.subprocess, "run", lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": ""})()
+    )
+    assert updates.run_update() is True
+    assert "99.0.0" in capsys.readouterr().out
+
+
+def test_installed_version_parses_the_binary_output(monkeypatch):
+    import shutil
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/local/bin/aparta")
+    monkeypatch.setattr(
+        updates.subprocess,
+        "run",
+        lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "aparta 1.2.3\n"})(),
+    )
+    assert updates.installed_version() == "1.2.3"
