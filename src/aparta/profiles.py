@@ -104,6 +104,11 @@ class Profile:
                 # the whole gcloud config dir is the profile's, so credentials
                 # and ADC are isolated too, not just the active configuration
                 env["CLOUDSDK_CONFIG"] = str(self.gcloud_config_dir)
+                # pin the configuration by name too: an agent inherits the
+                # shell's environment and cannot unset a stray
+                # CLOUDSDK_ACTIVE_CONFIG_NAME, which would otherwise pick a
+                # different configuration inside this dir
+                env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
                 # gcloud, Python and Java honor CLOUDSDK_CONFIG, but the Node
                 # and Go libraries (so Terraform too) hardcode the global ADC
                 # path; pointing at the file directly is honored by all of them

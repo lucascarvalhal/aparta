@@ -104,7 +104,8 @@ def test_seed_copies_credentials_but_never_the_shared_adc(tmp_path):
     # the global ADC belongs to whoever logged in last, so it must not be
     # handed to a profile: no credentials beats the wrong credentials
     assert not (target / "application_default_credentials.json").exists()
-    assert (target / "configurations" / "config_default").exists()
+    # other profiles' configurations must not ride along
+    assert not (target / "configurations").exists()
     # the heavy, disposable parts stay behind
     assert not (target / "logs").exists()
     assert not (target / "cache").exists()
@@ -201,3 +202,27 @@ def test_has_adc_reports_the_profile_own_credentials(tmp_path):
     assert has_adc(tmp_path) is False
     (tmp_path / "application_default_credentials.json").write_text("{}")
     assert has_adc(tmp_path) is True
+
+
+def test_prune_configurations_keeps_only_the_profile_one(tmp_path):
+    """Dirs seeded by older versions carried every other account's config."""
+    from aparta.backends.gcloud import activate_configuration, prune_configurations
+
+    folder = tmp_path / "configurations"
+    folder.mkdir()
+    for name in ("default", "acme", "other"):
+        (folder / f"config_{name}").write_text("[core]\n")
+
+    assert sorted(prune_configurations(tmp_path, "acme")) == ["default", "other"]
+    assert [p.name for p in folder.iterdir()] == ["config_acme"]
+
+    activate_configuration(tmp_path, "acme")
+    assert (tmp_path / "active_config").read_text() == "acme"
+
+
+def test_activate_configuration_creates_a_missing_one(tmp_path):
+    from aparta.backends.gcloud import activate_configuration
+
+    activate_configuration(tmp_path, "acme")
+    assert (tmp_path / "configurations" / "config_acme").exists()
+    assert (tmp_path / "active_config").read_text() == "acme"

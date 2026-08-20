@@ -84,4 +84,5 @@ def test_isolated_gcloud_uses_its_own_config_dir(monkeypatch, tmp_path):
     env = isolated.env()
     assert env["CLOUDSDK_CONFIG"] == str(tmp_path / "gcloud-acme")
     # the isolated dir replaces the named-configuration selector
-    assert "CLOUDSDK_ACTIVE_CONFIG_NAME" not in env
+    # pinned by name so a stray value in the shell cannot pick another one
+    assert env["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "acme"

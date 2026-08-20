@@ -32,11 +32,11 @@ from . import Note
 # whoever ran `gcloud auth application-default login` last, so seeding it would
 # hand every profile the same identity, which is the leak isolation exists to
 # close. A profile starts without ADC and `aparta login` creates its own.
-SEED_FILES = (
-    "credentials.db",
-    "active_config",
-)
-SEED_DIRS = ("configurations",)
+SEED_FILES = ("credentials.db",)
+# Named configurations are deliberately not seeded: copying them would put
+# every other profile's account inside this dir, one stray
+# CLOUDSDK_ACTIVE_CONFIG_NAME away from being used. Apply creates the single
+# configuration this profile needs.
 
 
 def gcloud_home(config_root: Path | None = None) -> Path:
@@ -60,7 +60,7 @@ def _run(
     if config_dir is not None:
         env["CLOUDSDK_CONFIG"] = str(config_dir)
         env.pop("CLOUDSDK_ACTIVE_CONFIG_NAME", None)
-    elif config_name:
+    if config_name:
         env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = config_name
     return subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
 
@@ -95,6 +95,37 @@ def has_adc(profile_dir: Path) -> bool:
     return (profile_dir / "application_default_credentials.json").exists()
 
 
+def prune_configurations(target: Path, keep: str) -> list[str]:
+    """Drop named configurations that do not belong to this profile.
+
+    Dirs seeded by earlier versions carry every configuration the machine had,
+    so the profile's own dir could still name another account. Returns the
+    names removed.
+    """
+    folder = target / "configurations"
+    if not folder.is_dir():
+        return []
+    removed = []
+    for item in sorted(folder.glob("config_*")):
+        if item.name == f"config_{keep}":
+            continue
+        try:
+            item.unlink()
+        except OSError:
+            continue
+        removed.append(item.name[len("config_"):])
+    return removed
+
+
+def activate_configuration(target: Path, name: str) -> None:
+    """Point the isolated dir at its own configuration, creating it if needed."""
+    config_file = target / "configurations" / f"config_{name}"
+    if not config_file.exists():
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text("[core]\n")
+    (target / "active_config").write_text(name)
+
+
 def seed_isolated_dir(
     target: Path, source: Path | None = None, keep_account: str = ""
 ) -> bool:
@@ -116,11 +147,6 @@ def seed_isolated_dir(
                 shutil.copy2(origin, destination)
                 if destination.suffix in (".db", ".json"):
                     destination.chmod(0o600)
-                copied = True
-        for name in SEED_DIRS:
-            origin = source / name
-            if origin.is_dir():
-                shutil.copytree(origin, target / name, dirs_exist_ok=True)
                 copied = True
     prune_credentials(target / "credentials.db", keep_account)
     return copied
@@ -184,8 +210,12 @@ def _apply_isolated(profile: Profile, writer: SafeWriter, notes: list[Note]) -> 
 
     if seed_isolated_dir(target, keep_account=profile.gcloud_account):
         notes.append(Note("info", _("[green]created:[/green] {dst}", dst=target)))
+    dropped = prune_configurations(target, profile.name)
+    if dropped:
+        notes.append(Note("info", _("[green]gcloud:[/green] dropped foreign configurations: {names}", names=", ".join(dropped))))
+    activate_configuration(target, profile.name)
     for args in cmds:
-        r = _run(args, config_dir=target)
+        r = _run(args, config_name=profile.name, config_dir=target)
         if r.returncode != 0:
             notes.append(Note("error", _("[red]{cmd} failed:[/red] {error}", cmd=" ".join(args), error=r.stderr.strip())))
     notes.append(Note("info", _("[green]gcloud:[/green] isolated config dir ready for '{name}'", name=profile.name)))

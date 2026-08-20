@@ -93,8 +93,10 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
 
     # gcloud: account/project of the profile's configuration
     if profile.gcloud_account or profile.gcloud_project:
+        # probe with exactly what the agents get, so doctor cannot pass while
+        # a stray variable in this shell makes the real thing pick another one
+        env = {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
         if profile.gcloud_isolated:
-            env = {"CLOUDSDK_CONFIG": str(profile.gcloud_config_dir)}
             if not profile.gcloud_config_dir.exists():
                 all_ok &= _row(
                     rows,
@@ -104,8 +106,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
                     _("config dir missing, run `aparta apply`"),
                 )
                 issues.append(Issue(GCLOUD_DIR, str(profile.gcloud_config_dir)))
-        else:
-            env = {"CLOUDSDK_ACTIVE_CONFIG_NAME": profile.name}
         if profile.gcloud_account:
             r = _run(["gcloud", "config", "get", "account"], env)
             account = r.stdout.strip()
