@@ -44,15 +44,35 @@ def main(
         console.print(f"aparta {__version__}")
         raise typer.Exit()
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
-    if ctx.invoked_subcommand != "update":
+    if ctx.invoked_subcommand not in ("update", "login", "check"):
         from .updates import notify_or_autoupdate
 
         notify_or_autoupdate()
+        _warn_about_credentials()
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
             _run_wizard(dry_run, verbose)
         else:
             _run_menu(dry_run, verbose)
+
+
+def _warn_about_credentials() -> None:
+    """One line per profile that needs a human, nothing when all is well."""
+    from .auth import problems
+
+    try:
+        for name, status in problems(list(load_profiles().values())):
+            console.print(
+                _(
+                    "[yellow]{provider} of profile '{name}': {detail}. Run [bold]aparta login {name}[/bold].[/yellow]",
+                    provider=status.provider,
+                    name=name,
+                    detail=status.detail,
+                )
+            )
+    except Exception:
+        # a credential check must never keep the CLI from running
+        pass
 
 
 def _run_wizard(dry_run: bool, verbose: bool = False) -> None:
@@ -241,6 +261,47 @@ def update() -> None:
         raise typer.Exit(1)
 
 
+@app.command()
+def login(
+    profile_name: str = typer.Argument(..., help=_("Profile to reauthenticate.")),
+    provider: str = typer.Option("", "--provider", help=_("Only this provider (gcloud or gh).")),
+) -> None:
+    """Reauthenticate a profile, in its own isolated scope."""
+    from .auth import login_profile
+
+    profiles = load_profiles()
+    profile = profiles.get(profile_name)
+    if not profile:
+        console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
+        raise typer.Exit(1)
+    if not login_profile(profile, provider):
+        raise typer.Exit(1)
+
+
+@app.command()
+def check() -> None:
+    """Check the credentials of every profile, quiet when all is well."""
+    from .auth import cached_check, OK
+
+    profiles = load_profiles()
+    if not profiles:
+        console.print(_("[yellow]No profile configured. Run `aparta init`.[/yellow]"))
+        raise typer.Exit(1)
+    bad = False
+    for profile in profiles.values():
+        for status in cached_check(profile, force=True):
+            if status.state == OK:
+                continue
+            bad = True
+            console.print(
+                _("[yellow]{provider} in '{name}': {detail}[/yellow]", provider=status.provider, name=profile.name, detail=status.detail)
+            )
+            if status.needs_human:
+                console.print(_("  run [bold]aparta login {name}[/bold]", name=profile.name))
+    if not bad:
+        console.print(_("[green]Every credential is valid.[/green]"))
+
+
 @app.command("help")
 def show_help() -> None:
     """Show every command and what it does."""
@@ -255,6 +316,8 @@ def show_help() -> None:
     table.add_row("aparta remove <profile>", _("Remove a profile and undo what it applied (backups kept)."))
     table.add_row("aparta doctor \\[profile]", _("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
     table.add_row("aparta list", _("List configured profiles."))
+    table.add_row("aparta login <profile>", _("Reauthenticate a profile, in its own scope."))
+    table.add_row("aparta check", _("Check every credential, quiet when all is well."))
     table.add_row("aparta update", _("Update aparta to the latest release."))
     table.add_row("aparta help", _("This screen."))
     console.print(table)

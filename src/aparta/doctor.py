@@ -100,6 +100,25 @@ def check_profile(profile: Profile) -> bool:
         detail = _("profile found in ~/.aws") if ok else _("profile missing, run `aws configure --profile {name}`", name=profile.aws_profile)
         all_ok &= _row(table, "aws", profile.aws_profile, ok, detail)
 
+    # credentials: valid, needing a human, or simply unknown
+    from .auth import OK as AUTH_OK, UNKNOWN as AUTH_UNKNOWN, checks_enabled, cached_check
+
+    if checks_enabled():
+        for status in cached_check(profile):
+            if status.state == AUTH_OK:
+                all_ok &= _row(table, status.provider, _("credential"), True, _("valid"))
+            elif status.state == AUTH_UNKNOWN:
+                # a network hiccup is not a broken credential
+                _row(table, status.provider, _("credential"), None, status.detail)
+            else:
+                all_ok &= _row(
+                    table,
+                    status.provider,
+                    _("credential"),
+                    False,
+                    _("{detail}, run `aparta login {name}`", detail=status.detail, name=profile.name),
+                )
+
     # agents: env injected in each repo
     expected_env = profile.env()
     if expected_env:

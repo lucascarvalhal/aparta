@@ -102,11 +102,23 @@ aparta scan       # read-only: show detected project groups
 aparta apply X    # re-apply a profile (e.g. after cloning new repos)
 aparta remove X   # remove a profile and undo what it applied (backups kept)
 aparta list       # list configured profiles
+aparta login X    # reauthenticate a profile, in its own scope
+aparta check      # check every credential, quiet when all is well
 aparta update     # update aparta to the latest release
 aparta help       # every command and what it does
 aparta --dry-run  # any command: show diffs, change nothing
 aparta --verbose  # any command: show every file, backup and diff
 ```
+
+## When credentials expire
+
+Cloud sessions do not last forever: Google Workspace defaults to 16 hours for new customers, and organizations can set anything from 1 to 24. aparta deals with that in three steps:
+
+- **Silent renewal while it is possible.** As long as the refresh token lives, aparta renews the access token for you and you never notice anything.
+- **A warning before it hurts, not after.** When a credential really needs a human, aparta says so the next time you run it, naming the profile and the command to fix it. The check is cached, never blocks, and `APARTA_AUTH_CHECK=off` disables it.
+- **One command that cannot land in the wrong place.** `aparta login <profile>` runs the provider's login inside that profile's own scope and reasserts the expected account afterwards.
+
+Reauthentication itself cannot be automated: the browser step and the security key exist precisely to require a person. What aparta removes is the guessing, the wrong terminal and the surprise.
 
 ## Two ways to separate gcloud
 

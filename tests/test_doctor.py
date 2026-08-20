@@ -5,14 +5,22 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from aparta import doctor
 from aparta.profiles import Profile
+
+
+@pytest.fixture(autouse=True)
+def offline_auth_checks(monkeypatch):
+    """These tests exercise doctor's own logic, not the credential probes."""
+    monkeypatch.setenv("APARTA_AUTH_CHECK", "off")
 
 
 def _fake_run(responses: dict[str, tuple[int, str]]):
     """Map a command marker to (returncode, stdout); default success/empty."""
 
-    def run(args, env=None, capture_output=True, text=True, timeout=None):
+    def run(args, env=None, capture_output=True, text=True, timeout=None, stdin=None):
         joined = " ".join(args)
         for marker, (code, out) in responses.items():
             if marker in joined:

@@ -102,11 +102,23 @@ aparta scan       # somente leitura: mostra os grupos de projetos encontrados
 aparta apply X    # reaplica um perfil (por exemplo, depois de clonar repos novos)
 aparta remove X   # remove um perfil e desfaz o que ele aplicou (com backups)
 aparta list       # lista os perfis configurados
+aparta login X    # reautentica um perfil, no escopo dele mesmo
+aparta check      # confere as credenciais, silencioso quando está tudo certo
 aparta update     # atualiza o aparta para a versão mais recente
 aparta help       # todos os comandos e o que cada um faz
 aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar nada
 aparta --verbose  # em qualquer comando: mostra cada arquivo, backup e diff
 ```
+
+## Quando as credenciais expiram
+
+Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clientes novos é 16 horas, e cada organização pode definir de 1 a 24. O aparta trata isso em três etapas:
+
+- **Renovação silenciosa enquanto é possível.** Enquanto o refresh token vale, o aparta renova o access token por você e você nem percebe.
+- **Aviso antes de doer, não depois.** Quando a credencial realmente precisa de uma pessoa, o aparta avisa na próxima vez que você o executa, dizendo qual perfil e qual comando resolve. A verificação é cacheada, nunca trava nada, e `APARTA_AUTH_CHECK=off` desliga.
+- **Um comando que não tem como cair no lugar errado.** O `aparta login <perfil>` roda o login do provedor dentro do escopo daquele perfil e reafirma a conta certa no final.
+
+A reautenticação em si não dá para automatizar: o passo no navegador e o toque na chave de segurança existem justamente para exigir uma pessoa. O que o aparta tira do caminho é a adivinhação, o terminal errado e a surpresa.
 
 ## Duas formas de separar o gcloud
 
