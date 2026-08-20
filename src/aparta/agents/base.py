@@ -14,6 +14,9 @@ from ..fsutil import SafeWriter
 
 REGISTRY: dict[str, type["AgentAdapter"]] = {}
 
+# What every startup hook runs: cached, silent while credentials are healthy.
+CHECK_COMMAND = "aparta check --quiet"
+
 
 def merge_env_lines(existing_text: str, env: dict[str, str], template: str) -> str:
     """Update or append one line per variable, preserving the rest.
@@ -85,6 +88,19 @@ class AgentAdapter(ABC):
 
     def remove_env(self, repo: Path, keys: list[str], writer: SafeWriter) -> bool:
         """Remove the given variables from the agent's config; True if changed."""
+        return False
+
+    def install_check(self, repo: Path, writer: SafeWriter) -> bool:
+        """Make the agent run `aparta check --quiet` when a session starts.
+
+        Each agent exposes a different mechanism (hooks, plugins, tasks) and
+        some expose none, in which case the direnv adapter covers the shell.
+        Returns True when something was written.
+        """
+        return False
+
+    def uninstall_check(self, repo: Path, writer: SafeWriter) -> bool:
+        """Remove the startup check this adapter installed."""
         return False
 
     def read_env(self, repo: Path) -> dict[str, str]:

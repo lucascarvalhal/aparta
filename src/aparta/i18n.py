@@ -103,6 +103,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "Check the real state: e-mail per repo, gh auth, gcloud config, agent env.": "Valida o estado real: e-mail por repo, auth do gh, config do gcloud, env dos agentes.",
         "List configured profiles.": "Lista os perfis configurados.",
         "This screen.": "Esta tela.",
+        "Print nothing when every credential is valid (for startup hooks).": "Não imprime nada quando todas as credenciais estão válidas (para hooks de inicialização).",
         "credential": "credencial",
         "valid": "válida",
         "{detail}, run `aparta login {name}`": "{detail}, rode `aparta login {name}`",

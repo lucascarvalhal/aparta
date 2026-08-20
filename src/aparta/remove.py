@@ -32,13 +32,14 @@ def remove_profile(profile: Profile, writer: SafeWriter, home: Path | None = Non
     repos = find_repos(profile.root_path) + [
         Path(r).expanduser() for r in profile.adopted_repos
     ]
-    if keys:
-        for repo in repos:
-            for adapter in get_adapters(profile.agents):
-                try:
+    for repo in repos:
+        for adapter in get_adapters(profile.agents):
+            try:
+                if keys:
                     adapter.remove_env(repo, keys, writer)
-                except ValueError:
-                    continue
+                adapter.uninstall_check(repo, writer)
+            except ValueError:
+                continue
 
     include = str(context_gitconfig_path(profile, home))
     for raw in profile.adopted_repos:

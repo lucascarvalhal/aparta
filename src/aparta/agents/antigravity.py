@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ..i18n import _
 from ..fsutil import SafeWriter
-from .base import AgentAdapter
+from .base import CHECK_COMMAND, AgentAdapter
 
 _PLATFORM_KEYS = (
     "terminal.integrated.env.osx",
@@ -70,6 +70,49 @@ class AntigravityAdapter(AgentAdapter):
         if not changed:
             return False
         return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+    def install_check(self, repo: Path, writer: SafeWriter) -> bool:
+        """Add a task that runs on folder open, the VS Code way."""
+        path = repo / ".vscode" / "tasks.json"
+        try:
+            data = json.loads(path.read_text()) if path.exists() else {}
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(data, dict):
+            return False
+        data.setdefault("version", "2.0.0")
+        tasks = data.setdefault("tasks", [])
+        if not isinstance(tasks, list):
+            return False
+        if any(CHECK_COMMAND in json.dumps(task) for task in tasks):
+            return False
+        tasks.append(
+            {
+                "label": "aparta check",
+                "type": "shell",
+                "command": CHECK_COMMAND,
+                "presentation": {"reveal": "silent", "panel": "shared"},
+                "runOptions": {"runOn": "folderOpen"},
+            }
+        )
+        return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+    def uninstall_check(self, repo: Path, writer: SafeWriter) -> bool:
+        path = repo / ".vscode" / "tasks.json"
+        if not path.exists():
+            return False
+        try:
+            data = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return False
+        tasks = data.get("tasks", [])
+        remaining = [t for t in tasks if CHECK_COMMAND not in json.dumps(t)]
+        if len(remaining) == len(tasks):
+            return False
+        if remaining:
+            data["tasks"] = remaining
+            return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        return writer.remove_file(path)
 
     def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
         path = self.settings_path(repo)

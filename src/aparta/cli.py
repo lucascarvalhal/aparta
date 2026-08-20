@@ -279,17 +279,24 @@ def login(
 
 
 @app.command()
-def check() -> None:
+def check(
+    quiet: bool = typer.Option(
+        False, "--quiet", "-q", help=_("Print nothing when every credential is valid (for startup hooks).")
+    ),
+) -> None:
     """Check the credentials of every profile, quiet when all is well."""
     from .auth import cached_check, OK
 
     profiles = load_profiles()
     if not profiles:
+        if quiet:
+            return
         console.print(_("[yellow]No profile configured. Run `aparta init`.[/yellow]"))
         raise typer.Exit(1)
     bad = False
     for profile in profiles.values():
-        for status in cached_check(profile, force=True):
+        # hooks use the cache so opening an agent never waits on the network
+        for status in cached_check(profile, force=not quiet):
             if status.state == OK:
                 continue
             bad = True
@@ -298,7 +305,7 @@ def check() -> None:
             )
             if status.needs_human:
                 console.print(_("  run [bold]aparta login {name}[/bold]", name=profile.name))
-    if not bad:
+    if not bad and not quiet:
         console.print(_("[green]Every credential is valid.[/green]"))
 
 

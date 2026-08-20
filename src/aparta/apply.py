@@ -105,6 +105,8 @@ def apply_profile(
                     continue
                 try:
                     adapter.inject(repo, env, writer)
+                    # the same agent should also warn when a credential dies
+                    adapter.install_check(repo, writer)
                 except ValueError as exc:
                     # one repo with a broken config file must not stop the apply
                     console.print(
