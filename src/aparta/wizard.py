@@ -511,14 +511,23 @@ def _ask_gcloud(
             ).ask()
             or ""
         ).strip()
-        isolated = _confirm(
-            _(
-                "Give this profile its own gcloud config? Recommended: credentials "
-                "and application default credentials stay separate, so SDKs, "
-                "Terraform and your agents follow the profile too"
-            ),
-            default=True,
-        )
+        mode = questionary.select(
+            _("How should gcloud be separated for this profile?"),
+            choices=[
+                questionary.Choice(
+                    _("Isolated (recommended): own credentials, so SDKs and Terraform follow it too"),
+                    value=True,
+                ),
+                questionary.Choice(
+                    _("Light: only switches the active configuration, SDKs stay on the global one"),
+                    value=False,
+                ),
+            ],
+            qmark="",
+        ).ask()
+        if mode is None:
+            raise KeyboardInterrupt
+        isolated = mode
     return account, project, isolated
 
 

@@ -108,13 +108,20 @@ aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar n
 aparta --verbose  # em qualquer comando: mostra cada arquivo, backup e diff
 ```
 
+## Duas formas de separar o gcloud
+
+Quando um perfil usa Google Cloud, o assistente pergunta até onde a separação deve ir:
+
+- **Isolado (recomendado).** O perfil ganha um diretório de configuração do gcloud só dele, criado a partir do seu global e já filtrado para a conta daquele perfil. Credenciais, configurações nomeadas e o application default credentials ficam ali dentro, então o CLI do gcloud, os SDKs, o Terraform e tudo o que seus agentes rodarem seguem o perfil. O diretório criado tem algumas dezenas de kilobytes, porque logs e o virtualenv embutido nunca são copiados.
+- **Leve.** Só a configuração ativa muda, o que já resolve para o comando `gcloud`. As credenciais continuam globais, então SDKs e Terraform seguem usando a conta de quem logou por último. Escolha esse se você não quiser cópia de nada.
+
 ## O que cada perfil configura
 
 | Ferramenta | Mecanismo |
 |---|---|
 | git | `~/.gitconfig-<perfil>` com `user.email`, `core.sshCommand` (chave própria) e opcionalmente `url insteadOf`; incluído via `[includeIf "gitdir:~/pasta/"]` |
 | GitHub CLI | cópia de `~/.config/gh` para `~/.config/gh-<perfil>` + `gh auth switch` na cópia; seleção via `GH_CONFIG_DIR` (os tokens ficam no keyring, sem novo login) |
-| gcloud | configuração nomeada (`--no-activate`) com conta e projeto; seleção via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
+| gcloud | modo isolado (recomendado): diretório de configuração só do perfil, com credenciais e ADC próprios, via `CLOUDSDK_CONFIG`; modo leve: configuração nomeada, via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
 | AWS | seus perfis nomeados de `~/.aws`; seleção via `AWS_PROFILE`, respeitada pelo CLI, por todos os SDKs, pelo Terraform e pelo CDK |
 | SSH | chave por perfil; opcionalmente reescrita de remotes via atalho do `~/.ssh/config` |
 | Repos soltos | `include.path` local no `.git/config` apontando para o gitconfig do perfil, identidade completa sem mover a pasta |

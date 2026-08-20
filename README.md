@@ -108,13 +108,20 @@ aparta --dry-run  # any command: show diffs, change nothing
 aparta --verbose  # any command: show every file, backup and diff
 ```
 
+## Two ways to separate gcloud
+
+When a profile uses Google Cloud, the wizard asks how far the separation should go:
+
+- **Isolated (recommended).** The profile gets its own gcloud config directory, seeded from your global one and pruned to that profile's account. Credentials, named configurations and the application default credentials live inside it, so the gcloud CLI, the SDKs, Terraform and anything your agents run all follow the profile. A seeded directory is a few dozen kilobytes, because logs and the bundled virtualenv are never copied.
+- **Light.** Only the active configuration changes, which is enough for the `gcloud` command itself. Credentials stay global, so SDKs and Terraform keep using whichever account logged in last. Pick this if you do not want a second copy of anything.
+
 ## What each profile configures
 
 | Tool | Mechanism |
 |---|---|
 | git | `~/.gitconfig-<profile>` with `user.email`, `core.sshCommand` (dedicated key), optional `url insteadOf` rewrite; included via `[includeIf "gitdir:~/folder/"]` |
 | GitHub CLI | copy of `~/.config/gh` to `~/.config/gh-<profile>` + `gh auth switch` inside the copy; selected via `GH_CONFIG_DIR` (tokens stay in your keyring, no re-login) |
-| gcloud | named configuration (`--no-activate`) with account/project; selected via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
+| gcloud | isolated mode (recommended): the profile's own config dir with its own credentials and ADC, selected via `CLOUDSDK_CONFIG`; light mode: a named configuration selected via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
 | AWS | your existing named profiles in `~/.aws`; selected via `AWS_PROFILE`, honored by the CLI, every SDK, Terraform and the CDK |
 | SSH | per-profile key; optional `~/.ssh/config` host-alias rewrite so any clone URL uses the right key |
 | Stray repos | local `include.path` in the repo's `.git/config` pointing at the profile's gitconfig, full identity without moving the folder |

@@ -51,8 +51,6 @@ def test_ask_gcloud_skip_means_no_project_prompt(monkeypatch):
 def test_ask_gcloud_offers_isolation_when_an_account_is_chosen(monkeypatch):
     monkeypatch.setattr(wizard, "list_gcloud_accounts", lambda: ["a@b.c"])
     monkeypatch.setattr(wizard, "_choose_from", lambda *a, **kw: "a@b.c")
-    monkeypatch.setattr(wizard, "_confirm", lambda question, default=False: True)
-
     class FakeText:
         def __init__(self, *a, **kw):
             pass
@@ -60,9 +58,19 @@ def test_ask_gcloud_offers_isolation_when_an_account_is_chosen(monkeypatch):
         def ask(self):
             return "acme-prod"
 
+    class FakeSelect:
+        """The isolation question: pick the first choice (isolated)."""
+
+        def __init__(self, *a, **kw):
+            self.choices = kw.get("choices", [])
+
+        def ask(self):
+            return self.choices[0].value
+
     import questionary as q
 
     monkeypatch.setattr(q, "text", FakeText)
+    monkeypatch.setattr(q, "select", FakeSelect)
     account, project, isolated = wizard._ask_gcloud("acme", None, dry_run=False)
     assert (account, project, isolated) == ("a@b.c", "acme-prod", True)
 
