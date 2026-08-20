@@ -122,6 +122,14 @@ Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clien
 
 A reautenticação em si não dá para automatizar: o passo no navegador e o toque na chave de segurança existem justamente para exigir uma pessoa. O que o aparta tira do caminho é a adivinhação, o terminal errado e a surpresa.
 
+## Fora de qualquer perfil
+
+O que roda fora de uma pasta configurada cai no padrão global, e esse padrão é simplesmente o último que você selecionou. Numa máquina com trabalho de cliente, isso normalmente significa um terminal, script ou agente solto agindo como um cliente sem ninguém perceber.
+
+O `aparta fallback` mostra o que aconteceria agora. O `aparta fallback --secure` aponta o padrão global do gcloud para uma configuração vazia, então comandos fora de um perfil falham na cara em vez de pegar emprestada uma identidade, e o `aparta fallback --restore` desfaz. Suas configurações, credenciais e projetos nunca são tocados.
+
+O GitHub é apenas reportado, não alterado: o gh guarda o token ativo no chaveiro do sistema e recorre a ele mesmo sem usuário ativo, então a única forma de desativar seria um logout que destrói o token. Ali a resposta continua sendo o config dir por perfil, que o aparta já define em toda pasta configurada.
+
 ## Duas formas de separar o gcloud
 
 Quando um perfil usa Google Cloud, o assistente pergunta até onde a separação deve ir:

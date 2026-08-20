@@ -122,6 +122,14 @@ Cloud sessions do not last forever: Google Workspace defaults to 16 hours for ne
 
 Reauthentication itself cannot be automated: the browser step and the security key exist precisely to require a person. What aparta removes is the guessing, the wrong terminal and the surprise.
 
+## Outside any profile
+
+Whatever runs outside a configured folder falls back to the global default, and that default is whatever you happened to select last. On a machine with client work, that usually means a stray terminal, script or agent acts as a client without anyone noticing.
+
+`aparta fallback` shows what would happen right now. `aparta fallback --secure` points the global gcloud default at an empty configuration, so commands outside a profile fail loudly instead of borrowing an identity, and `aparta fallback --restore` puts it back. Your configurations, credentials and projects are never touched.
+
+GitHub is reported but not changed: gh keeps the active token in the system keyring and falls back to it even without an active user, so the only way to disable it would be a logout that destroys the token. Per-profile config dirs, which aparta already sets in every configured folder, remain the answer there.
+
 ## Two ways to separate gcloud
 
 When a profile uses Google Cloud, the wizard asks how far the separation should go:
