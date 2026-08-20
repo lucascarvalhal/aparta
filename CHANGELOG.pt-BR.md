@@ -8,6 +8,24 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.2] - 2026-08-20
+
+### Corrigido
+
+- As pastas isoladas do gcloud não carregam mais as configurações dos outros
+  perfis. A cópia inicial trazia todas, então uma pasta podia apontar para uma
+  conta que não era dela, e bastava um `CLOUDSDK_ACTIVE_CONFIG_NAME` esquecido
+  no shell para essa conta ser usada. Agora cada pasta tem uma configuração só,
+  com o nome do perfil, fixada pelas variáveis que o aparta injeta, algo que um
+  agente não consegue desfazer como um shell consegue. Rodar `aparta apply`
+  limpa as pastas criadas pelas versões anteriores.
+- O `aparta apply` agora apaga as variáveis que o perfil deixou de usar. Antes
+  ele só somava, então o que saía do perfil ficava para trás, e depois da
+  correção da 0.6.1 sobrava um `GOOGLE_APPLICATION_CREDENTIALS` apontando para
+  um arquivo que não existe mais.
+- O `aparta doctor` testa o gcloud com o mesmo ambiente que os agentes recebem,
+  então ele não passa mais enquanto a conta que vale de verdade é outra.
+
 ## [0.6.1] - 2026-08-20
 
 ### Corrigido

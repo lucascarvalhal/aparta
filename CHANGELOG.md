@@ -8,6 +8,24 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-20
+
+### Fixed
+
+- Isolated gcloud directories no longer carry the other profiles'
+  configurations. Seeding copied all of them, so a directory could name an
+  account it had no business naming, and a `CLOUDSDK_ACTIVE_CONFIG_NAME`
+  left in the shell picked it. Each directory now holds exactly one
+  configuration, named after the profile and pinned through the injected
+  environment, which an agent cannot unset the way a shell can. Running
+  `aparta apply` cleans up directories created by earlier versions.
+- `aparta apply` clears variables the profile no longer sets. Injection only
+  merged, so anything that dropped out stayed behind, which after the 0.6.1
+  fix left `GOOGLE_APPLICATION_CREDENTIALS` pointing at a file that no longer
+  exists.
+- `aparta doctor` checks gcloud with the same environment the agents receive,
+  so it can no longer pass while the real thing resolves a different account.
+
 ## [0.6.1] - 2026-08-20
 
 ### Fixed
