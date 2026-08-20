@@ -8,6 +8,43 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.0] - 2026-08-20
+
+### Adicionado
+
+- Modo isolado do gcloud: o perfil pode ter o diretório de configuração
+  inteiro só dele via `CLOUDSDK_CONFIG`, então credenciais e o application
+  default credentials também ficam separados, não só a configuração ativa. O
+  diretório é criado a partir do global e filtrado para a conta daquele
+  perfil, e o `GOOGLE_APPLICATION_CREDENTIALS` é exportado junto porque as
+  bibliotecas de Node e Go, e portanto o Terraform, ignoram o
+  `CLOUDSDK_CONFIG`.
+- `aparta login <perfil>`: reautentica dentro do escopo do próprio perfil e
+  reafirma a conta esperada, então um login não tem mais como cair na
+  configuração errada.
+- `aparta check`: saúde das credenciais de todos os perfis, com renovação
+  silenciosa enquanto o refresh token vale e quatro estados honestos, em que
+  falha de rede é desconhecido em vez de alarme falso.
+- Avisos de expiração dentro dos próprios agentes, pelo mecanismo nativo de
+  cada um: hooks SessionStart no Claude Code, Codex e Gemini CLI, task ao
+  abrir a pasta no Antigravity, o plugin gerado no opencode, e direnv para o
+  resto.
+- `aparta doctor --fix`: conserta o que é determinístico (conta e projeto do
+  gcloud, env dos agentes, includeIf, config dir do gh) e apenas reporta o
+  que precisa de uma pessoa.
+- `aparta fallback`: mostra o que roda fora de qualquer perfil, e o
+  `--secure` deixa o padrão global do gcloud vazio para comandos soltos
+  falharem em vez de pegar emprestada a identidade de um cliente. O
+  `--restore` desfaz.
+- O assistente pergunta o nome que aparece nos commits, já preenchido a
+  partir do gitconfig do perfil ou do global.
+
+### Corrigido
+
+- O gitconfig do perfil passa por merge em vez de ser regerado, então
+  `user.name`, comentários e qualquer outra chave que você tinha ali
+  sobrevivem ao apply.
+
 ## [0.5.0] - 2026-08-19
 
 ### Adicionado
@@ -144,7 +181,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...v0.4.3

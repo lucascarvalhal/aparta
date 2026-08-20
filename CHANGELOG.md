@@ -8,6 +8,41 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-20
+
+### Added
+
+- Isolated gcloud mode: a profile can own its whole gcloud config directory
+  through `CLOUDSDK_CONFIG`, so credentials and the application default
+  credentials are separated too, not just the active configuration. The
+  directory is seeded from the global one and pruned to that profile's
+  account, and `GOOGLE_APPLICATION_CREDENTIALS` is exported alongside it
+  because the Node and Go libraries, and therefore Terraform, ignore
+  `CLOUDSDK_CONFIG`.
+- `aparta login <profile>`: reauthenticates inside the profile's own scope
+  and reasserts the expected account, so a login can no longer land in the
+  wrong configuration.
+- `aparta check`: credential health for every profile, with silent renewal
+  while the refresh token lives and four honest states, where a network
+  failure is unknown rather than a false alarm.
+- Expiry warnings inside the agents themselves, through each agent's own
+  mechanism: SessionStart hooks for Claude Code, Codex and Gemini CLI, a
+  folder-open task for Antigravity, the generated plugin for opencode, and
+  direnv for everything else.
+- `aparta doctor --fix`: repairs what is deterministic (gcloud account and
+  project, agent env, includeIf, gh config dir) and only reports what needs
+  a person.
+- `aparta fallback`: shows what runs outside any profile, and `--secure`
+  makes the global gcloud default empty so stray commands fail instead of
+  borrowing a client identity. `--restore` puts it back.
+- The wizard asks for the name shown on commits, pre-filled from the
+  profile's gitconfig or the global one.
+
+### Fixed
+
+- The per-profile gitconfig is merged instead of regenerated, so `user.name`,
+  comments and any other key you had there survive an apply.
+
 ## [0.5.0] - 2026-08-19
 
 ### Added
@@ -138,7 +173,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0
 [0.4.4]: https://github.com/lucascarvalhal/aparta/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/lucascarvalhal/aparta/compare/v0.4.2...v0.4.3
