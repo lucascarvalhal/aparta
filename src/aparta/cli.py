@@ -49,11 +49,29 @@ def main(
 
         notify_or_autoupdate()
         _warn_about_credentials()
+        _warn_about_stale_profiles()
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
             _run_wizard(dry_run, verbose)
         else:
             _run_menu(dry_run, verbose)
+
+
+def _warn_about_stale_profiles() -> None:
+    """A new release can bring behaviour that only lands on the next apply."""
+    from .apply import stale_profiles
+
+    try:
+        names = stale_profiles()
+        if names:
+            console.print(
+                _(
+                    "[yellow]These profiles were set up by an older aparta and may miss new behaviour: {names}. Run [bold]aparta apply <profile>[/bold] to bring them up to date.[/yellow]",
+                    names=", ".join(names),
+                )
+            )
+    except Exception:
+        pass
 
 
 def _warn_about_credentials() -> None:

@@ -117,3 +117,17 @@ def test_autoupdate_runs_in_auto_mode(monkeypatch):
     monkeypatch.setattr(updates, "run_update", lambda: ran.append(1) or True)
     updates.notify_or_autoupdate()
     assert ran == [1]
+
+
+def test_profiles_applied_by_an_older_version_are_flagged(tmp_path, monkeypatch):
+    """Updating the binary is not enough: profiles need a re-apply."""
+    from aparta.apply import stale_profiles
+    from aparta.fsutil import SafeWriter
+    from aparta.profiles import Profile, save_profiles
+
+    old = Profile(name="legacy", root="~/a", git_email="a@b.c", applied_with="0.4.0")
+    current = Profile(name="fresh", root="~/b", git_email="a@b.c", applied_with=updates.__version__)
+    never = Profile(name="never", root="~/c", git_email="a@b.c")
+    save_profiles({"legacy": old, "fresh": current, "never": never}, SafeWriter())
+
+    assert sorted(stale_profiles()) == ["legacy", "never"]

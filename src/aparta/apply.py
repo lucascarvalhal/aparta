@@ -21,7 +21,8 @@ from .backends.git import apply_git
 from .discovery import find_repos
 from .fsutil import SafeWriter
 from .i18n import _
-from .profiles import Profile, load_profiles
+from . import __version__
+from .profiles import Profile, load_profiles, save_profiles
 
 console = Console()
 
@@ -119,6 +120,9 @@ def apply_profile(
                 _("  [green]OK[/green] agents: {n} config file(s) updated across {total} repo(s)", n=touched, total=len(repos))
             )
 
+    if not writer.dry_run:
+        _stamp_version(profile, writer)
+
     if writer.dry_run:
         console.print(_("[yellow]--dry-run: {n} planned change(s); nothing was modified.[/yellow]", n=len(writer.changes)))
         if not writer.verbose and writer.changes:
@@ -128,3 +132,22 @@ def apply_profile(
     else:
         console.print(_("[green]Done: {n} file(s) updated (backups kept).[/green]", n=len(writer.changes)))
     console.print()
+
+
+def _stamp_version(profile: Profile, writer: SafeWriter) -> None:
+    """Remember which version applied this profile, to spot stale setups."""
+    profile.applied_with = __version__
+    saved = load_profiles()
+    if profile.name in saved:
+        saved[profile.name].applied_with = __version__
+        quiet = SafeWriter(dry_run=False, verbose=False)
+        save_profiles(saved, quiet)
+
+
+def stale_profiles() -> list[str]:
+    """Profiles applied by an older aparta, so they may miss new behaviour."""
+    return [
+        name
+        for name, profile in load_profiles().items()
+        if profile.applied_with != __version__
+    ]

@@ -61,6 +61,9 @@ class Profile:
     gcloud_isolated: bool = False
     aws_profile: str = ""  # named profile in ~/.aws/config, selected via AWS_PROFILE
     agents: list[str] = field(default_factory=lambda: ["claude-code"])
+    # aparta version that last applied this profile; an older or empty value
+    # means a new release may have features this profile is not using yet
+    applied_with: str = ""
     # repos outside root owned by this profile; identity is applied via a
     # local include in each .git/config, without moving the folder
     adopted_repos: list[str] = field(default_factory=list)

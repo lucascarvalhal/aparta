@@ -133,6 +133,15 @@ def run_update() -> bool:
         return False
     if result.returncode == 0:
         console.print(_("[green]aparta updated. The new version applies on the next run.[/green]"))
+        try:
+            from .profiles import load_profiles
+
+            if load_profiles():
+                console.print(
+                    _("[dim]Run `aparta apply <profile>` to bring your profiles to the new behaviour.[/dim]")
+                )
+        except Exception:
+            pass
         return True
     console.print(_("[red]The update command failed; try it manually.[/red]"))
     return False
