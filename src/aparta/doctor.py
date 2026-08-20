@@ -237,7 +237,7 @@ def fix_profile(
     env_repos = sorted({issue.repo for issue in issues if issue.kind == ENV and issue.repo})
     if env_repos:
         touched = _reinject_env(profile, env_repos, writer)
-        done.append(_("agents: env reinjected into {n} repo(s)", n=touched))
+        done.append(_("agents: env reinjected into {n} config file(s)", n=touched))
 
     for line in done:
         console.print(_("  [green]fixed[/green] {what}", what=line))
@@ -289,7 +289,8 @@ def _reinject_env(profile: Profile, repos: list[Path], writer) -> int:
                 console.print(
                     _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
                 )
-    return len(writer.changes) - before
+    # env and the startup hook usually share a file: count files, not writes
+    return len(set(writer.changes[before:]))
 
 
 def _report_manual(profile: Profile, manual: list[Issue]) -> None:

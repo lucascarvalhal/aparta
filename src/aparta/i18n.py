@@ -183,7 +183,7 @@ CATALOG: dict[str, dict[str, str]] = {
         "git: includeIf and ~/.gitconfig-{name} reapplied": "git: includeIf e ~/.gitconfig-{name} reaplicados",
         "gh: config dir reapplied": "gh: config dir reaplicado",
         "gcloud: account and project reasserted": "gcloud: conta e projeto reafirmados",
-        "agents: env reinjected into {n} repo(s)": "agentes: env reinjetado em {n} repo(s)",
+        "agents: env reinjected into {n} config file(s)": "agentes: env reinjetado em {n} arquivo(s) de config",
         "  [green]fixed[/green] {what}": "  [green]consertado[/green] {what}",
         "[yellow]--dry-run: nothing was changed; run without --dry-run to repair.[/yellow]": "[yellow]--dry-run: nada foi alterado; rode sem --dry-run para consertar de verdade.[/yellow]",
         "[yellow]Still failing after the fix: {items}. Run `aparta doctor {name}` for the detail.[/yellow]": "[yellow]Continua com problema depois do conserto: {items}. Rode `aparta doctor {name}` para ver o detalhe.[/yellow]",
