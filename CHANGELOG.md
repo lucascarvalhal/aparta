@@ -8,6 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-08-20
+
+### Fixed
+
+- `aparta login` now creates the profile's application default credentials
+  itself, inside the isolated scope. The old message told the user to run
+  `gcloud auth application-default login` by hand, but in a plain shell that
+  command writes the global ADC every profile would share, the exact leak
+  the isolation exists to prevent. The login now offers the browser flow
+  with the profile's environment and re-applies the profile afterwards, so
+  the SDKs that only honor `GOOGLE_APPLICATION_CREDENTIALS` see the new
+  file.
+- `aparta login` no longer drags the user through a browser login for a
+  credential that is still valid; only what needs a human runs, and
+  `--provider` still forces a specific one.
+- The GitHub login no longer dies with "unexpected escape sequence from
+  terminal". Terminals answer status queries on stdin, and gh's prompt
+  aborts on the leftover bytes; aparta now drains them before handing over
+  the terminal.
+
 ## [0.6.4] - 2026-08-20
 
 ### Fixed
@@ -221,7 +241,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/lucascarvalhal/aparta/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/lucascarvalhal/aparta/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/lucascarvalhal/aparta/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/lucascarvalhal/aparta/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0

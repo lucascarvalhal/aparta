@@ -8,6 +8,26 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.5] - 2026-08-20
+
+### Corrigido
+
+- O `aparta login` agora cria as credenciais de aplicação do perfil por
+  conta própria, dentro do escopo isolado. A mensagem antiga mandava rodar
+  `gcloud auth application-default login` na mão, só que num shell comum
+  esse comando cria o ADC global, compartilhado por todos os perfis,
+  exatamente o vazamento que o isolamento existe para evitar. Agora o login
+  oferece abrir o navegador com o ambiente do perfil e reaplica o perfil em
+  seguida, para os SDKs que só respeitam `GOOGLE_APPLICATION_CREDENTIALS`
+  enxergarem o arquivo novo.
+- O `aparta login` parou de arrastar você por um login no navegador quando a
+  credencial ainda está válida; só roda o que precisa de um humano, e o
+  `--provider` continua forçando um provedor específico.
+- O login do GitHub não morre mais com "unexpected escape sequence from
+  terminal". O terminal responde consultas de status pelo stdin, e o prompt
+  do gh aborta ao ver esses bytes sobrando; o aparta limpa o buffer antes de
+  entregar o terminal.
+
 ## [0.6.4] - 2026-08-20
 
 ### Corrigido
@@ -229,7 +249,11 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.1...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...HEAD
+[0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/lucascarvalhal/aparta/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/lucascarvalhal/aparta/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/lucascarvalhal/aparta/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/lucascarvalhal/aparta/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/lucascarvalhal/aparta/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lucascarvalhal/aparta/compare/v0.4.4...v0.5.0
