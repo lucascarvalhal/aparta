@@ -98,6 +98,44 @@ def check_gcloud(profile: Profile) -> AuthStatus | None:
     return AuthStatus("gcloud", state, detail)
 
 
+def check_adc(profile: Profile) -> AuthStatus | None:
+    """Probe the profile's application default credentials.
+
+    The CLI credential and the ADC are two independent credentials that
+    expire on their own schedules: `gcloud` commands can work all day while
+    Terraform trips on an ADC the same reauth policy already expired. A
+    profile without an ADC is a choice, not an error, so only an existing
+    file is probed.
+    """
+    if not profile.gcloud_isolated:
+        return None
+    from .backends.gcloud import has_adc
+
+    if not has_adc(profile.gcloud_config_dir):
+        return None
+    env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS="1")
+    env.update(
+        {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
+    )
+    try:
+        r = subprocess.run(
+            ["gcloud", "auth", "application-default", "print-access-token"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=PROBE_TIMEOUT,
+            stdin=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        return AuthStatus("ADC", UNKNOWN, _("{cmd} not found", cmd="gcloud"))
+    except subprocess.TimeoutExpired:
+        return AuthStatus("ADC", UNKNOWN, _("check timed out"))
+    if r.returncode == 0 and r.stdout.strip():
+        return AuthStatus("ADC", OK)
+    state, detail = _classify(r.stderr)
+    return AuthStatus("ADC", state, detail)
+
+
 def check_gh(profile: Profile) -> AuthStatus | None:
     """Probe the profile's GitHub token with a cheap authenticated call."""
     if not profile.gh_user:
@@ -123,7 +161,11 @@ def check_gh(profile: Profile) -> AuthStatus | None:
 
 
 def check_profile(profile: Profile) -> list[AuthStatus]:
-    return [s for s in (check_gcloud(profile), check_gh(profile)) if s is not None]
+    return [
+        s
+        for s in (check_gcloud(profile), check_adc(profile), check_gh(profile))
+        if s is not None
+    ]
 
 
 # ----------------------------------------------------------------- cache
@@ -207,10 +249,7 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
     ok = True
 
     if profile.gcloud_account and provider in ("", "gcloud"):
-        env = dict(os.environ)
-        env.update(
-            {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
-        )
+        env = _gcloud_env(profile)
         # asked for the whole profile, not gcloud specifically: skip the
         # browser dance when the credential is still good
         status = check_gcloud(profile) if provider == "" else None
@@ -218,7 +257,7 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
             console.print(
                 _("[green]gcloud:[/green] '{account}' is still valid; skipping the browser login", account=profile.gcloud_account)
             )
-            _offer_adc(profile, env, console)
+            ok &= _ensure_adc(profile, env, console)
         else:
             console.print(
                 _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
@@ -238,9 +277,12 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
                     timeout=PROBE_TIMEOUT,
                 )
                 console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
-                _offer_adc(profile, env, console)
+                ok &= _ensure_adc(profile, env, console)
             else:
                 ok = False
+
+    if profile.gcloud_account and provider == "adc":
+        ok &= _ensure_adc(profile, _gcloud_env(profile), console, announce_ok=True)
 
     if profile.gh_user and provider in ("", "gh"):
         env = dict(os.environ, GH_CONFIG_DIR=str(profile.gh_config_dir))
@@ -273,39 +315,80 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
     return ok
 
 
-def _offer_adc(profile: Profile, env: dict, console) -> None:
-    """An isolated profile needs its own application default credentials.
+def _gcloud_env(profile: Profile) -> dict:
+    env = dict(os.environ)
+    env.update(
+        {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
+    )
+    return env
+
+
+def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False) -> bool:
+    """Create or renew the profile's application default credentials.
+
+    A fresh CLI credential says nothing about the ADC: they are two
+    independent credentials the same reauth policy expires on its own
+    schedule, and Terraform only ever uses the ADC. Saying "still valid"
+    while the ADC sits expired would be lying by omission.
+    """
+    from .backends.gcloud import has_adc
+
+    if not profile.gcloud_isolated:
+        return True
+    if not has_adc(profile.gcloud_config_dir):
+        return _offer_adc(profile, env, console)
+    status = check_adc(profile)
+    if status is None or status.state in (OK, UNKNOWN):
+        if announce_ok:
+            console.print(_("[green]ADC:[/green] the application credentials are still valid"))
+        return True
+    console.print(
+        _("[yellow]ADC:[/yellow] {detail}; opening the browser to renew the application credentials...", detail=status.detail)
+    )
+    return _run_adc_login(profile, env, console, created=False)
+
+
+def _offer_adc(profile: Profile, env: dict, console) -> bool:
+    """A profile with no ADC yet gets the offer to create one.
 
     Telling the user the command is not enough: run in their own shell,
     without the profile's CLOUDSDK_CONFIG, it would create the GLOBAL ADC
     shared by every profile, the exact leak the isolation exists to prevent.
-    So the login runs right here with the profile's environment, and the
-    profile is re-applied afterwards so the SDKs that only honor
-    GOOGLE_APPLICATION_CREDENTIALS see the new file.
+    So the login runs right here with the profile's environment. Declining
+    is fine: no ADC is safer than the wrong ADC.
     """
     import sys
 
-    from .backends.gcloud import has_adc
-
-    if not profile.gcloud_isolated or has_adc(profile.gcloud_config_dir):
-        return
     console.print(
         _("[dim]This profile has no application credentials of its own yet; SDKs and Terraform need them.[/dim]")
     )
     if not sys.stdin.isatty():
         console.print(_("Create them with: aparta login {name}", name=profile.name))
-        return
+        return True
     from .wizard import _confirm
 
     if not _confirm(_("Create them now? (opens the browser)"), default=True):
-        return
+        return True
+    return _run_adc_login(profile, env, console, created=True)
+
+
+def _run_adc_login(profile: Profile, env: dict, console, created: bool) -> bool:
+    from .backends.gcloud import has_adc
+
     _flush_stdin()
-    r = subprocess.run(["gcloud", "auth", "application-default", "login"], env=env)
+    try:
+        r = subprocess.run(["gcloud", "auth", "application-default", "login"], env=env)
+    except FileNotFoundError:
+        console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
+        return False
     if r.returncode != 0 or not has_adc(profile.gcloud_config_dir):
         console.print(
             _("[yellow]The ADC login did not complete; run `aparta login {name}` to try again.[/yellow]", name=profile.name)
         )
-        return
+        return False
+    if not created:
+        console.print(_("[green]gcloud:[/green] application credentials renewed"))
+        return True
     console.print(_("[green]gcloud:[/green] application credentials created for this profile"))
     # the env of every repo must now point GOOGLE_APPLICATION_CREDENTIALS
     # at the new file; a fresh apply reconciles that
@@ -314,3 +397,4 @@ def _offer_adc(profile: Profile, env: dict, console) -> None:
     from .profiles import load_profiles
 
     apply_profile(profile, SafeWriter(), siblings=load_profiles())
+    return True

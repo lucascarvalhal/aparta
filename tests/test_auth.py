@@ -156,7 +156,7 @@ def test_login_skips_providers_whose_credential_is_still_valid(monkeypatch, caps
     monkeypatch.setattr(auth, "check_gcloud", lambda p: auth.AuthStatus("gcloud", auth.OK))
     monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
-    monkeypatch.setattr(auth, "_offer_adc", lambda *a: None)
+    monkeypatch.setattr(auth, "_ensure_adc", lambda *a, **k: True)
 
     def explode(*a, **kw):  # pragma: no cover - must not be called
         raise AssertionError("no interactive login for a valid credential")
@@ -212,7 +212,7 @@ def test_adc_offer_runs_inside_the_profile_scope(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setattr(auth.subprocess, "run", run)
     env = dict(ISOLATED.env())
-    auth._offer_adc(ISOLATED, env, Console())
+    auth._ensure_adc(ISOLATED, env, Console())
     assert seen["args"] == ["gcloud", "auth", "application-default", "login"]
     assert seen["config"] == str(profile_dir)
     assert applied == ["acme"]  # repos re-applied so GOOGLE_APPLICATION_CREDENTIALS lands
@@ -231,21 +231,74 @@ def test_adc_offer_is_a_hint_when_there_is_no_tty(monkeypatch, tmp_path):
         raise AssertionError("no subprocess without a human at the terminal")
 
     monkeypatch.setattr(auth.subprocess, "run", explode)
-    auth._offer_adc(ISOLATED, {}, Console())
+    assert auth._ensure_adc(ISOLATED, {}, Console()) is True
 
 
-def test_adc_offer_noop_when_the_profile_already_has_one(monkeypatch, tmp_path):
+def test_valid_adc_is_left_alone(monkeypatch, tmp_path):
     from rich.console import Console
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     ISOLATED.gcloud_config_dir.mkdir(parents=True)
     (ISOLATED.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.OK))
 
     def explode(*a, **kw):  # pragma: no cover - must not be called
-        raise AssertionError("nothing to do when the ADC exists")
+        raise AssertionError("nothing to do when the ADC is valid")
 
     monkeypatch.setattr(auth.subprocess, "run", explode)
-    auth._offer_adc(ISOLATED, {}, Console())
+    assert auth._ensure_adc(ISOLATED, {}, Console()) is True
+
+
+def test_expired_adc_is_a_second_credential_and_gets_renewed(monkeypatch, tmp_path):
+    """The CLI credential can be fresh while the ADC sits expired; a login
+    that only looks at the first and says "valid" lies to Terraform users."""
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    profile_dir = ISOLATED.gcloud_config_dir
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(
+        auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.REAUTH, "session expired")
+    )
+    seen = {}
+
+    def run(args, env=None, **kwargs):
+        seen["args"] = args
+        seen["config"] = (env or {}).get("CLOUDSDK_CONFIG")
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth._ensure_adc(ISOLATED, dict(ISOLATED.env()), Console()) is True
+    assert seen["args"] == ["gcloud", "auth", "application-default", "login"]
+    assert seen["config"] == str(profile_dir)
+
+
+def test_check_adc_reports_the_expired_second_credential(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    ISOLATED.gcloud_config_dir.mkdir(parents=True)
+    (ISOLATED.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(
+        auth.subprocess,
+        "run",
+        _result(1, stderr="reauth related error (invalid_rapt)"),
+    )
+    status = auth.check_adc(ISOLATED)
+    assert status.provider == "ADC"
+    assert status.state == auth.REAUTH
+    assert status.needs_human is True
+
+
+def test_check_adc_skips_profiles_that_chose_to_have_none(monkeypatch, tmp_path):
+    """No ADC is a choice, not an error: no file, no probe, no nagging."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    ISOLATED.gcloud_config_dir.mkdir(parents=True)
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("no probe without an ADC file")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+    assert auth.check_adc(ISOLATED) is None
 
 
 def test_account_without_credentials_is_missing(monkeypatch):
