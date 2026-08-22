@@ -8,6 +8,21 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.6] - 2026-08-21
+
+### Corrigido
+
+- A verificação de credenciais agora cobre também as credenciais de
+  aplicação (ADC) do perfil. A credencial do CLI e o ADC são duas
+  credenciais independentes, que a mesma política de reautenticação expira
+  em horários separados: os comandos `gcloud` podiam funcionar o dia
+  inteiro enquanto o Terraform tropeçava num ADC vencido, e o `aparta
+  login` olhava só a primeira, dizia "continua válida" e pulava o
+  navegador. O check, o doctor e os avisos de início de sessão dos agentes
+  agora sondam o ADC como credencial própria, o `aparta login` renova um
+  ADC vencido dentro do escopo do perfil, e `--provider adc` mira só nele.
+  Perfil que escolheu viver sem ADC não é sondado nem cobrado.
+
 ## [0.6.5] - 2026-08-20
 
 ### Corrigido
@@ -249,7 +264,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/lucascarvalhal/aparta/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/lucascarvalhal/aparta/compare/v0.6.2...v0.6.3

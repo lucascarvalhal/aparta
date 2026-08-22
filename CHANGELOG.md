@@ -8,6 +8,21 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-08-21
+
+### Fixed
+
+- The credential check now covers the profile's application default
+  credentials too. The CLI credential and the ADC are two independent
+  credentials the same reauth policy expires on separate schedules, so
+  `gcloud` commands could work all day while Terraform tripped on an
+  expired ADC, and `aparta login` looked at the first, said "still valid"
+  and skipped the browser. The check, the doctor and the agent startup
+  hooks now probe the ADC as its own credential, `aparta login` renews an
+  expired one inside the profile's scope, and `--provider adc` targets it
+  directly. A profile that chose to live without an ADC is not probed and
+  not nagged.
+
 ## [0.6.5] - 2026-08-20
 
 ### Fixed
@@ -241,7 +256,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...HEAD
+[0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/lucascarvalhal/aparta/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/lucascarvalhal/aparta/compare/v0.6.2...v0.6.3
