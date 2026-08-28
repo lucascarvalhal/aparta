@@ -36,6 +36,27 @@ def aws_profile_exists(name: str, aws_dir: Path | None = None) -> bool:
     return name in list_aws_profiles(aws_dir)
 
 
+def is_sso_profile(name: str, aws_dir: Path | None = None) -> bool:
+    """Whether the named profile authenticates through AWS SSO.
+
+    SSO sessions expire and a browser login renews them; static keys do
+    not, so knowing which kind a profile is decides what a login can do.
+    """
+    aws_dir = aws_dir or Path.home() / ".aws"
+    config = aws_dir / "config"
+    if not config.exists():
+        return False
+    section = None
+    for line in config.read_text().splitlines():
+        m = re.match(r"^\[(?:profile\s+)?([^\]]+)\]", line)
+        if m:
+            section = m.group(1).strip()
+            continue
+        if section == name and re.match(r"\s*sso_\w+\s*=", line):
+            return True
+    return False
+
+
 def apply_aws(profile: Profile, writer: SafeWriter) -> list[Note]:
     notes: list[Note] = []
     if not profile.aws_profile:

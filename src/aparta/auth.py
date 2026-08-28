@@ -98,6 +98,62 @@ def check_gcloud(profile: Profile) -> AuthStatus | None:
     return AuthStatus("gcloud", state, detail)
 
 
+TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+
+
+def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
+    """Refresh the ADC the way google-auth does, with no help from gcloud.
+
+    gcloud can mint tokens from an ADC the raw libraries cannot: it knows
+    the organization's reauth policy and holds a cached reauth proof
+    (RAPT), so `print-access-token` says "valid" while Terraform and
+    Dataform get invalid_rapt from a plain refresh. Only a plain refresh
+    against the token endpoint tells the truth about what a library sees.
+    Returns None when this probe does not apply (not a user credential).
+    """
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    try:
+        data = json.loads(adc_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    if data.get("type") != "authorized_user":
+        return None  # service accounts do not sit behind reauth policies
+    body = urllib.parse.urlencode(
+        {
+            "grant_type": "refresh_token",
+            "client_id": data.get("client_id", ""),
+            "client_secret": data.get("client_secret", ""),
+            "refresh_token": data.get("refresh_token", ""),
+        }
+    ).encode()
+    try:
+        with urllib.request.urlopen(
+            urllib.request.Request(TOKEN_ENDPOINT, data=body), timeout=PROBE_TIMEOUT
+        ):
+            return AuthStatus("ADC", OK)
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read().decode())
+        except Exception:
+            err = {}
+        text = " ".join(str(v) for v in err.values())
+        # the RAPT verdict arrives as invalid_grant + invalid_rapt; the
+        # policy message is the honest one, so check it before _classify
+        # matches the generic invalid_grant
+        if "invalid_rapt" in text.lower():
+            return AuthStatus("ADC", REAUTH, _("session expired by your organization's policy"))
+        state, detail = _classify(text)
+        if state == UNKNOWN:
+            return AuthStatus("ADC", UNKNOWN, detail or str(e))
+        return AuthStatus("ADC", state, detail)
+    except Exception:
+        # a network failure must never cry wolf
+        return AuthStatus("ADC", UNKNOWN, _("check timed out"))
+
+
 def check_adc(profile: Profile) -> AuthStatus | None:
     """Probe the profile's application default credentials.
 
@@ -105,7 +161,7 @@ def check_adc(profile: Profile) -> AuthStatus | None:
     expire on their own schedules: `gcloud` commands can work all day while
     Terraform trips on an ADC the same reauth policy already expired. A
     profile without an ADC is a choice, not an error, so only an existing
-    file is probed.
+    file is probed, and probed like a library, not like gcloud.
     """
     if not profile.gcloud_isolated:
         return None
@@ -113,6 +169,11 @@ def check_adc(profile: Profile) -> AuthStatus | None:
 
     if not has_adc(profile.gcloud_config_dir):
         return None
+    adc_path = profile.gcloud_config_dir / "application_default_credentials.json"
+    status = _refresh_adc_like_a_library(adc_path)
+    if status is not None:
+        return status
+    # not a user credential (or unreadable): fall back to gcloud's own probe
     env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS="1")
     env.update(
         {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
@@ -134,6 +195,48 @@ def check_adc(profile: Profile) -> AuthStatus | None:
         return AuthStatus("ADC", OK)
     state, detail = _classify(r.stderr)
     return AuthStatus("ADC", state, detail)
+
+
+# aws stderr fingerprints, from the CLI and botocore error surfaces
+_AWS_EXPIRED = ("token has expired", "expiredtoken", "sso session", "requires re-authentication")
+_AWS_MISSING = ("unable to locate credentials", "could not be found")
+
+
+def _classify_aws(stderr: str) -> tuple[str, str]:
+    lowered = stderr.lower()
+    if any(marker in lowered for marker in _AWS_MISSING):
+        return MISSING, _("no credential stored for this profile")
+    if any(marker in lowered for marker in _AWS_EXPIRED):
+        return REAUTH, _("session expired; log in again")
+    return UNKNOWN, stderr.strip().splitlines()[-1] if stderr.strip() else ""
+
+
+def check_aws(profile: Profile) -> AuthStatus | None:
+    """Probe the AWS profile the way every SDK does: an STS call.
+
+    Static keys do not expire, but SSO sessions and role session tokens
+    do; only asking STS who we are tells the truth for all of them.
+    """
+    if not profile.aws_profile:
+        return None
+    env = dict(os.environ, AWS_PROFILE=profile.aws_profile)
+    try:
+        r = subprocess.run(
+            ["aws", "sts", "get-caller-identity", "--output", "json"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=PROBE_TIMEOUT,
+            stdin=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        return AuthStatus("aws", UNKNOWN, _("{cmd} not found", cmd="aws"))
+    except subprocess.TimeoutExpired:
+        return AuthStatus("aws", UNKNOWN, _("check timed out"))
+    if r.returncode == 0:
+        return AuthStatus("aws", OK)
+    state, detail = _classify_aws(r.stderr)
+    return AuthStatus("aws", state, detail)
 
 
 def check_gh(profile: Profile) -> AuthStatus | None:
@@ -163,7 +266,7 @@ def check_gh(profile: Profile) -> AuthStatus | None:
 def check_profile(profile: Profile) -> list[AuthStatus]:
     return [
         s
-        for s in (check_gcloud(profile), check_adc(profile), check_gh(profile))
+        for s in (check_gcloud(profile), check_adc(profile), check_gh(profile), check_aws(profile))
         if s is not None
     ]
 
@@ -310,9 +413,51 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
             else:
                 ok = False
 
+    if profile.aws_profile and provider in ("", "aws"):
+        status = check_aws(profile) if provider == "" else None
+        if status is not None and not status.needs_human:
+            if status.state == OK:
+                console.print(
+                    _("[green]aws:[/green] profile '{name}' is still valid", name=profile.aws_profile)
+                )
+            else:
+                console.print(_("{provider} in '{name}': {detail}", provider="aws", name=profile.aws_profile, detail=status.detail))
+        else:
+            ok &= _aws_login(profile, console)
+
     # the cached verdict is stale now
     cached_check(profile, force=True)
     return ok
+
+
+def _aws_login(profile: Profile, console) -> bool:
+    """Renew what a browser can renew: the SSO session.
+
+    Static keys never expire on their own; when they are the problem, the
+    only honest move is pointing at `aws configure`.
+    """
+    from .backends.aws import is_sso_profile
+
+    env = dict(os.environ, AWS_PROFILE=profile.aws_profile)
+    if not is_sso_profile(profile.aws_profile):
+        console.print(
+            _(
+                "[yellow]aws:[/yellow] profile '{name}' uses static keys; refresh them with `aws configure --profile {name}`",
+                name=profile.aws_profile,
+            )
+        )
+        return True
+    console.print(_("Opening the AWS SSO login for profile '{name}'...", name=profile.aws_profile))
+    _flush_stdin()
+    try:
+        r = subprocess.run(["aws", "sso", "login", "--profile", profile.aws_profile], env=env)
+    except FileNotFoundError:
+        console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="aws"))
+        return False
+    if r.returncode != 0:
+        return False
+    console.print(_("[green]aws:[/green] profile '{name}' reauthenticated", name=profile.aws_profile))
+    return True
 
 
 def _gcloud_env(profile: Profile) -> dict:
@@ -375,6 +520,12 @@ def _offer_adc(profile: Profile, env: dict, console) -> bool:
 def _run_adc_login(profile: Profile, env: dict, console, created: bool) -> bool:
     from .backends.gcloud import has_adc
 
+    if profile.gcloud_account:
+        # the ADC flow cannot preselect an account; the human picking the
+        # wrong one would put another identity in this profile's file
+        console.print(
+            _("[dim]In the browser, pick the account {account}.[/dim]", account=profile.gcloud_account)
+        )
     _flush_stdin()
     try:
         r = subprocess.run(["gcloud", "auth", "application-default", "login"], env=env)

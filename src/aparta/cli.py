@@ -328,7 +328,7 @@ def update() -> None:
 @app.command()
 def login(
     profile_name: str = typer.Argument(..., help=_("Profile to reauthenticate.")),
-    provider: str = typer.Option("", "--provider", help=_("Only this provider (gcloud, gh or adc).")),
+    provider: str = typer.Option("", "--provider", help=_("Only this provider (gcloud, gh, adc or aws).")),
 ) -> None:
     """Reauthenticate a profile, in its own isolated scope."""
     from .auth import login_profile

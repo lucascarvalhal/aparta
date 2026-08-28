@@ -289,6 +289,156 @@ def test_check_adc_reports_the_expired_second_credential(monkeypatch, tmp_path):
     assert status.needs_human is True
 
 
+def _adc_file(tmp_path, monkeypatch, content: str):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    ISOLATED.gcloud_config_dir.mkdir(parents=True)
+    path = ISOLATED.gcloud_config_dir / "application_default_credentials.json"
+    path.write_text(content)
+    return path
+
+
+USER_ADC = '{"type": "authorized_user", "client_id": "c", "client_secret": "s", "refresh_token": "r"}'
+
+
+def _http_error(payload: str):
+    import io
+    import urllib.error
+
+    def urlopen(req, timeout=None):
+        raise urllib.error.HTTPError(
+            "https://oauth2.googleapis.com/token", 400, "Bad Request", {}, io.BytesIO(payload.encode())
+        )
+
+    return urlopen
+
+
+def test_adc_probe_refreshes_like_a_library_and_sees_invalid_rapt(monkeypatch, tmp_path):
+    """gcloud holds a cached reauth proof, so its own probe says "valid"
+    while Terraform and Dataform get invalid_rapt from a plain refresh; the
+    probe must refresh the way the libraries do."""
+    import urllib.request
+
+    _adc_file(tmp_path, monkeypatch, USER_ADC)
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        _http_error('{"error": "invalid_grant", "error_subtype": "invalid_rapt"}'),
+    )
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("the raw refresh must not ask gcloud")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+    status = auth.check_adc(ISOLATED)
+    assert status.state == auth.REAUTH
+    assert status.needs_human is True
+
+
+def test_adc_probe_ok_on_a_successful_raw_refresh(monkeypatch, tmp_path):
+    import contextlib
+    import io
+    import urllib.request
+
+    _adc_file(tmp_path, monkeypatch, USER_ADC)
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda req, timeout=None: contextlib.closing(io.BytesIO(b'{"access_token": "t"}')),
+    )
+    assert auth.check_adc(ISOLATED).state == auth.OK
+
+
+def test_adc_probe_network_failure_never_cries_wolf(monkeypatch, tmp_path):
+    import urllib.request
+
+    _adc_file(tmp_path, monkeypatch, USER_ADC)
+
+    def down(req, timeout=None):
+        raise OSError("network unreachable")
+
+    monkeypatch.setattr(urllib.request, "urlopen", down)
+    status = auth.check_adc(ISOLATED)
+    assert status.state == auth.UNKNOWN
+    assert status.needs_human is False
+
+
+def test_adc_probe_falls_back_to_gcloud_for_service_accounts(monkeypatch, tmp_path):
+    """Service accounts do not sit behind reauth policies; gcloud's own
+    probe is fine for them."""
+    _adc_file(tmp_path, monkeypatch, '{"type": "service_account"}')
+    monkeypatch.setattr(auth.subprocess, "run", _result(0, stdout="token"))
+    assert auth.check_adc(ISOLATED).state == auth.OK
+
+
+AWS_PROFILE = Profile(
+    name="acme",
+    root="~/acme",
+    git_email="a@b.c",
+    aws_profile="acme-dev",
+)
+
+
+def test_aws_probe_is_the_same_call_every_sdk_makes(monkeypatch):
+    seen = {}
+
+    def run(args, env=None, **kwargs):
+        seen["args"] = args
+        seen["profile"] = (env or {}).get("AWS_PROFILE")
+        return subprocess.CompletedProcess(args, 0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth.check_aws(AWS_PROFILE).state == auth.OK
+    assert seen["args"][:3] == ["aws", "sts", "get-caller-identity"]
+    assert seen["profile"] == "acme-dev"
+
+
+def test_aws_expired_sso_session_asks_for_a_human(monkeypatch):
+    monkeypatch.setattr(
+        auth.subprocess,
+        "run",
+        _result(1, stderr="Error when retrieving token from sso: Token has expired and refresh failed"),
+    )
+    status = auth.check_aws(AWS_PROFILE)
+    assert status.state == auth.REAUTH
+    assert status.needs_human is True
+
+
+def test_aws_missing_credentials_is_its_own_state(monkeypatch):
+    monkeypatch.setattr(
+        auth.subprocess, "run", _result(255, stderr="Unable to locate credentials. You can configure credentials by running \"aws configure\".")
+    )
+    assert auth.check_aws(AWS_PROFILE).state == auth.MISSING
+
+
+def test_aws_login_renews_sso_in_the_profile_scope(monkeypatch):
+    monkeypatch.setattr(auth, "check_aws", lambda p: auth.AuthStatus("aws", auth.REAUTH, "session expired"))
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+    monkeypatch.setattr("aparta.backends.aws.is_sso_profile", lambda name: True)
+    calls = []
+
+    def run(args, env=None, **kwargs):
+        calls.append((args, (env or {}).get("AWS_PROFILE")))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth.login_profile(AWS_PROFILE) is True
+    assert (["aws", "sso", "login", "--profile", "acme-dev"], "acme-dev") in calls
+
+
+def test_aws_static_keys_get_guidance_not_a_browser(monkeypatch):
+    """A browser cannot renew static keys; pointing at aws configure is the
+    only honest move, and it is not a failure."""
+    monkeypatch.setattr(auth, "check_aws", lambda p: auth.AuthStatus("aws", auth.REAUTH, "session expired"))
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+    monkeypatch.setattr("aparta.backends.aws.is_sso_profile", lambda name: False)
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("no login command for static keys")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+    assert auth.login_profile(AWS_PROFILE) is True
+
+
 def test_check_adc_skips_profiles_that_chose_to_have_none(monkeypatch, tmp_path):
     """No ADC is a choice, not an error: no file, no probe, no nagging."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))

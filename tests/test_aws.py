@@ -62,3 +62,20 @@ def test_aws_profile_exists(tmp_path: Path):
     (tmp_path / "config").write_text("[profile acme]\n")
     assert aws_profile_exists("acme", tmp_path) is True
     assert aws_profile_exists("ghost", tmp_path) is False
+
+
+def test_is_sso_profile_reads_the_config_section(tmp_path):
+    from aparta.backends.aws import is_sso_profile
+
+    (tmp_path / "config").write_text(
+        "[profile sso-one]\n"
+        "sso_start_url = https://acme.awsapps.com/start\n"
+        "sso_account_id = 123\n"
+        "region = us-east-1\n"
+        "\n"
+        "[profile static-two]\n"
+        "region = us-east-1\n"
+    )
+    assert is_sso_profile("sso-one", tmp_path) is True
+    assert is_sso_profile("static-two", tmp_path) is False
+    assert is_sso_profile("absent", tmp_path) is False
