@@ -8,6 +8,18 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-08-28
+
+### Added
+
+- `aparta fallback` now covers the global ADC, the other half of the
+  fallback identity. The report shows the file with its library-style
+  health verdict, `--secure` parks it next to the original (so libraries
+  outside a profile fail loudly instead of silently borrowing a stale
+  credential, which is how a nine-day-old ADC bit a Dataform run), and
+  `--restore` puts it back. Run again after a new ADC appears, `--secure`
+  parks that one too instead of saying there is nothing to do.
+
 ## [0.6.7] - 2026-08-28
 
 ### Changed
@@ -278,7 +290,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...HEAD
+[0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5

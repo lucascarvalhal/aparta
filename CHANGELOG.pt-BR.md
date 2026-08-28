@@ -8,6 +8,19 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.8] - 2026-08-28
+
+### Adicionado
+
+- O `aparta fallback` agora cobre também o ADC global, a outra metade da
+  identidade de fallback. O relatório mostra o arquivo com o veredito de
+  saúde no estilo das bibliotecas, o `--secure` estaciona ele ao lado do
+  original (assim bibliotecas fora de um perfil falham na cara em vez de
+  pegarem emprestada uma credencial velha em silêncio, que foi como um ADC
+  de nove dias derrubou uma execução do Dataform), e o `--restore`
+  devolve. Rodando de novo depois que um ADC novo aparece, o `--secure`
+  estaciona esse também em vez de dizer que não há nada a fazer.
+
 ## [0.6.7] - 2026-08-28
 
 ### Mudado
@@ -287,7 +300,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...HEAD
+[0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
