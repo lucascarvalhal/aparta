@@ -8,6 +8,28 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-08-28
+
+### Changed
+
+- The ADC probe now refreshes the credential the way the Google libraries
+  do, straight against the token endpoint, instead of asking gcloud.
+  gcloud holds a cached reauthentication proof (RAPT), so its own probe
+  said "valid" while Terraform, Dataform and every other library got
+  invalid_rapt from a plain refresh; only a plain refresh tells the truth
+  about what a library will see. Service-account files keep the gcloud
+  probe, since they do not sit behind reauth policies.
+
+### Added
+
+- AWS joined the credential check and `aparta login`: the probe is the
+  same STS call every SDK makes, an expired SSO session is renewed with
+  `aws sso login` in the profile's scope (`--provider aws` targets it
+  directly), and profiles on static keys are pointed at `aws configure`,
+  the only thing that can refresh those.
+- The ADC browser flow cannot preselect an account, so the login now says
+  which account to pick before opening the browser.
+
 ## [0.6.6] - 2026-08-21
 
 ### Fixed
@@ -256,7 +278,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...HEAD
+[0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/lucascarvalhal/aparta/compare/v0.6.3...v0.6.4

@@ -8,6 +8,29 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.6.7] - 2026-08-28
+
+### Mudado
+
+- A sonda do ADC agora renova a credencial do jeito que as bibliotecas do
+  Google fazem, direto no endpoint de token, em vez de perguntar ao
+  gcloud. O gcloud guarda um comprovante de reautenticação em cache (o
+  RAPT), então a sonda dele dizia "válida" enquanto Terraform, Dataform e
+  qualquer outra biblioteca tomavam invalid_rapt num refresh comum; só o
+  refresh comum conta a verdade sobre o que uma biblioteca vai ver.
+  Arquivos de conta de serviço continuam na sonda do gcloud, porque não
+  ficam atrás de política de reautenticação.
+
+### Adicionado
+
+- A AWS entrou na verificação de credenciais e no `aparta login`: a sonda
+  é a mesma chamada STS que todo SDK faz, sessão SSO vencida é renovada
+  com `aws sso login` no escopo do perfil (`--provider aws` mira só nela),
+  e perfil de chaves estáticas é apontado para o `aws configure`, o único
+  que consegue trocar essas chaves.
+- O fluxo do ADC no navegador não consegue pré-selecionar conta, então o
+  login agora avisa qual conta escolher antes de abrir o navegador.
+
 ## [0.6.6] - 2026-08-21
 
 ### Corrigido
@@ -264,7 +287,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...HEAD
+[0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/lucascarvalhal/aparta/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/lucascarvalhal/aparta/compare/v0.6.3...v0.6.4
