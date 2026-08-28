@@ -8,6 +8,24 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-28
+
+### Added
+
+- `aparta run -- <command>` runs any command with the profile environment
+  of the current folder, exactly as the agents get it. A plain shell
+  inherits nothing from the adapters, so people were writing wrapper
+  scripts that re-export the paths by hand and forget the parts that
+  matter (the pinned `CLOUDSDK_ACTIVE_CONFIG_NAME`, the existence check
+  before exporting `GOOGLE_APPLICATION_CREDENTIALS`). The profile comes
+  from the deepest root owning the folder, adopted repos included;
+  `--profile` overrides.
+- `aparta env [profile]` prints the same variables as shell-safe `export`
+  lines, for `eval "$(aparta env)"` in scripts.
+- `--with-gh-token`, on both, also exports `GITHUB_TOKEN` read from the
+  profile's gh. Strictly opt-in: the token lives in the OS keyring, and
+  materializing it into the environment exposes it to child processes.
+
 ## [0.6.8] - 2026-08-28
 
 ### Added
@@ -290,7 +308,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6

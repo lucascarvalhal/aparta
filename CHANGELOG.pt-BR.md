@@ -8,6 +8,24 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.7.0] - 2026-08-28
+
+### Adicionado
+
+- `aparta run -- <comando>` roda qualquer comando com o ambiente do perfil
+  da pasta atual, exatamente como os agentes recebem. Um shell comum não
+  herda nada dos adapters, então cada repo acabava com um script wrapper
+  reexportando os caminhos na mão, e esquecendo justo as partes que
+  importam (o `CLOUDSDK_ACTIVE_CONFIG_NAME` fixado, a checagem de
+  existência antes de exportar `GOOGLE_APPLICATION_CREDENTIALS`). O perfil
+  vem da raiz mais funda que contém a pasta, repos adotados incluídos; o
+  `--profile` sobrepõe.
+- `aparta env [perfil]` imprime as mesmas variáveis como linhas de
+  `export` seguras para shell, para `eval "$(aparta env)"` em scripts.
+- `--with-gh-token`, nos dois, também exporta o `GITHUB_TOKEN` lido do gh
+  do perfil. Opcional de propósito: o token vive no chaveiro do sistema, e
+  colocá-lo no ambiente o expõe aos processos filhos.
+
 ## [0.6.8] - 2026-08-28
 
 ### Adicionado
@@ -300,7 +318,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
 [0.6.6]: https://github.com/lucascarvalhal/aparta/compare/v0.6.5...v0.6.6
