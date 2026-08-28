@@ -104,6 +104,8 @@ aparta remove X   # remove a profile and undo what it applied (backups kept)
 aparta list       # list configured profiles
 aparta login X    # reauthenticate a profile, in its own scope
 aparta check      # check every credential, quiet when all is well
+aparta run -- cmd # run any command with the folder's profile environment
+aparta env        # print the profile's exports for scripts: eval "$(aparta env)"
 aparta fallback   # what runs outside any profile; --secure makes it neutral, --restore undoes it
 aparta update     # update aparta to the latest release
 aparta help       # every command and what it does

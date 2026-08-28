@@ -44,7 +44,9 @@ def main(
         console.print(f"aparta {__version__}")
         raise typer.Exit()
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
-    if ctx.invoked_subcommand not in ("update", "login", "check"):
+    # run and env stay quiet: their stdout belongs to the wrapped command
+    # (or to an eval), so no warning may pollute it
+    if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env"):
         from .updates import notify_or_autoupdate
 
         notify_or_autoupdate()
@@ -342,6 +344,74 @@ def login(
         raise typer.Exit(1)
 
 
+def _resolve_profile(profile_name: str):
+    """The named profile, or the one owning the current folder."""
+    from pathlib import Path
+
+    from .runner import profile_for_path
+
+    err = Console(stderr=True)
+    profiles = load_profiles()
+    if profile_name:
+        profile = profiles.get(profile_name)
+        if not profile:
+            err.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
+            raise typer.Exit(1)
+        return profile
+    profile = profile_for_path(Path.cwd(), profiles)
+    if not profile:
+        err.print(
+            _("[red]This folder belongs to no profile.[/red] Use --profile <name> or run from a configured folder.")
+        )
+        raise typer.Exit(1)
+    return profile
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def run(
+    ctx: typer.Context,
+    profile_name: str = typer.Option(
+        "", "--profile", "-p", help=_("Profile to use (default: the one owning the current folder).")
+    ),
+    with_gh_token: bool = typer.Option(
+        False,
+        "--with-gh-token",
+        help=_("Also export GITHUB_TOKEN from the profile's gh (opt-in: it exposes the token to child processes)."),
+    ),
+) -> None:
+    """Run a command with the profile's environment, exactly as the agents get it."""
+    from .runner import run_in_profile
+
+    command = list(ctx.args)
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        Console(stderr=True).print(_("[red]Nothing to run.[/red] Usage: aparta run -- <command> [args...]"))
+        raise typer.Exit(2)
+    profile = _resolve_profile(profile_name)
+    raise typer.Exit(run_in_profile(profile, command, with_gh_token))
+
+
+@app.command()
+def env(
+    profile_name: str = typer.Argument(
+        "", help=_("Profile to print (default: the one owning the current folder).")
+    ),
+    with_gh_token: bool = typer.Option(
+        False,
+        "--with-gh-token",
+        help=_("Also export GITHUB_TOKEN from the profile's gh (opt-in: it exposes the token to child processes)."),
+    ),
+) -> None:
+    """Print export lines for scripts: eval "$(aparta env)"."""
+    from .runner import export_lines, profile_env
+
+    profile = _resolve_profile(profile_name)
+    lines = export_lines(profile_env(profile, with_gh_token))
+    if lines:
+        print(lines)
+
+
 @app.command()
 def check(
     quiet: bool = typer.Option(
@@ -403,6 +473,8 @@ def show_help() -> None:
     table.add_row("aparta list", _("List configured profiles."))
     table.add_row("aparta login <profile>", _("Reauthenticate a profile, in its own scope."))
     table.add_row("aparta check", _("Check every credential, quiet when all is well."))
+    table.add_row("aparta run -- <cmd>", _("Run a command with the folder's profile environment."))
+    table.add_row("aparta env \\[profile]", _("Print the profile's exports for scripts: eval \"$(aparta env)\"."))
     table.add_row("aparta fallback", _("Show what runs outside any profile; --secure makes it neutral, --restore undoes it."))
     table.add_row("aparta update", _("Update aparta to the latest release."))
     table.add_row("aparta help", _("This screen."))
