@@ -119,7 +119,9 @@ Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clien
 
 - **Renovação silenciosa enquanto é possível.** Enquanto o refresh token vale, o aparta renova o access token por você e você nem percebe.
 - **Aviso antes de doer, não depois.** Quando a credencial realmente precisa de uma pessoa, o aparta avisa na próxima vez que você o executa, dizendo qual perfil e qual comando resolve. A verificação é cacheada, nunca trava nada, e `APARTA_AUTH_CHECK=off` desliga.
-- **Um comando que não tem como cair no lugar errado.** O `aparta login <perfil>` roda o login do provedor dentro do escopo daquele perfil e reafirma a conta certa no final.
+- **Um comando que não tem como cair no lugar errado.** O `aparta login <perfil>` roda o login do provedor dentro do escopo daquele perfil e reafirma a conta certa no final. Ele pula o que ainda está válido, e o `--provider gcloud|gh|adc|aws` mira uma credencial só.
+- **O ADC é verificado do jeito que as bibliotecas enxergam.** O gcloud guarda um comprovante de reautenticação em cache, então a sonda dele pode dizer "válida" enquanto Terraform, Dataform e qualquer SDK tomam `invalid_rapt` num refresh comum. O aparta sonda as credenciais de aplicação do perfil com esse refresh comum, e o `aparta login` cria ou renova elas dentro do escopo do perfil. Perfil que escolheu viver sem ADC não é cobrado.
+- **A AWS entra pelo mesmo princípio.** A sonda é a chamada STS que todo SDK faz; sessão SSO vencida é renovada com `aws sso login` no escopo do perfil, e perfil de chaves estáticas é apontado para o `aws configure`, o único que consegue trocar essas chaves.
 - **O aviso aparece onde o acidente acontece.** O aparta instala uma verificação de início pelo mecanismo nativo de cada agente, então a mensagem surge dentro do Claude Code, Codex, Gemini CLI, Antigravity ou opencode, e não só quando você mesmo roda o aparta. A verificação lê um cache, então nada fica esperando a rede.
 
 A reautenticação em si não dá para automatizar: o passo no navegador e o toque na chave de segurança existem justamente para exigir uma pessoa. O que o aparta tira do caminho é a adivinhação, o terminal errado e a surpresa.
@@ -128,9 +130,21 @@ A reautenticação em si não dá para automatizar: o passo no navegador e o toq
 
 O que roda fora de uma pasta configurada cai no padrão global, e esse padrão é simplesmente o último que você selecionou. Numa máquina com trabalho de cliente, isso normalmente significa um terminal, script ou agente solto agindo como um cliente sem ninguém perceber.
 
-O `aparta fallback` mostra o que aconteceria agora. O `aparta fallback --secure` aponta o padrão global do gcloud para uma configuração vazia, então comandos fora de um perfil falham na cara em vez de pegar emprestada uma identidade, e o `aparta fallback --restore` desfaz. Suas configurações, credenciais e projetos nunca são tocados.
+O `aparta fallback` mostra o que aconteceria agora, incluindo o ADC global, o arquivo em que toda biblioteca do Google cai, com o veredito de saúde dele. O `aparta fallback --secure` aponta o padrão global do gcloud para uma configuração vazia e estaciona o ADC global ao lado do caminho original, então tanto comandos quanto bibliotecas fora de um perfil falham na cara em vez de pegar emprestada uma identidade. O `aparta fallback --restore` devolve os dois. Suas configurações nomeadas, credenciais por perfil e projetos nunca são tocados.
 
 O GitHub é apenas reportado, não alterado: o gh guarda o token ativo no chaveiro do sistema e recorre a ele mesmo sem usuário ativo, então a única forma de desativar seria um logout que destrói o token. Ali a resposta continua sendo o config dir por perfil, que o aparta já define em toda pasta configurada.
+
+## Scripts e shells comuns
+
+Os agentes recebem o ambiente do perfil pelos adapters, mas um terminal comum ou um script rodado na mão não herda nada, e script wrapper escrito na mão costuma esquecer justo as partes que importam. Dois comandos fecham essa lacuna:
+
+```bash
+aparta run -- terraform apply          # qualquer comando, com o env do perfil da pasta
+aparta run --profile trabalho -- gcloud storage ls   # ou nomeando o perfil
+eval "$(aparta env)"                   # as mesmas variáveis como linhas de export, para scripts
+```
+
+O perfil vem da raiz configurada mais funda que contém a pasta atual, repos adotados incluídos. O `--with-gh-token`, nos dois comandos, também exporta o `GITHUB_TOKEN` lido do gh do perfil, útil para o provider do GitHub no Terraform; ele é opcional de propósito, porque coloca um segredo do chaveiro no ambiente de todos os processos filhos.
 
 ## Duas formas de separar o gcloud
 
