@@ -25,6 +25,14 @@ def config_dir(tmp_path, monkeypatch):
     return tmp_path / "cfg"
 
 
+@pytest.fixture(autouse=True)
+def fake_global_adc(tmp_path, monkeypatch):
+    """The global ADC probe must never touch the real home or the network."""
+    path = tmp_path / "gcloud" / "application_default_credentials.json"
+    monkeypatch.setattr(fallback, "global_adc_path", lambda: path)
+    return path
+
+
 def _recorder(calls, listing=CONFIGS, gh_out=GH_JSON, rc=0):
     def run(args, env=None, capture_output=True, text=True, timeout=None):
         joined = " ".join(args)
@@ -186,3 +194,63 @@ def test_restore_keeps_the_saved_state_when_gcloud_fails(monkeypatch):
     monkeypatch.setattr(fallback.subprocess, "run", _recorder([], rc=1))
     assert fallback.restore(SafeWriter()) is False
     assert fallback.read_previous() == "client"
+
+
+# ---- the global ADC, the credential libraries fall back to ----
+
+
+def test_state_probes_the_global_adc_like_a_library(monkeypatch, fake_global_adc):
+    import urllib.request
+
+    fake_global_adc.parent.mkdir(parents=True)
+    fake_global_adc.write_text(
+        '{"type": "authorized_user", "client_id": "c", "client_secret": "s", "refresh_token": "r"}'
+    )
+    monkeypatch.setattr(fallback.subprocess, "run", _recorder([]))
+
+    import io
+    import urllib.error
+
+    def expired(req, timeout=None):
+        raise urllib.error.HTTPError(
+            "u", 400, "Bad Request", {}, io.BytesIO(b'{"error": "invalid_grant", "error_subtype": "invalid_rapt"}')
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", expired)
+    state = fallback.read_state()
+    assert state.adc_present is True
+    from aparta.auth import REAUTH
+
+    assert state.adc_state == REAUTH
+
+
+def test_secure_parks_the_global_adc(monkeypatch, fake_global_adc, config_dir):
+    fake_global_adc.parent.mkdir(parents=True)
+    fake_global_adc.write_text("{}")
+    monkeypatch.setattr(fallback.subprocess, "run", _recorder([]))
+    assert fallback.make_secure(SafeWriter(), assume_yes=True) is True
+    assert not fake_global_adc.exists()
+    assert fallback.parked_adc_path().exists()
+
+
+def test_restore_puts_the_parked_adc_back(monkeypatch, fake_global_adc, config_dir):
+    fake_global_adc.parent.mkdir(parents=True)
+    fake_global_adc.write_text('{"marker": 1}')
+    monkeypatch.setattr(fallback.subprocess, "run", _recorder([]))
+    fallback.make_secure(SafeWriter(), assume_yes=True)
+    assert fallback.restore(SafeWriter()) is True
+    assert fake_global_adc.read_text() == '{"marker": 1}'
+    assert not fallback.parked_adc_path().exists()
+
+
+def test_secure_parks_the_adc_even_when_the_config_is_already_neutral(
+    monkeypatch, fake_global_adc, config_dir
+):
+    """--secure run again after a new ADC appeared must not say "nothing to do"."""
+    neutral = "aparta-none\ttrue\t\t\n"
+    fake_global_adc.parent.mkdir(parents=True)
+    fake_global_adc.write_text("{}")
+    monkeypatch.setattr(fallback.subprocess, "run", _recorder([], listing=neutral))
+    assert fallback.make_secure(SafeWriter(), assume_yes=True) is True
+    assert not fake_global_adc.exists()
+    assert fallback.parked_adc_path().exists()

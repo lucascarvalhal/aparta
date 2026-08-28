@@ -55,6 +55,24 @@ def previous_path() -> Path:
     return config_dir() / "fallback-previous"
 
 
+# a parked ADC keeps its bytes next to the original, so --restore is a rename
+ADC_PARKED_SUFFIX = ".aparta-fallback"
+
+
+def global_adc_path() -> Path:
+    """The fixed path every Google library falls back to for the ADC.
+
+    Node, Go and Terraform hardcode it and never look at CLOUDSDK_CONFIG,
+    which is exactly why a stale credential here bites silently.
+    """
+    return Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+
+
+def parked_adc_path() -> Path:
+    adc = global_adc_path()
+    return adc.with_name(adc.name + ADC_PARKED_SUFFIX)
+
+
 def _global_env() -> dict[str, str]:
     env = dict(os.environ)
     for name in _PROFILE_ENV:
@@ -90,6 +108,9 @@ class State:
     gcloud_configs: list[GcloudConfig] | None = None
     gh_installed: bool = True
     gh_user: str = ""
+    adc_present: bool = False
+    adc_state: str = ""  # auth.OK / auth.REAUTH / "" when unknown
+    adc_parked: bool = False
 
     @property
     def gcloud_active(self) -> GcloudConfig | None:
@@ -146,11 +167,24 @@ def _read_gh() -> tuple[bool, str]:
     return True, ""
 
 
+def _read_adc() -> tuple[bool, str, bool]:
+    """Existence and library-style health of the global ADC."""
+    from .auth import _refresh_adc_like_a_library
+
+    path = global_adc_path()
+    parked = parked_adc_path().exists()
+    if not path.exists():
+        return False, "", parked
+    status = _refresh_adc_like_a_library(path)
+    return True, status.state if status else "", parked
+
+
 def read_state() -> State:
     """Probe gcloud and gh as if we were outside every configured folder."""
     gcloud_installed, configs = _read_gcloud()
     gh_installed, gh_user = _read_gh()
-    return State(gcloud_installed, configs, gh_installed, gh_user)
+    adc_present, adc_state, adc_parked = _read_adc()
+    return State(gcloud_installed, configs, gh_installed, gh_user, adc_present, adc_state, adc_parked)
 
 
 def read_previous() -> str:
@@ -201,12 +235,35 @@ def show_state(state: State | None = None) -> State:
                 identity += _(" (project {project})", project=active.project)
             table.add_row("gcloud", identity, _("configuration '{name}'", name=active.name))
 
+    from .auth import OK as AUTH_OK, REAUTH as AUTH_REAUTH
+
+    if state.adc_present:
+        if state.adc_state == AUTH_OK:
+            adc_identity = _("valid credential; any library without a profile env uses it")
+        elif state.adc_state == AUTH_REAUTH:
+            adc_identity = _("expired credential")
+        else:
+            adc_identity = _("credential of unknown health")
+        table.add_row("ADC", adc_identity, str(global_adc_path()))
+    elif state.adc_parked:
+        table.add_row("ADC", _("parked by --secure; libraries fail loudly"), str(parked_adc_path()))
+    else:
+        table.add_row("ADC", _("none; libraries without a profile env fail loudly"), str(global_adc_path()))
+
     if not state.gh_installed:
         table.add_row("gh", _("not installed"), "—")
     else:
         table.add_row("gh", state.gh_user or _("no active account"), "~/.config/gh")
 
     console.print(table)
+    if state.adc_present:
+        console.print(
+            _(
+                "[yellow]Risk:[/yellow] libraries (Terraform, Dataform, every Google SDK) outside a "
+                "configured folder use the global ADC without asking. "
+                "[bold]aparta fallback --secure[/bold] parks it, reversibly."
+            )
+        )
     if state.secure:
         console.print(
             _("[green]Safe fallback is on:[/green] outside a profile gcloud has no account.")
@@ -240,7 +297,7 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
         console.print(note_gh())
         return False
     active = state.gcloud_active
-    if state.secure:
+    if state.secure and not state.adc_present:
         console.print(
             _("[green]Nothing to do:[/green] '{name}' is already the global default.", name=NEUTRAL_CONFIG)
         )
@@ -249,52 +306,64 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
     current = active.name if active else ""
     exists = any(cfg.name == NEUTRAL_CONFIG for cfg in state.gcloud_configs or [])
     console.print(_("[bold]This is what will happen:[/bold]"))
-    if not exists:
+    if not state.secure:
+        if not exists:
+            console.print(
+                _("  - create the gcloud configuration '{name}' (no account, no project)", name=NEUTRAL_CONFIG)
+            )
         console.print(
-            _("  - create the gcloud configuration '{name}' (no account, no project)", name=NEUTRAL_CONFIG)
+            _("  - remember '{name}' in {path}", name=current or _("(none)"), path=previous_path())
         )
-    console.print(
-        _("  - remember '{name}' in {path}", name=current or _("(none)"), path=previous_path())
-    )
-    console.print(
-        _("  - make '{name}' the globally active configuration", name=NEUTRAL_CONFIG)
-    )
+        console.print(
+            _("  - make '{name}' the globally active configuration", name=NEUTRAL_CONFIG)
+        )
+    if state.adc_present:
+        console.print(
+            _("  - park the global ADC at {path} (--restore puts it back)", path=parked_adc_path())
+        )
     console.print(
         _("  - your other configurations, credentials and projects stay untouched")
     )
     console.print(note_gh())
 
     if writer.dry_run:
-        if not exists:
+        if not state.secure:
+            if not exists:
+                console.print(
+                    f"[yellow]--dry-run[/yellow] gcloud config configurations create {NEUTRAL_CONFIG} --no-activate"
+                )
             console.print(
-                f"[yellow]--dry-run[/yellow] gcloud config configurations create {NEUTRAL_CONFIG} --no-activate"
+                f"[yellow]--dry-run[/yellow] gcloud config configurations activate {NEUTRAL_CONFIG}"
             )
-        console.print(
-            f"[yellow]--dry-run[/yellow] gcloud config configurations activate {NEUTRAL_CONFIG}"
-        )
-        writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
+            writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
+        if state.adc_present:
+            console.print(
+                f"[yellow]--dry-run[/yellow] mv {global_adc_path()} {parked_adc_path()}"
+            )
         return True
 
     if not assume_yes and not _ask(_("Make the global fallback neutral?")):
         console.print(_("[yellow]Cancelled.[/yellow]"))
         return False
 
-    # remembered before switching, so an interrupted run is still reversible
-    writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
+    if not state.secure:
+        # remembered before switching, so an interrupted run is still reversible
+        writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
 
-    if not exists:
-        created = _run(["gcloud", "config", "configurations", "create", NEUTRAL_CONFIG, "--no-activate"])
-        if created is None or created.returncode != 0:
+        if not exists:
+            created = _run(["gcloud", "config", "configurations", "create", NEUTRAL_CONFIG, "--no-activate"])
+            if created is None or created.returncode != 0:
+                console.print(
+                    _("[red]gcloud configurations create failed:[/red] {error}", error=_stderr(created))
+                )
+                return False
+        switched = _run(["gcloud", "config", "configurations", "activate", NEUTRAL_CONFIG])
+        if switched is None or switched.returncode != 0:
             console.print(
-                _("[red]gcloud configurations create failed:[/red] {error}", error=_stderr(created))
+                _("[red]gcloud configurations activate failed:[/red] {error}", error=_stderr(switched))
             )
             return False
-    switched = _run(["gcloud", "config", "configurations", "activate", NEUTRAL_CONFIG])
-    if switched is None or switched.returncode != 0:
-        console.print(
-            _("[red]gcloud configurations activate failed:[/red] {error}", error=_stderr(switched))
-        )
-        return False
+    _park_adc(writer)
     console.print(
         _(
             "[green]Done:[/green] outside a profile gcloud now has no account. "
@@ -304,30 +373,55 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
     return True
 
 
+def _park_adc(writer: SafeWriter) -> None:
+    """Move the global ADC aside, keeping its bytes for --restore."""
+    adc = global_adc_path()
+    if not adc.exists():
+        return
+    target = parked_adc_path()
+    if target.exists():
+        writer.remove_file(target)  # backed up, never silently clobbered
+    adc.rename(target)
+    console.print(
+        _("[green]ADC parked:[/green] libraries outside a profile now fail loudly instead of borrowing it.")
+    )
+
+
 def restore(writer: SafeWriter) -> bool:
-    """Reactivate the gcloud configuration that was global before `--secure`."""
+    """Put back what `--secure` changed: the configuration and the parked ADC."""
     previous = read_previous()
-    if not previous:
+    parked = parked_adc_path()
+    if not previous and not parked.exists():
         console.print(
             _("[yellow]Nothing to restore:[/yellow] no previous configuration saved in {path}.", path=previous_path())
         )
         return False
     if writer.dry_run:
-        console.print(
-            f"[yellow]--dry-run[/yellow] gcloud config configurations activate {previous}"
-        )
+        if previous:
+            console.print(
+                f"[yellow]--dry-run[/yellow] gcloud config configurations activate {previous}"
+            )
+        if parked.exists():
+            console.print(f"[yellow]--dry-run[/yellow] mv {parked} {global_adc_path()}")
         return True
-    result = _run(["gcloud", "config", "configurations", "activate", previous])
-    if result is None:
-        console.print(_("[yellow]gcloud is not installed, nothing to restore.[/yellow]"))
-        return False
-    if result.returncode != 0:
-        console.print(
-            _("[red]gcloud configurations activate failed:[/red] {error}", error=_stderr(result))
-        )
-        return False
-    writer.remove_file(previous_path())
-    console.print(_("[green]Restored:[/green] '{name}' is the global default again.", name=previous))
+    if previous:
+        result = _run(["gcloud", "config", "configurations", "activate", previous])
+        if result is None:
+            console.print(_("[yellow]gcloud is not installed, nothing to restore.[/yellow]"))
+            return False
+        if result.returncode != 0:
+            console.print(
+                _("[red]gcloud configurations activate failed:[/red] {error}", error=_stderr(result))
+            )
+            return False
+        writer.remove_file(previous_path())
+        console.print(_("[green]Restored:[/green] '{name}' is the global default again.", name=previous))
+    if parked.exists():
+        adc = global_adc_path()
+        if adc.exists():
+            writer.remove_file(adc)  # a newer ADC appeared meanwhile; keep its backup
+        parked.rename(adc)
+        console.print(_("[green]ADC restored:[/green] the global application credentials are back."))
     return True
 
 
