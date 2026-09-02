@@ -62,6 +62,37 @@ def test_add_one_argument_targets_the_current_worktree(configured, monkeypatch):
     assert "bitbucket" in workspace.providers
 
 
+def test_add_materializes_legacy_workspace_without_inheriting_optional_providers(
+    configured, monkeypatch
+):
+    """The first explicit provider choice must not retain profile-wide cloud access."""
+    repo, _profile = configured
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["add", "bitbucket"])
+
+    assert result.exit_code == 0, result.output
+    workspace = next(iter(load_workspaces().values()))
+    assert workspace.providers == ["git", "bitbucket"]
+
+
+def test_add_git_materializes_a_git_only_legacy_workspace(configured, monkeypatch):
+    """A legacy repo needs a way to opt out of inherited cloud providers."""
+    repo, _profile = configured
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["add", "git"])
+
+    assert result.exit_code == 0, result.output
+    workspace = next(iter(load_workspaces().values()))
+    assert workspace.providers == ["git"]
+
+    activated = runner.invoke(app, ["env", "--activate"])
+    assert activated.exit_code == 0, activated.output
+    assert "export CLOUDSDK_CONFIG=" not in activated.output
+    assert "export GOOGLE_APPLICATION_CREDENTIALS=" not in activated.output
+
+
 def test_add_two_arguments_targets_a_named_workspace(configured, tmp_path):
     """Explicit targeting must work without changing the caller's directory."""
     repo, profile = configured

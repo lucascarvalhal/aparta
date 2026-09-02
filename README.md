@@ -118,6 +118,11 @@ aparta --dry-run  # any command: show diffs, change nothing
 aparta --verbose  # any command: show every file, backup and diff
 ```
 
+On installations created before exact workspaces existed, the first `aparta add`
+inside a repo materializes its provider list instead of inheriting every provider
+from the profile. Run `aparta add git` for a Git-only repo, then add only the extra
+providers that checkout actually uses.
+
 ## When credentials expire
 
 Cloud sessions do not last forever: Google Workspace defaults to 16 hours for new customers, and organizations can set anything from 1 to 24. aparta deals with that in three steps:

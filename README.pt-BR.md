@@ -118,6 +118,11 @@ aparta --dry-run  # em qualquer comando: mostra o que aconteceria, sem alterar n
 aparta --verbose  # em qualquer comando: mostra cada arquivo, backup e diff
 ```
 
+Em instalações anteriores aos workspaces exatos, o primeiro `aparta add` dentro
+de um repo materializa sua lista de providers em vez de herdar todos os providers
+do perfil. Rode `aparta add git` para um repo que usa somente Git e depois adicione
+apenas os providers extras que aquele checkout realmente utiliza.
+
 ## Quando as credenciais expiram
 
 Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clientes novos é 16 horas, e cada organização pode definir de 1 a 24. O aparta trata isso em três etapas:

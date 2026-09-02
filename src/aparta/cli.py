@@ -367,7 +367,11 @@ def add(
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
 
-    if provider in workspace.providers:
+    existing_same_path = next(
+        (name for name, saved in workspaces.items() if saved.root_path == workspace.root_path),
+        "",
+    )
+    if existing_same_path and provider in workspace.providers:
         console.print(
             _(
                 "[green]{provider}[/green] is already enabled in workspace '{workspace}'.",
@@ -377,11 +381,9 @@ def add(
         )
         return
 
+    if not existing_same_path:
+        workspace.providers = ["git"]
     workspace.providers = list(dict.fromkeys([*workspace.providers, provider]))
-    existing_same_path = next(
-        (name for name, saved in workspaces.items() if saved.root_path == workspace.root_path),
-        "",
-    )
     if existing_same_path:
         workspace.name = existing_same_path
     elif workspace.name in workspaces and workspaces[workspace.name].root_path != workspace.root_path:
