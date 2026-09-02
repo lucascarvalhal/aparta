@@ -64,6 +64,21 @@ def workspace_env(workspace: Workspace, profile: Profile) -> dict[str, str]:
     available = profile.env()
     env: dict[str, str] = {}
 
+    if selected.intersection({"git", "ssh"}):
+        from .backends.git import workspace_gitconfig_path
+
+        env.update(
+            {
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "include.path",
+                "GIT_CONFIG_VALUE_0": str(workspace_gitconfig_path(workspace)),
+            }
+        )
+    if "ssh" in selected and profile.ssh_key:
+        env["GIT_SSH_COMMAND"] = (
+            f"ssh -i {profile.ssh_key} -o IdentitiesOnly=yes"
+        )
+
     if "github" in selected and "GH_CONFIG_DIR" in available:
         env["GH_CONFIG_DIR"] = available["GH_CONFIG_DIR"]
 
@@ -71,14 +86,15 @@ def workspace_env(workspace: Workspace, profile: Profile) -> dict[str, str]:
         for key in (
             "CLOUDSDK_CONFIG",
             "CLOUDSDK_ACTIVE_CONFIG_NAME",
+            "CLOUDSDK_CORE_ACCOUNT",
+            "CLOUDSDK_CORE_PROJECT",
             "CLOUDSDK_CORE_DISABLE_FILE_LOGGING",
             "GOOGLE_CLOUD_PROJECT",
             "GCLOUD_PROJECT",
+            "GOOGLE_APPLICATION_CREDENTIALS",
         ):
             if key in available:
                 env[key] = available[key]
-    if "adc" in selected and "GOOGLE_APPLICATION_CREDENTIALS" in available:
-        env["GOOGLE_APPLICATION_CREDENTIALS"] = available["GOOGLE_APPLICATION_CREDENTIALS"]
 
     if "aws" in selected and "AWS_PROFILE" in available:
         env["AWS_PROFILE"] = available["AWS_PROFILE"]

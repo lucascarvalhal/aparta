@@ -24,6 +24,13 @@ same repository to have different provider selections. Each record contains:
 - The owning profile name.
 - The enabled provider names.
 
+Git and SSH settings are rendered into a private config keyed by the canonical
+workspace path. Aparta binds that file to the checkout's absolute Git dir, not
+only to its visible folder. This matters for linked worktrees because their Git
+dirs live under the main repository's common storage. Existing broad profile
+includes and shared adopted-repository includes are migrated to exact bindings;
+unrelated global Git settings remain intact.
+
 Existing profiles remain valid. Until a workspace has an explicit provider
 selection, it derives the configured providers from its profile. The first
 `aparta add` materializes an explicit workspace record and preserves those
@@ -40,6 +47,8 @@ An explicit selector may be:
 
 - A registered workspace name.
 - A canonical or user-provided path to a registered workspace.
+- A unique repository basename discovered under the configured profile roots,
+  including before its first explicit workspace record is materialized.
 - A profile name for commands that operate on profile credentials, provided
   the operation does not need to choose among multiple workspace records.
 
@@ -79,7 +88,8 @@ Without an argument, login resolves the current worktree and its owning
 profile. An explicit selector keeps the existing ability to authenticate from
 another directory. Without `--provider`, Aparta probes every configured
 credential and opens an interactive login only for missing or expired ones.
-An explicit provider continues to force that provider's login.
+Unknown health, such as a network timeout, is reported without opening a
+browser. An explicit provider continues to force that provider's login.
 
 Entering a directory never opens a browser or authentication prompt.
 
@@ -121,7 +131,9 @@ Adding `gcloud` or `adc` to a workspace requires isolated mode.
 `aparta run` uses the same clean environment construction and refuses to run
 when a selected provider has a credential state that requires a person. An
 unknown state caused by network failure is displayed but is not treated as an
-expired credential.
+expired credential. A selected ADC whose isolated file does not exist is a
+local missing-credential state and is blocked even before a cached probe. The
+same boundary applies to explicit `aparta run --profile` calls.
 
 ## Automatic shell activation
 
@@ -135,6 +147,10 @@ On directory change, the hook evaluates `aparta env --activate`. That command:
 2. Resolves the exact current worktree.
 3. Exports only that workspace's selectors and metadata.
 4. Leaves the shell clean when the directory is unregistered.
+
+If parsing or resolution fails, the generated hook still removes the previous
+workspace's selectors. A broken registry cannot keep another client's identity
+active.
 
 The hook decorates `RPROMPT` without modifying the user's base prompt. It
 always shows the active workspace. A countdown appears only when a known,

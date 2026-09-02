@@ -71,15 +71,16 @@ def export_lines(env: dict[str, str]) -> str:
 
 
 def run_in_profile(profile: Profile, command: list[str], with_gh_token: bool = False) -> int:
-    """Execute a command with the profile env layered over the current one."""
-    env = clean_environment(os.environ, profile_env(profile, with_gh_token))
-    try:
-        return subprocess.run(command, env=env).returncode
-    except FileNotFoundError:
-        from rich.console import Console
+    """Execute with every provider configured by an explicitly chosen profile."""
+    from .workspaces import Workspace, default_providers
 
-        Console(stderr=True).print(_("[red]{cmd} not found in PATH.[/red]", cmd=command[0]))
-        return 127
+    workspace = Workspace(
+        name=profile.name,
+        path=str(profile.root_path),
+        profile=profile.name,
+        providers=default_providers(profile),
+    )
+    return run_in_workspace(profile, workspace, command, with_gh_token)
 
 
 def run_in_workspace(
@@ -92,8 +93,9 @@ def run_in_workspace(
     from . import auth
     from .providers import canonical_providers, status_provider_name, workspace_env
 
+    selected = set(canonical_providers(workspace.providers))
+
     def relevant_problem(statuses: list[auth.AuthStatus]) -> auth.AuthStatus | None:
-        selected = set(canonical_providers(workspace.providers))
         return next(
             (
                 status
@@ -103,25 +105,31 @@ def run_in_workspace(
             None,
         )
 
-    if auth.checks_enabled():
+    adc_path = profile.gcloud_config_dir / "application_default_credentials.json"
+    problem = (
+        auth.AuthStatus("ADC", auth.MISSING, _("no credential stored for this profile"))
+        if "adc" in selected and not adc_path.is_file()
+        else None
+    )
+    if problem is None and auth.checks_enabled():
         cached = auth.read_cached_status(profile) or []
         problem = relevant_problem(cached)
         if problem is not None:
             # Confirm a cached failure synchronously. A manual login outside
             # aparta must not leave a stale verdict blocking the workspace.
             problem = relevant_problem(auth.cached_check(profile, force=True))
-        if problem is not None:
-            from rich.console import Console
+    if problem is not None:
+        from rich.console import Console
 
-            Console(stderr=True).print(
-                _(
-                    "[red]{provider} credential for workspace '{workspace}' requires login: {detail}.[/red] Run [bold]aparta login[/bold] in that workspace.",
-                    provider=problem.provider,
-                    workspace=workspace.name,
-                    detail=problem.detail,
-                )
+        Console(stderr=True).print(
+            _(
+                "[red]{provider} credential for workspace '{workspace}' requires login: {detail}.[/red] Run [bold]aparta login[/bold] in that workspace.",
+                provider=problem.provider,
+                workspace=workspace.name,
+                detail=problem.detail,
             )
-            return 1
+        )
+        return 1
 
     overlay = workspace_env(workspace, profile)
     if with_gh_token and "github" in workspace.providers and profile.gh_user:

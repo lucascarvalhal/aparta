@@ -364,7 +364,7 @@ Describe the exact workspace boundary, automatic activation, contextual CLI,
 credential countdown semantics, global-selector clearing, and Codex adapter
 migration in both changelogs. Do not tag, push, publish, or merge `dev`.
 
-- [ ] **Step 5: Commit verified release notes**
+- [x] **Step 5: Commit verified release notes**
 
 ```bash
 git add CHANGELOG.md CHANGELOG.pt-BR.md

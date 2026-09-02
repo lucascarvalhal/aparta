@@ -397,6 +397,16 @@ def login_profile(
             )
             if wants_adc:
                 ok &= _ensure_adc(profile, env, console)
+        elif status is not None and not status.needs_human:
+            console.print(
+                _(
+                    "{provider} in '{name}': {detail}",
+                    provider="gcloud",
+                    name=profile.name,
+                    detail=status.detail,
+                )
+            )
+            ok = False
         else:
             console.print(
                 _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
@@ -435,6 +445,16 @@ def login_profile(
                     name=profile.name,
                 )
             )
+        elif status is not None and not status.needs_human:
+            console.print(
+                _(
+                    "{provider} in '{name}': {detail}",
+                    provider="gh",
+                    name=profile.name,
+                    detail=status.detail,
+                )
+            )
+            ok = False
         else:
             console.print(
                 _("Opening the GitHub login for '{user}' (profile {name})...", user=profile.gh_user, name=profile.name)
@@ -459,6 +479,7 @@ def login_profile(
                 )
             else:
                 console.print(_("{provider} in '{name}': {detail}", provider="aws", name=profile.aws_profile, detail=status.detail))
+                ok = False
         else:
             ok &= _aws_login(profile, console)
 
@@ -519,10 +540,20 @@ def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False)
     if not has_adc(profile.gcloud_config_dir):
         return _offer_adc(profile, env, console)
     status = check_adc(profile)
-    if status is None or status.state in (OK, UNKNOWN):
+    if status is None or status.state == OK:
         if announce_ok:
             console.print(_("[green]ADC:[/green] the application credentials are still valid"))
         return True
+    if status.state == UNKNOWN:
+        console.print(
+            _(
+                "{provider} in '{name}': {detail}",
+                provider="ADC",
+                name=profile.name,
+                detail=status.detail,
+            )
+        )
+        return False
     console.print(
         _("[yellow]ADC:[/yellow] {detail}; opening the browser to renew the application credentials...", detail=status.detail)
     )

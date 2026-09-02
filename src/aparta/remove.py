@@ -17,7 +17,7 @@ from .backends.git import context_gitconfig_path, gitdir_pattern, remove_include
 from .discovery import find_repos
 from .fsutil import SafeWriter
 from .i18n import _
-from .profiles import Profile, gh_config_dir
+from .profiles import Profile, gh_config_dir, load_profiles
 
 console = Console()
 
@@ -40,6 +40,44 @@ def remove_profile(profile: Profile, writer: SafeWriter, home: Path | None = Non
                 adapter.uninstall_check(repo, writer)
             except ValueError:
                 continue
+
+    from .backends.git import reconcile_workspace_git, workspace_gitconfig_path
+    from .workspaces import (
+        Workspace,
+        default_providers,
+        git_workspace_root,
+        load_workspaces,
+        save_workspaces,
+    )
+
+    profiles = load_profiles()
+    profiles.pop(profile.name, None)
+    workspaces = load_workspaces()
+    removed_workspaces = [
+        workspace for workspace in workspaces.values() if workspace.profile == profile.name
+    ]
+    remaining_workspaces = {
+        name: workspace
+        for name, workspace in workspaces.items()
+        if workspace.profile != profile.name
+    }
+    if len(remaining_workspaces) != len(workspaces):
+        save_workspaces(remaining_workspaces, writer)
+    reconcile_workspace_git(profiles, remaining_workspaces, writer, home=home)
+    implicit_removed = []
+    for repo in repos:
+        root = git_workspace_root(repo)
+        if root is not None:
+            implicit_removed.append(
+                Workspace(
+                    root.name,
+                    str(root),
+                    profile.name,
+                    default_providers(profile),
+                )
+            )
+    for workspace in [*removed_workspaces, *implicit_removed]:
+        writer.remove_file(workspace_gitconfig_path(workspace))
 
     include = str(context_gitconfig_path(profile, home))
     for raw in profile.adopted_repos:

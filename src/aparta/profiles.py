@@ -52,6 +52,9 @@ MANAGED_ENV_KEYS = (
     "GH_CONFIG_DIR",
     "GH_TOKEN",
     "GITHUB_TOKEN",
+    "GH_ENTERPRISE_TOKEN",
+    "GITHUB_ENTERPRISE_TOKEN",
+    "GH_HOST",
     "GLAB_CONFIG_DIR",
     "GLAB_TOKEN",
     "GITLAB_TOKEN",
@@ -59,6 +62,10 @@ MANAGED_ENV_KEYS = (
     "CLOUDSDK_CONFIG",
     "CLOUDSDK_ACTIVE_CONFIG_NAME",
     "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE",
+    "CLOUDSDK_AUTH_ACCESS_TOKEN",
+    "CLOUDSDK_AUTH_IMPERSONATE_SERVICE_ACCOUNT",
+    "CLOUDSDK_CORE_ACCOUNT",
+    "CLOUDSDK_CORE_PROJECT",
     "GOOGLE_APPLICATION_CREDENTIALS",
     "GOOGLE_CLOUD_PROJECT",
     "GCLOUD_PROJECT",
@@ -75,6 +82,11 @@ MANAGED_ENV_KEYS = (
     "AWS_ROLE_ARN",
     "GIT_CONFIG_GLOBAL",
     "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_KEY_0",
+    "GIT_CONFIG_VALUE_0",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
     "GIT_SSH_COMMAND",
     "GIT_AUTHOR_NAME",
     "GIT_AUTHOR_EMAIL",
@@ -130,6 +142,12 @@ class Profile:
         if self.gh_user:
             env["GH_CONFIG_DIR"] = str(self.gh_config_dir)
         if self.gcloud_account or self.gcloud_project:
+            if self.gcloud_account:
+                env["CLOUDSDK_CORE_ACCOUNT"] = self.gcloud_account
+            if self.gcloud_project:
+                env["CLOUDSDK_CORE_PROJECT"] = self.gcloud_project
+                env["GOOGLE_CLOUD_PROJECT"] = self.gcloud_project
+                env["GCLOUD_PROJECT"] = self.gcloud_project
             if self.gcloud_isolated:
                 # the whole gcloud config dir is the profile's, so credentials
                 # and ADC are isolated too, not just the active configuration

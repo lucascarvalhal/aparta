@@ -65,6 +65,7 @@ def activation_lines(
 
 def render_zsh_hook() -> str:
     """Define additive chpwd/precmd hooks and activate the initial directory."""
+    fallback_unset = "unset " + " ".join([*MANAGED_ENV_KEYS, *APARTA_METADATA_KEYS])
     return r'''autoload -Uz add-zsh-hook
 
 if (( ! ${+_APARTA_ORIGINAL_RPROMPT} )); then
@@ -77,6 +78,14 @@ _aparta_activate_context() {
   transition="$(command aparta env --activate 2>/dev/null)" || transition=""
   if [[ -n "$transition" ]]; then
     eval "$transition"
+  else
+    __APARTA_FAIL_CLOSED__
+    local aparta_key
+    for aparta_key in ${(k)parameters}; do
+      if [[ "$aparta_key" == GIT_CONFIG_KEY_* || "$aparta_key" == GIT_CONFIG_VALUE_* ]]; then
+        unset "$aparta_key"
+      fi
+    done
   fi
   if [[ -n "${APARTA_WORKSPACE:-}" ]]; then
     command aparta check --quiet >/dev/null 2>&1 &!
@@ -101,7 +110,7 @@ add-zsh-hook -d precmd _aparta_refresh_prompt 2>/dev/null || true
 add-zsh-hook chpwd _aparta_activate_context
 add-zsh-hook precmd _aparta_refresh_prompt
 _aparta_activate_context
-'''
+'''.replace("__APARTA_FAIL_CLOSED__", fallback_unset)
 
 
 def merge_zshrc(existing: str) -> str:

@@ -49,7 +49,7 @@ def test_activation_clears_foreign_selectors_before_exporting_workspace(tmp_path
     )
 
     result = subprocess.run(
-        ["zsh", "-c", command],
+        ["/bin/zsh", "-c", command],
         env={**os.environ, **inherited},
         capture_output=True,
         text=True,
@@ -90,6 +90,35 @@ def test_generated_zsh_hook_is_syntactically_valid(tmp_path):
     result = subprocess.run(["zsh", "-n", str(hook)], capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_zsh_hook_clears_the_previous_workspace_when_resolution_fails(tmp_path):
+    """A broken registry must fail closed instead of retaining another client."""
+    fake = tmp_path / "aparta"
+    fake.write_text("#!/bin/sh\nexit 1\n")
+    fake.chmod(0o755)
+    hook = tmp_path / "hook.zsh"
+    hook.write_text(render_zsh_hook())
+    command = (
+        f"source {hook}; "
+        "print -r -- ${GH_CONFIG_DIR-unset}:${AWS_PROFILE-unset}:${APARTA_WORKSPACE-unset}"
+    )
+
+    result = subprocess.run(
+        ["/bin/zsh", "-c", command],
+        env={
+            **os.environ,
+            "PATH": str(tmp_path),
+            "GH_CONFIG_DIR": "/whirlpool/gh",
+            "AWS_PROFILE": "whirlpool",
+            "APARTA_WORKSPACE": "whirlpool",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "unset:unset:unset"
 
 
 def test_zshrc_merge_preserves_user_content_and_is_idempotent():

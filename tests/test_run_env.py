@@ -40,6 +40,12 @@ def _profiles(tmp_path):
     }
 
 
+def _create_adc(profile: Profile) -> None:
+    path = profile.gcloud_config_dir / "application_default_credentials.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}")
+
+
 def test_profile_for_path_picks_the_deepest_root(tmp_path):
     profiles = _profiles(tmp_path)
     inside = tmp_path / "projects" / "work" / "special" / "repo"
@@ -63,6 +69,7 @@ def test_profile_for_path_outside_everything_is_none(tmp_path):
 
 def test_run_layers_the_profile_env_over_the_current_one(tmp_path, monkeypatch):
     profile = _profiles(tmp_path)["work"]
+    _create_adc(profile)
     seen = {}
 
     def fake_run(command, env=None, **kwargs):
@@ -83,6 +90,7 @@ def test_run_layers_the_profile_env_over_the_current_one(tmp_path, monkeypatch):
 def test_run_drops_managed_selectors_inherited_from_another_client(tmp_path, monkeypatch):
     """Layering over the shell must not retain a provider the workspace did not select."""
     profile = _profiles(tmp_path)["work"]
+    _create_adc(profile)
     seen = {}
 
     def fake_run(command, env=None, **kwargs):
@@ -92,14 +100,24 @@ def test_run_drops_managed_selectors_inherited_from_another_client(tmp_path, mon
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
     monkeypatch.setenv("GH_CONFIG_DIR", "/effektra/gh")
     monkeypatch.setenv("GH_TOKEN", "effektra-secret")
+    monkeypatch.setenv("GH_ENTERPRISE_TOKEN", "effektra-enterprise-secret")
+    monkeypatch.setenv("GH_HOST", "github.effektra.example")
     monkeypatch.setenv("AWS_PROFILE", "effektra")
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/effektra/adc.json")
+    monkeypatch.setenv("CLOUDSDK_AUTH_ACCESS_TOKEN", "effektra-access-token")
+    monkeypatch.setenv("CLOUDSDK_CORE_ACCOUNT", "admin@effektra.com")
+    monkeypatch.setenv("CLOUDSDK_CORE_PROJECT", "effektra-prod")
 
     assert runner.run_in_profile(profile, ["terraform", "plan"]) == 0
 
     assert "GH_CONFIG_DIR" not in seen["env"]
     assert "GH_TOKEN" not in seen["env"]
+    assert "GH_ENTERPRISE_TOKEN" not in seen["env"]
+    assert "GH_HOST" not in seen["env"]
     assert "AWS_PROFILE" not in seen["env"]
+    assert "CLOUDSDK_AUTH_ACCESS_TOKEN" not in seen["env"]
+    assert seen["env"]["CLOUDSDK_CORE_ACCOUNT"] == profile.gcloud_account
+    assert "CLOUDSDK_CORE_PROJECT" not in seen["env"]
     assert seen["env"]["GOOGLE_APPLICATION_CREDENTIALS"] == str(
         profile.gcloud_config_dir / "application_default_credentials.json"
     )
@@ -166,6 +184,7 @@ def test_export_lines_are_shell_safe():
 
 def test_missing_command_returns_127(tmp_path):
     profile = _profiles(tmp_path)["work"]
+    _create_adc(profile)
     assert runner.run_in_profile(profile, ["definitely-not-a-binary-xyz"]) == 127
 
 
@@ -196,6 +215,37 @@ def test_workspace_run_blocks_a_cached_expired_selected_provider(tmp_path, monke
     monkeypatch.setattr(runner.subprocess, "run", must_not_run)
 
     assert runner.run_in_workspace(profile, workspace, ["terraform", "plan"]) == 1
+
+
+def test_workspace_run_blocks_a_selected_adc_before_login(tmp_path, monkeypatch):
+    profile = _profiles(tmp_path)["work"]
+    workspace = Workspace(
+        name="whirlpool",
+        path=str(tmp_path / "whirlpool"),
+        profile="work",
+        providers=["gcloud", "adc"],
+    )
+    monkeypatch.setattr(auth, "read_cached_status", lambda selected: [])
+
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("a missing selected ADC must block the protected process")
+
+    monkeypatch.setattr(runner.subprocess, "run", must_not_run)
+
+    assert runner.run_in_workspace(profile, workspace, ["terraform", "plan"]) == 1
+
+
+def test_explicit_profile_run_keeps_the_same_missing_adc_boundary(tmp_path, monkeypatch):
+    """The --profile escape hatch must not weaken the fail-closed run contract."""
+    profile = _profiles(tmp_path)["work"]
+    monkeypatch.setattr(auth, "read_cached_status", lambda selected: [])
+
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("explicit profile runs must still enforce selected credentials")
+
+    monkeypatch.setattr(runner.subprocess, "run", must_not_run)
+
+    assert runner.run_in_profile(profile, ["terraform", "plan"]) == 1
 
 
 def test_workspace_run_ignores_an_expired_provider_not_enabled_here(tmp_path, monkeypatch):

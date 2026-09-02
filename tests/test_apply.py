@@ -1,13 +1,18 @@
 """Apply reconciles the agent env, it does not only add to it."""
 
 
-def test_apply_clears_variables_the_profile_no_longer_sets(tmp_path):
+def test_apply_clears_variables_the_profile_no_longer_sets(tmp_path, monkeypatch):
     """An ADC that vanished must not stay in the agent config pointing nowhere."""
     import json
 
     from aparta.apply import apply_profile
     from aparta.fsutil import SafeWriter
     from aparta.profiles import Profile
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "config"))
+    monkeypatch.setattr("pathlib.Path.home", lambda: home)
 
     repo = tmp_path / "root" / "app"
     (repo / ".git").mkdir(parents=True)
@@ -44,6 +49,9 @@ def test_apply_filters_agent_env_for_each_exact_workspace(tmp_path, monkeypatch)
 
     monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr("pathlib.Path.home", lambda: home)
     root = tmp_path / "client"
     github_repo = root / "github-app"
     cloud_repo = root / "cloud-app"
@@ -80,5 +88,7 @@ def test_apply_filters_agent_env_for_each_exact_workspace(tmp_path, monkeypatch)
     assert set(cloud_env) == {
         "CLOUDSDK_CONFIG",
         "CLOUDSDK_ACTIVE_CONFIG_NAME",
+        "CLOUDSDK_CORE_ACCOUNT",
         "CLOUDSDK_CORE_DISABLE_FILE_LOGGING",
+        "GOOGLE_APPLICATION_CREDENTIALS",
     }

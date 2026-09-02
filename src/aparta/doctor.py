@@ -175,9 +175,16 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
             if not adapter.detect(repo):
                 continue
             workspace = workspace_for_path(repo, ownership_profiles, saved_workspaces)
+            if workspace is None:
+                workspace = Workspace(
+                    repo.name,
+                    str(repo.resolve()),
+                    profile.name,
+                    default_providers(profile),
+                )
             expected_env = (
                 workspace_env(workspace, profile)
-                if workspace is not None and workspace.profile == profile.name
+                if workspace.profile == profile.name
                 else profile.env()
             )
             unexpected = [
@@ -249,9 +256,12 @@ def fix_profile(
     done: list[str] = []
 
     if GIT in kinds:
-        from .backends.git import apply_git
+        from .backends.git import apply_git, reconcile_workspace_git
 
-        _print_notes(apply_git(profile, writer), verbose)
+        _print_notes(apply_git(profile, writer, register_root=False), verbose)
+        profiles = load_profiles()
+        profiles.setdefault(profile.name, profile)
+        reconcile_workspace_git(profiles, load_workspaces(), writer)
         done.append(_("git: includeIf and ~/.gitconfig-{name} reapplied", name=profile.name))
 
     if GH_DIR in kinds:

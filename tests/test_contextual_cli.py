@@ -32,6 +32,9 @@ def configured(tmp_path, monkeypatch):
     config = tmp_path / "config"
     monkeypatch.setenv("APARTA_CONFIG_DIR", str(config))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
     repo = _git_init(tmp_path / "clients" / "eneva" / "api")
     profile = Profile(
         name="eneva",
@@ -69,6 +72,21 @@ def test_add_two_arguments_targets_a_named_workspace(configured, tmp_path):
 
     assert result.exit_code == 0, result.output
     assert load_workspaces()[workspace.name].providers == ["git", "bitbucket"]
+
+
+def test_add_two_arguments_finds_an_unmaterialized_repo_by_name(
+    configured, tmp_path, monkeypatch
+):
+    """The explicit repo form must work before the first workspace record exists."""
+    repo, _profile = configured
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["add", repo.name, "bitbucket"])
+
+    assert result.exit_code == 0, result.output
+    workspace = next(iter(load_workspaces().values()))
+    assert workspace.root_path == repo.resolve()
+    assert "bitbucket" in workspace.providers
 
 
 def test_add_is_idempotent(configured, monkeypatch):
@@ -196,8 +214,11 @@ def test_status_hides_long_or_renewable_expiry_countdown(configured, monkeypatch
 
 def test_shell_status_never_starts_a_network_probe(configured, monkeypatch):
     """Rendering every prompt must stay instant even when the cache is empty."""
-    repo, _profile = configured
+    repo, profile = configured
     monkeypatch.chdir(repo)
+    adc = profile.gcloud_config_dir / "application_default_credentials.json"
+    adc.parent.mkdir(parents=True)
+    adc.write_text("{}")
 
     def explode(*args, **kwargs):  # pragma: no cover - must not be called
         raise AssertionError("the prompt must never probe providers synchronously")
@@ -208,6 +229,21 @@ def test_shell_status_never_starts_a_network_probe(configured, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "aparta:api" in result.output
+    assert "unknown" in result.output
+
+
+def test_status_blocks_when_a_selected_isolated_adc_file_is_missing(
+    configured, monkeypatch
+):
+    """No cache entry must not turn a missing selected ADC into a green status."""
+    repo, _profile = configured
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(auth, "cached_check", lambda profile, force=False: [])
+
+    result = runner.invoke(app, ["status", "--shell"])
+
+    assert result.exit_code == 0, result.output
+    assert "blocked" in result.output
 
 
 def test_shell_status_sanitizes_workspace_name_for_prompt_expansion(configured, monkeypatch):
@@ -258,5 +294,7 @@ def test_run_uses_only_the_current_worktree_providers(configured, monkeypatch):
     assert result.exit_code == 0, result.output
     received = json.loads(output.read_text())
     assert received["CLOUDSDK_CONFIG"] == str(profile.gcloud_config_dir)
-    assert "GOOGLE_APPLICATION_CREDENTIALS" not in received
+    assert received["GOOGLE_APPLICATION_CREDENTIALS"] == str(
+        profile.gcloud_config_dir / "application_default_credentials.json"
+    )
     assert "GH_CONFIG_DIR" not in received

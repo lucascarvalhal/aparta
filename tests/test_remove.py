@@ -84,9 +84,15 @@ def test_remove_profile_end_to_end(tmp_path: Path, monkeypatch):
     )
 
     from aparta.apply import apply_profile
+    from aparta.backends.git import workspace_gitconfig_path
+    from aparta.workspaces import Workspace, load_workspaces, save_workspaces
 
     monkeypatch.setattr("aparta.apply.BACKENDS", [])
+    workspace = Workspace("acme-app", str(repo), profile.name, ["git"])
+    save_workspaces({workspace.name: workspace}, SafeWriter())
     apply_profile(profile, SafeWriter())
+    generated_gitconfig = workspace_gitconfig_path(workspace)
+    assert generated_gitconfig.exists()
     (tmp_path / ".gitconfig").write_text(
         '[includeIf "gitdir:~/work/"]\n\tpath = ~/.gitconfig-acme\n'
     )
@@ -98,6 +104,8 @@ def test_remove_profile_end_to_end(tmp_path: Path, monkeypatch):
 
     assert "includeIf" not in (tmp_path / ".gitconfig").read_text()
     assert not (tmp_path / ".gitconfig-acme").exists()
+    assert not generated_gitconfig.exists()
+    assert load_workspaces() == {}
     assert not gh_dir.exists()
     env = json.loads((repo / ".claude" / "settings.local.json").read_text())["env"]
     assert "GH_CONFIG_DIR" not in env

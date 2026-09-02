@@ -49,6 +49,9 @@ def test_inject_on_broken_file_raises_value_error(tmp_path, adapter, path, conte
 def test_apply_profile_survives_one_broken_repo(tmp_path, monkeypatch):
     """A repo with an invalid agent config is skipped, the others still get env."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
     root = tmp_path / "work"
     good, bad = root / "good", root / "bad"
     for repo in (good, bad):

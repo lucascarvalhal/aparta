@@ -29,12 +29,22 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   fixado mesmo antes de o arquivo existir, fazendo as bibliotecas Google
   falharem fechadas em vez de recorrerem ao ADC global. O `aparta run`
   confirma novamente uma expiração em cache antes de bloquear um comando
-  protegido.
+  protegido e bloqueia localmente um ADC selecionado quando seu arquivo
+  isolado está ausente. Um cache vazio aparece como desconhecido no prompt,
+  nunca como um falso estado verde.
 - Adicionar ou aplicar um workspace reconcilia a configuração dos agentes
   apenas com os providers habilitados nele. O adapter do Codex agora escreve a
   tabela suportada `[shell_environment_policy.set]` e migra as chaves do Aparta
   da tabela `[env]` antiga, preservando configurações não relacionadas do
   usuário.
+- Git e SSH agora usam uma configuração privada vinculada ao Git dir absoluto
+  de cada checkout. Isso distingue linked worktrees que compartilham o mesmo
+  armazenamento do repositório, migra includes amplos ou locais compartilhados
+  antigos e preserva configurações Git globais não relacionadas. Overrides de
+  credencial, conta, projeto e repositório são limpos antes dos valores exatos.
+- Falhas de resolução limpam a identidade anterior do shell. Estado de rede
+  desconhecido é reportado sem abrir o navegador; um provider explícito ainda
+  permite ao usuário forçar intencionalmente o login.
 
 ## [0.7.0] - 2026-08-28
 

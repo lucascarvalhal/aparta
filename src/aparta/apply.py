@@ -42,8 +42,15 @@ def apply_workspace_agents(
     writer: SafeWriter,
 ) -> int:
     """Reconcile selected agent files for one exact workspace."""
+    from .backends.git import render_workspace_gitconfig, workspace_gitconfig_path
+
     env = workspace_env(workspace, profile)
     before = len(writer.changes)
+    if set(workspace.providers).intersection({"git", "ssh"}):
+        writer.write_text(
+            workspace_gitconfig_path(workspace),
+            render_workspace_gitconfig(profile, workspace),
+        )
     for adapter in get_adapters(profile.agents):
         if not adapter.detect(workspace.root_path):
             continue
@@ -119,14 +126,26 @@ def apply_profile(
             )
         )
 
+    ownership_profiles = siblings or load_profiles()
+    ownership_profiles.setdefault(profile.name, profile)
+    saved_workspaces = load_workspaces()
+
     for label, backend in BACKENDS:
         before = len(writer.changes)
-        notes = backend(profile, writer)
+        notes = (
+            backend(profile, writer, register_root=False)
+            if label == "git"
+            else backend(profile, writer)
+        )
         for note in notes:
             if note.level != "info" or writer.verbose:
                 console.print(note.text)
         if len(writer.changes) > before or any(n.level == "info" for n in notes):
             console.print(_("  [green]OK[/green] {area}", area=label))
+
+    from .backends.git import reconcile_workspace_git
+
+    reconcile_workspace_git(ownership_profiles, saved_workspaces, writer)
 
     default_env = profile.env()
     if not default_env:
@@ -136,8 +155,6 @@ def apply_profile(
         console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
     before = len(writer.changes)
     adapters = get_adapters(profile.agents)
-    saved_workspaces = load_workspaces()
-    ownership_profiles = siblings or load_profiles()
     for repo in repos:
         workspace = workspace_for_path(repo, ownership_profiles, saved_workspaces)
         if workspace is not None and workspace.profile != profile.name:

@@ -26,11 +26,21 @@ adheres to [Semantic Versioning](https://semver.org/).
   applying the exact workspace environment. An isolated ADC path is pinned
   even before its file exists, so Google libraries fail closed instead of
   falling back to the global ADC. `aparta run` reconfirms a cached expiration
-  before blocking a protected command.
+  before blocking a protected command, and blocks a selected ADC locally when
+  its isolated file is missing. Empty prompt caches show unknown, never a
+  false green state.
 - Adding or applying a workspace reconciles its agent configuration with only
   the providers enabled there. The Codex adapter now writes the supported
   `[shell_environment_policy.set]` table and migrates Aparta-owned keys from
   the old `[env]` table while preserving unrelated user configuration.
+- Git and SSH now use a private config bound to each checkout's absolute Git
+  dir. This distinguishes linked worktrees that share common repository
+  storage, migrates old broad and shared local includes, and preserves
+  unrelated global Git settings. Credential, account, project and repository
+  override variables are cleared before the exact workspace values are set.
+- Resolver failures clear the previous shell identity. Unknown network health
+  is reported without opening a browser; an explicit provider still allows a
+  user to force the intended login.
 
 ## [0.7.0] - 2026-08-28
 

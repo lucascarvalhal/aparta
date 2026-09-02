@@ -103,7 +103,7 @@ aparta apply X    # re-apply a profile (e.g. after cloning new repos)
 aparta remove X   # remove a profile and undo what it applied (backups kept)
 aparta list       # list configured profiles
 aparta add bitbucket       # add a provider to the current worktree
-aparta add repo bitbucket  # or target a registered workspace explicitly
+aparta add repo bitbucket  # or target a unique repo/workspace explicitly
 aparta login      # reauthenticate the current worktree when needed
 aparta login X    # or target a workspace/profile from another folder
 aparta status     # active workspace, providers, health and known expiry
@@ -125,7 +125,7 @@ Cloud sessions do not last forever: Google Workspace defaults to 16 hours for ne
 - **Silent renewal while it is possible.** As long as the refresh token lives, aparta renews the access token for you and you never notice anything.
 - **A warning before it hurts, not after.** The prompt always identifies the active workspace. When a provider exposes a non-renewable expiry, a countdown appears during the last 30 minutes. Automatically refreshed credentials are labeled renewable instead of showing a misleading timer. `APARTA_EXPIRY_WARNING_MINUTES` changes the threshold.
 - **One command that cannot land in the wrong place.** `aparta login` resolves the current worktree; `aparta login <workspace-or-profile>` works from anywhere. Login runs inside the selected profile's own scope, skips valid credentials, and `--provider gcloud|gh|adc|aws` targets one credential.
-- **The ADC is checked the way the libraries see it.** gcloud holds a cached reauthentication proof, so its own probe can say "valid" while Terraform, Dataform and every SDK get `invalid_rapt` from a plain refresh. aparta probes the profile's application default credentials with that plain refresh, and `aparta login` creates or renews them inside the profile's scope. A profile that chose to live without an ADC is not nagged.
+- **The ADC is checked the way the libraries see it.** gcloud holds a cached reauthentication proof, so its own probe can say "valid" while Terraform, Dataform and every SDK get `invalid_rapt` from a plain refresh. aparta probes the profile's application default credentials with that plain refresh, and `aparta login` creates or renews them inside the profile's scope. A workspace that does not enable ADC is not nagged; one that enables it is blocked until its isolated file exists.
 - **AWS is covered by the same principle.** The probe is the STS call every SDK makes; an expired SSO session is renewed with `aws sso login` in the profile's scope, and profiles on static keys are pointed at `aws configure`, the only thing that can refresh those.
 - **The warning shows up where the accident happens.** aparta installs a startup check through each agent's own mechanism, so the message appears inside Claude Code, Codex, Gemini CLI, Antigravity or opencode, not only when you run aparta yourself. The check reads a cache, so nothing waits on the network.
 
@@ -164,12 +164,12 @@ When a profile uses Google Cloud, the wizard asks how far the separation should 
 
 | Tool | Mechanism |
 |---|---|
-| git | `~/.gitconfig-<profile>` with `user.email`, `core.sshCommand` (dedicated key), optional `url insteadOf` rewrite; included via `[includeIf "gitdir:~/folder/"]` |
+| git | private config per exact checkout under Aparta's config directory, selected by its absolute Git dir; linked worktrees can resolve different `user.email` values even when they share `.git` storage |
 | GitHub CLI | copy of `~/.config/gh` to `~/.config/gh-<profile>` + `gh auth switch` inside the copy; selected via `GH_CONFIG_DIR` (tokens stay in your keyring, no re-login) |
 | gcloud | isolated mode (recommended): the profile's own config dir with its own credentials and ADC, selected via `CLOUDSDK_CONFIG`; light mode: a named configuration selected via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
 | AWS | your existing named profiles in `~/.aws`; selected via `AWS_PROFILE`, honored by the CLI, every SDK, Terraform and the CDK |
-| SSH | per-profile key; optional `~/.ssh/config` host-alias rewrite so any clone URL uses the right key |
-| Stray repos | local `include.path` in the repo's `.git/config` pointing at the profile's gitconfig, full identity without moving the folder |
+| SSH | workspace Git config with a dedicated key and optional host-alias rewrite; the shell and agents also receive an exact `GIT_SSH_COMMAND` |
+| Stray repos | the same exact Git-dir binding as any other workspace, without moving the folder or writing a shared local identity |
 
 ## Supported AI agents
 
@@ -190,7 +190,7 @@ Adding a new agent = dropping one file in `src/aparta/agents/` (auto-registered)
 - Every write to an existing file creates a timestamped backup and **merges**: aparta never overwrites your dotfiles.
 - `--dry-run` previews every change as a diff.
 - The scan is 100% read-only.
-- Workspace activation clears inherited credential selectors before applying the exact workspace. Missing isolated ADC files fail closed instead of falling back to a global account.
+- Workspace activation clears inherited credential, account, project and Git selectors before applying the exact workspace. Missing isolated ADC files fail closed instead of falling back to a global account, and a resolver failure clears the previous workspace instead of retaining it.
 - Nothing is sent anywhere. No telemetry, no network calls beyond the ones *you* trigger (`gh auth login`, `gcloud auth login`).
 
 ## Roadmap

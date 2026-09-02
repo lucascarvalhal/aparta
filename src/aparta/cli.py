@@ -407,6 +407,10 @@ def add(
         workspaces,
         writer,
     )
+    from .backends.git import apply_git, reconcile_workspace_git
+
+    apply_git(profile, writer, register_root=False)
+    reconcile_workspace_git(profiles, workspaces, writer)
     from .apply import apply_workspace_agents
 
     apply_workspace_agents(profile, workspaces[workspace.name], writer)
@@ -472,7 +476,7 @@ def status(
     import time
     from pathlib import Path
 
-    from .auth import OK, cached_check, read_cached_status
+    from .auth import AuthStatus, MISSING, OK, cached_check, read_cached_status
     from .providers import canonical_providers, status_provider_name
     from .workspaces import (
         WorkspaceResolutionError,
@@ -501,8 +505,18 @@ def status(
         for item in (source_statuses or [])
         if status_provider_name(item.provider) in providers
     ]
+    known = {status_provider_name(item.provider) for item in statuses}
+    adc_path = profile.gcloud_config_dir / "application_default_credentials.json"
+    if "adc" in providers and "adc" not in known and not adc_path.is_file():
+        statuses.append(
+            AuthStatus("ADC", MISSING, _("no credential stored for this profile"))
+        )
+        known.add("adc")
+    expected_auth = set(providers).intersection({"gcloud", "adc", "github", "aws"})
     blocked = any(item.needs_human for item in statuses)
-    unknown = any(item.state != OK and not item.needs_human for item in statuses)
+    unknown = bool(expected_auth - known) or any(
+        item.state != OK and not item.needs_human for item in statuses
+    )
     state = "blocked" if blocked else "unknown" if unknown else "ok"
 
     now = time.time()

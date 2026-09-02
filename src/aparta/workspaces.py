@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
@@ -78,9 +79,13 @@ def git_workspace_root(path: Path) -> Path | None:
     candidate = path.expanduser()
     if candidate.is_file():
         candidate = candidate.parent
+    env = dict(os.environ)
+    for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR"):
+        env.pop(key, None)
     try:
         result = subprocess.run(
             ["git", "-C", str(candidate), "rev-parse", "--show-toplevel"],
+            env=env,
             capture_output=True,
             text=True,
             timeout=10,
@@ -133,6 +138,28 @@ def implicit_workspace(root: Path, profile: Profile) -> Workspace:
     )
 
 
+def _implicit_workspaces_named(
+    name: str,
+    profiles: dict[str, Profile],
+) -> list[Workspace]:
+    """Find legacy profile-owned repos by basename before first materialization."""
+    from .discovery import find_repos
+
+    matches: dict[Path, Workspace] = {}
+    for profile in profiles.values():
+        repos = find_repos(profile.root_path) + [
+            Path(raw).expanduser() for raw in profile.adopted_repos
+        ]
+        for repo in repos:
+            root = git_workspace_root(repo)
+            if root is None or root.name != name:
+                continue
+            owner = profile_for_path(root, profiles)
+            if owner is not None:
+                matches[root] = implicit_workspace(root, owner)
+    return list(matches.values())
+
+
 def workspace_for_path(
     path: Path,
     profiles: dict[str, Profile],
@@ -180,6 +207,13 @@ def resolve_workspace(
     if len(by_basename) > 1:
         names = ", ".join(sorted(workspace.name for workspace in by_basename))
         raise WorkspaceResolutionError(f"workspace selector is ambiguous: {names}")
+
+    implicit_matches = _implicit_workspaces_named(selector, profiles)
+    if len(implicit_matches) == 1:
+        return implicit_matches[0]
+    if len(implicit_matches) > 1:
+        paths = ", ".join(sorted(str(workspace.root_path) for workspace in implicit_matches))
+        raise WorkspaceResolutionError(f"workspace selector is ambiguous: {paths}")
 
     if selector in profiles:
         current = workspace_for_path(cwd, profiles, workspaces)

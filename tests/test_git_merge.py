@@ -1,15 +1,19 @@
 """gitconfig merging: includeIf added only when absent, the rest preserved."""
 
+import os
+import subprocess
 from pathlib import Path
 
 from aparta.backends.git import (
     apply_git,
     has_includeif,
     merge_includeif,
+    reconcile_workspace_git,
     render_context_gitconfig,
 )
 from aparta.fsutil import SafeWriter
 from aparta.profiles import Profile
+from aparta.workspaces import Workspace
 
 
 def make_profile(**kw) -> Profile:
@@ -101,3 +105,126 @@ def test_tilde_does_not_match_sibling_prefix(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: home)
     assert tilde(sibling) == str(sibling)
     assert tilde(home / "repo") == "~/repo"
+
+
+def test_linked_worktrees_resolve_distinct_git_and_ssh_profiles(tmp_path, monkeypatch):
+    """A linked worktree's gitdir lives under the main checkout, not its path."""
+    config_dir = tmp_path / "aparta-config"
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(config_dir))
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".gitconfig").write_text(
+        "[alias]\n\tco = checkout\n"
+        "[user]\n\temail = global@example.com\n"
+        '[url "git@github-personal:"]\n'
+        "\tinsteadOf = https://github.com/\n"
+    )
+
+    main = tmp_path / "whirlpool" / "trade"
+    linked = tmp_path / "eneva" / "trade-pr"
+    main.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(main)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(main),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "base",
+            "-q",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(main), "worktree", "add", "-q", "-b", "eneva-pr", str(linked)],
+        check=True,
+    )
+
+    whirlpool = Profile(
+        "whirlpool",
+        str(main.parent),
+        "dev@whirlpool.com",
+        ssh_key="/keys/whirlpool",
+        ssh_alias="github-whirlpool",
+    )
+    eneva = Profile(
+        "eneva",
+        str(linked.parent),
+        "dev@eneva.com",
+        ssh_key="/keys/eneva",
+        ssh_alias="github-eneva",
+    )
+    workspaces = {
+        "whirlpool-trade": Workspace(
+            "whirlpool-trade", str(main), whirlpool.name, ["git", "ssh"]
+        ),
+        "eneva-trade": Workspace(
+            "eneva-trade", str(linked), eneva.name, ["git", "ssh"]
+        ),
+    }
+
+    reconcile_workspace_git(
+        {whirlpool.name: whirlpool, eneva.name: eneva},
+        workspaces,
+        SafeWriter(),
+        home=home,
+    )
+    reconciled_once = (home / ".gitconfig").read_text()
+    reconcile_workspace_git(
+        {whirlpool.name: whirlpool, eneva.name: eneva},
+        workspaces,
+        SafeWriter(),
+        home=home,
+    )
+    assert (home / ".gitconfig").read_text() == reconciled_once
+
+    query_env = {**os.environ, "GIT_CONFIG_GLOBAL": str(home / ".gitconfig")}
+    assert subprocess.run(
+        ["git", "-C", str(main), "config", "user.email"],
+        env=query_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip() == "dev@whirlpool.com"
+    assert subprocess.run(
+        ["git", "-C", str(linked), "config", "user.email"],
+        env=query_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip() == "dev@eneva.com"
+    assert "/keys/whirlpool" in subprocess.run(
+        ["git", "-C", str(main), "config", "core.sshCommand"],
+        env=query_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "/keys/eneva" in subprocess.run(
+        ["git", "-C", str(linked), "config", "core.sshCommand"],
+        env=query_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "github-whirlpool" in subprocess.run(
+        ["git", "-C", str(main), "ls-remote", "--get-url", "https://github.com/org/repo"],
+        env=query_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "github-eneva" in subprocess.run(
+        ["git", "-C", str(linked), "ls-remote", "--get-url", "https://github.com/org/repo"],
+        env=query_env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "co = checkout" in (home / ".gitconfig").read_text()

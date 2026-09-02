@@ -229,6 +229,28 @@ def test_login_limits_automatic_checks_to_workspace_providers(monkeypatch):
     assert auth.login_profile(PROFILE, enabled_providers=["gcloud"]) is True
 
 
+def test_login_does_not_open_a_browser_for_unknown_provider_health(monkeypatch):
+    """A network failure is not proof that reauthentication is required."""
+    monkeypatch.setattr(
+        auth,
+        "check_gcloud",
+        lambda p: auth.AuthStatus("gcloud", auth.UNKNOWN, "check timed out"),
+    )
+    monkeypatch.setattr(
+        auth,
+        "check_gh",
+        lambda p: auth.AuthStatus("gh", auth.UNKNOWN, "check timed out"),
+    )
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+
+    def explode(*a, **kw):
+        raise AssertionError("unknown health must not start an interactive login")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+
+    assert auth.login_profile(PROFILE) is False
+
+
 def test_explicit_provider_forces_the_login_even_when_valid(monkeypatch):
     monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
@@ -311,6 +333,26 @@ def test_valid_adc_is_left_alone(monkeypatch, tmp_path):
 
     monkeypatch.setattr(auth.subprocess, "run", explode)
     assert auth._ensure_adc(ISOLATED, {}, Console()) is True
+
+
+def test_unknown_adc_health_does_not_open_a_browser(monkeypatch, tmp_path):
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    ISOLATED.gcloud_config_dir.mkdir(parents=True)
+    (ISOLATED.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(
+        auth,
+        "check_adc",
+        lambda p: auth.AuthStatus("ADC", auth.UNKNOWN, "check timed out"),
+    )
+
+    def explode(*a, **kw):
+        raise AssertionError("unknown ADC health must not start an interactive login")
+
+    monkeypatch.setattr(auth.subprocess, "run", explode)
+
+    assert auth._ensure_adc(ISOLATED, {}, Console()) is False
 
 
 def test_expired_adc_is_a_second_credential_and_gets_renewed(monkeypatch, tmp_path):

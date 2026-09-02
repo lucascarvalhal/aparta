@@ -39,7 +39,7 @@ def _repo(tmp_path: Path, name: str) -> Path:
 
 def test_check_profile_git_email_ok_and_divergent(tmp_path, monkeypatch):
     _repo(tmp_path, "good")
-    profile = Profile(name="x", root=str(tmp_path), git_email="a@b.c")
+    profile = Profile(name="x", root=str(tmp_path), git_email="a@b.c", agents=[])
     monkeypatch.setattr(
         doctor.subprocess, "run", _fake_run({"config user.email": (0, "a@b.c\n")})
     )

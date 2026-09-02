@@ -103,7 +103,7 @@ aparta apply X    # reaplica um perfil (por exemplo, depois de clonar repos novo
 aparta remove X   # remove um perfil e desfaz o que ele aplicou (com backups)
 aparta list       # lista os perfis configurados
 aparta add bitbucket       # adiciona um provedor à worktree atual
-aparta add repo bitbucket  # ou aponta um workspace registrado explicitamente
+aparta add repo bitbucket  # ou aponta um repo/workspace único explicitamente
 aparta login      # reautentica a worktree atual quando necessário
 aparta login X    # ou aponta um workspace/perfil a partir de outra pasta
 aparta status     # workspace ativo, provedores, saúde e expiração conhecida
@@ -125,7 +125,7 @@ Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clien
 - **Renovação silenciosa enquanto é possível.** Enquanto o refresh token vale, o aparta renova o access token por você e você nem percebe.
 - **Aviso antes de doer, não depois.** O prompt sempre identifica o workspace ativo. Quando um provedor expõe uma expiração não renovável, aparece um contador nos últimos 30 minutos. Credenciais renovadas automaticamente aparecem como renováveis, sem um cronômetro enganoso. `APARTA_EXPIRY_WARNING_MINUTES` altera o limite.
 - **Um comando que não tem como cair no lugar errado.** `aparta login` resolve a worktree atual; `aparta login <workspace-ou-perfil>` funciona de qualquer pasta. O login roda dentro do escopo selecionado, pula credenciais válidas e `--provider gcloud|gh|adc|aws` mira uma credencial.
-- **O ADC é verificado do jeito que as bibliotecas enxergam.** O gcloud guarda um comprovante de reautenticação em cache, então a sonda dele pode dizer "válida" enquanto Terraform, Dataform e qualquer SDK tomam `invalid_rapt` num refresh comum. O aparta sonda as credenciais de aplicação do perfil com esse refresh comum, e o `aparta login` cria ou renova elas dentro do escopo do perfil. Perfil que escolheu viver sem ADC não é cobrado.
+- **O ADC é verificado do jeito que as bibliotecas enxergam.** O gcloud guarda um comprovante de reautenticação em cache, então a sonda dele pode dizer "válida" enquanto Terraform, Dataform e qualquer SDK tomam `invalid_rapt` num refresh comum. O aparta sonda as credenciais de aplicação do perfil com esse refresh comum, e o `aparta login` cria ou renova elas dentro do escopo do perfil. Um workspace sem ADC habilitado não é cobrado; com ADC habilitado, ele fica bloqueado até o arquivo isolado existir.
 - **A AWS entra pelo mesmo princípio.** A sonda é a chamada STS que todo SDK faz; sessão SSO vencida é renovada com `aws sso login` no escopo do perfil, e perfil de chaves estáticas é apontado para o `aws configure`, o único que consegue trocar essas chaves.
 - **O aviso aparece onde o acidente acontece.** O aparta instala uma verificação de início pelo mecanismo nativo de cada agente, então a mensagem surge dentro do Claude Code, Codex, Gemini CLI, Antigravity ou opencode, e não só quando você mesmo roda o aparta. A verificação lê um cache, então nada fica esperando a rede.
 
@@ -164,12 +164,12 @@ Quando um perfil usa Google Cloud, o assistente pergunta até onde a separação
 
 | Ferramenta | Mecanismo |
 |---|---|
-| git | `~/.gitconfig-<perfil>` com `user.email`, `core.sshCommand` (chave própria) e opcionalmente `url insteadOf`; incluído via `[includeIf "gitdir:~/pasta/"]` |
+| git | configuração privada por checkout exato no diretório do Aparta, selecionada pelo Git dir absoluto; linked worktrees podem resolver `user.email` diferentes mesmo compartilhando o armazenamento `.git` |
 | GitHub CLI | cópia de `~/.config/gh` para `~/.config/gh-<perfil>` + `gh auth switch` na cópia; seleção via `GH_CONFIG_DIR` (os tokens ficam no keyring, sem novo login) |
 | gcloud | modo isolado (recomendado): diretório de configuração só do perfil, com credenciais e ADC próprios, via `CLOUDSDK_CONFIG`; modo leve: configuração nomeada, via `CLOUDSDK_ACTIVE_CONFIG_NAME` |
 | AWS | seus perfis nomeados de `~/.aws`; seleção via `AWS_PROFILE`, respeitada pelo CLI, por todos os SDKs, pelo Terraform e pelo CDK |
-| SSH | chave por perfil; opcionalmente reescrita de remotes via atalho do `~/.ssh/config` |
-| Repos soltos | `include.path` local no `.git/config` apontando para o gitconfig do perfil, identidade completa sem mover a pasta |
+| SSH | configuração Git do workspace com chave dedicada e rewrite opcional por alias; shell e agentes também recebem um `GIT_SSH_COMMAND` exato |
+| Repos soltos | o mesmo vínculo por Git dir exato dos demais workspaces, sem mover a pasta nem gravar uma identidade local compartilhada |
 
 ## Agentes de IA suportados
 
@@ -190,7 +190,7 @@ Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o
 - Toda escrita em arquivo existente cria backup com timestamp e faz **merge**: o aparta nunca sobrescreve seus dotfiles.
 - O `--dry-run` mostra cada mudança como diff antes de você decidir qualquer coisa.
 - A varredura é 100% somente leitura.
-- A ativação do workspace limpa seletores de credencial herdados antes de aplicar o workspace exato. Se o ADC isolado estiver ausente, a operação falha fechada em vez de recorrer a uma conta global.
+- A ativação do workspace limpa seletores herdados de credencial, conta, projeto e Git antes de aplicar o workspace exato. Se o ADC isolado estiver ausente, a operação falha fechada em vez de recorrer a uma conta global; se a resolução falhar, a identidade anterior é limpa em vez de permanecer ativa.
 - Nada é enviado para lugar nenhum. Sem telemetria, sem chamadas de rede além das que você mesmo dispara (`gh auth login`, `gcloud auth login`).
 - Mudou de ideia? O `aparta remove` desfaz tudo o que um perfil aplicou, e os backups continuam lá.
 
