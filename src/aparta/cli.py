@@ -46,7 +46,7 @@ def main(
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
     # run and env stay quiet: their stdout belongs to the wrapped command
     # (or to an eval), so no warning may pollute it
-    if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env", "status"):
+    if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env", "status", "hook"):
         from .updates import notify_or_autoupdate
 
         notify_or_autoupdate()
@@ -156,7 +156,11 @@ def apply(
     if not profile:
         console.print(_("[red]Profile '{name}' not found.[/red] Run `aparta init`.", name=profile_name))
         raise typer.Exit(1)
-    apply_profile(profile, SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"]))
+    writer = SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"])
+    apply_profile(profile, writer)
+    from .shell import install_for_current_shell
+
+    install_for_current_shell(writer)
 
 
 @app.command()
@@ -464,7 +468,7 @@ def status(
     import time
     from pathlib import Path
 
-    from .auth import OK, cached_check
+    from .auth import OK, cached_check, read_cached_status
     from .providers import canonical_providers, status_provider_name
     from .workspaces import (
         WorkspaceResolutionError,
@@ -487,9 +491,10 @@ def status(
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
 
+    source_statuses = read_cached_status(profile) if shell else cached_check(profile)
     statuses = [
         item
-        for item in cached_check(profile)
+        for item in (source_statuses or [])
         if status_provider_name(item.provider) in providers
     ]
     blocked = any(item.needs_human for item in statuses)
@@ -513,8 +518,11 @@ def status(
     workspace_name = workspace.name if workspace is not None else profile.name
 
     if shell:
+        import re
+
+        prompt_name = re.sub(r"[^A-Za-z0-9._/-]", "?", workspace_name)
         extras = f" {countdown}" if countdown else ""
-        print(f"[aparta:{workspace_name} {state}{extras}]")
+        print(f"[aparta:{prompt_name} {state}{extras}]")
         return
 
     console.print(_("Workspace: [bold]{name}[/bold]", name=workspace_name))
@@ -552,6 +560,17 @@ def _resolve_profile(profile_name: str):
     return profile
 
 
+def _resolve_workspace_context(selector: str = ""):
+    """Return the exact workspace and owning profile for a CLI command."""
+    from pathlib import Path
+
+    from .workspaces import load_workspaces, resolve_workspace
+
+    profiles = load_profiles()
+    workspace = resolve_workspace(selector, Path.cwd(), profiles, load_workspaces())
+    return workspace, profiles[workspace.profile]
+
+
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def run(
     ctx: typer.Context,
@@ -565,7 +584,7 @@ def run(
     ),
 ) -> None:
     """Run a command with the profile's environment, exactly as the agents get it."""
-    from .runner import run_in_profile
+    from .runner import run_in_profile, run_in_workspace
 
     command = list(ctx.args)
     if command and command[0] == "--":
@@ -573,8 +592,17 @@ def run(
     if not command:
         Console(stderr=True).print(_("[red]Nothing to run.[/red] Usage: aparta run -- <command> [args...]"))
         raise typer.Exit(2)
-    profile = _resolve_profile(profile_name)
-    raise typer.Exit(run_in_profile(profile, command, with_gh_token))
+    if profile_name:
+        profile = _resolve_profile(profile_name)
+        code = run_in_profile(profile, command, with_gh_token)
+    else:
+        try:
+            workspace, profile = _resolve_workspace_context()
+        except (ValueError, KeyError) as exc:
+            Console(stderr=True).print(f"[red]{exc}[/red]")
+            raise typer.Exit(1)
+        code = run_in_workspace(profile, workspace, command, with_gh_token)
+    raise typer.Exit(code)
 
 
 @app.command()
@@ -587,14 +615,74 @@ def env(
         "--with-gh-token",
         help=_("Also export GITHUB_TOKEN from the profile's gh (opt-in: it exposes the token to child processes)."),
     ),
+    activate: bool = typer.Option(
+        False,
+        "--activate",
+        help=_("Emit a complete shell transition, including stale-variable cleanup."),
+    ),
 ) -> None:
     """Print export lines for scripts: eval "$(aparta env)"."""
-    from .runner import export_lines, profile_env
+    from pathlib import Path
 
-    profile = _resolve_profile(profile_name)
-    lines = export_lines(profile_env(profile, with_gh_token))
+    from .runner import export_lines, gh_token, profile_env
+
+    if activate:
+        from .shell import activation_lines
+        from .workspaces import load_workspaces, workspace_for_path
+
+        profiles = load_profiles()
+        workspace = workspace_for_path(Path.cwd(), profiles, load_workspaces())
+        profile = profiles.get(workspace.profile) if workspace is not None else None
+        print(activation_lines(workspace, profile))
+        return
+
+    if profile_name:
+        profile = _resolve_profile(profile_name)
+        selected = profile_env(profile, with_gh_token)
+    else:
+        from .providers import workspace_env
+
+        try:
+            workspace, profile = _resolve_workspace_context()
+        except (ValueError, KeyError) as exc:
+            Console(stderr=True).print(f"[red]{exc}[/red]")
+            raise typer.Exit(1)
+        selected = workspace_env(workspace, profile)
+        if with_gh_token and "github" in workspace.providers and profile.gh_user:
+            token = gh_token(profile)
+            if token:
+                selected["GITHUB_TOKEN"] = token
+    lines = export_lines(selected)
     if lines:
         print(lines)
+
+
+@app.command(hidden=True)
+def hook(shell: str = typer.Argument("zsh")) -> None:
+    """Print the integration code evaluated by a supported shell."""
+    if shell != "zsh":
+        Console(stderr=True).print(_("[red]Unsupported shell: {shell}[/red]", shell=shell))
+        raise typer.Exit(1)
+    from .shell import render_zsh_hook
+
+    print(render_zsh_hook(), end="")
+
+
+@app.command("shell-install")
+def shell_install(ctx: typer.Context) -> None:
+    """Install automatic zsh workspace activation in the user's startup file."""
+    from .shell import install_zsh_hook
+
+    options = ctx.obj or {}
+    writer = SafeWriter(
+        dry_run=options.get("dry_run", False),
+        verbose=options.get("verbose", False),
+    )
+    changed = install_zsh_hook(writer)
+    if changed:
+        console.print(_("[green]Automatic zsh workspace activation installed.[/green]"))
+    else:
+        console.print(_("[green]Automatic zsh workspace activation is already installed.[/green]"))
 
 
 @app.command()

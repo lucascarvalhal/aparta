@@ -97,7 +97,7 @@ def check_gcloud(profile: Profile) -> AuthStatus | None:
     except subprocess.TimeoutExpired:
         return AuthStatus("gcloud", UNKNOWN, _("check timed out"))
     if r.returncode == 0 and r.stdout.strip():
-        return AuthStatus("gcloud", OK)
+        return AuthStatus("gcloud", OK, renewable=True)
     state, detail = _classify(r.stderr)
     return AuthStatus("gcloud", state, detail)
 
@@ -137,7 +137,7 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
         with urllib.request.urlopen(
             urllib.request.Request(TOKEN_ENDPOINT, data=body), timeout=PROBE_TIMEOUT
         ):
-            return AuthStatus("ADC", OK)
+            return AuthStatus("ADC", OK, renewable=True)
     except urllib.error.HTTPError as e:
         try:
             err = json.loads(e.read().decode())
@@ -197,7 +197,7 @@ def check_adc(profile: Profile) -> AuthStatus | None:
     except subprocess.TimeoutExpired:
         return AuthStatus("ADC", UNKNOWN, _("check timed out"))
     if r.returncode == 0 and r.stdout.strip():
-        return AuthStatus("ADC", OK)
+        return AuthStatus("ADC", OK, renewable=True)
     state, detail = _classify(r.stderr)
     return AuthStatus("ADC", state, detail)
 
@@ -239,7 +239,9 @@ def check_aws(profile: Profile) -> AuthStatus | None:
     except subprocess.TimeoutExpired:
         return AuthStatus("aws", UNKNOWN, _("check timed out"))
     if r.returncode == 0:
-        return AuthStatus("aws", OK)
+        from .backends.aws import aws_sso_expiry
+
+        return AuthStatus("aws", OK, expires_at=aws_sso_expiry(profile.aws_profile))
     state, detail = _classify_aws(r.stderr)
     return AuthStatus("aws", state, detail)
 
@@ -296,6 +298,17 @@ def _write_cache(data: dict) -> None:
         path.write_text(json.dumps(data))
     except OSError:
         pass
+
+
+def read_cached_status(profile: Profile) -> list[AuthStatus] | None:
+    """Read cached health without probing, for latency-sensitive shell prompts."""
+    entry = _read_cache().get(profile.name)
+    if not isinstance(entry, dict) or "statuses" not in entry:
+        return None
+    try:
+        return [AuthStatus(**status) for status in entry.get("statuses", [])]
+    except (TypeError, ValueError):
+        return None
 
 
 def cached_check(profile: Profile, force: bool = False) -> list[AuthStatus]:

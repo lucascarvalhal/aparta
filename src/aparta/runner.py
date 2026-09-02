@@ -17,7 +17,7 @@ from collections.abc import Mapping
 
 from .i18n import _
 from .profiles import MANAGED_ENV_KEYS, MANAGED_ENV_PREFIXES, Profile
-from .workspaces import profile_for_path
+from .workspaces import Workspace, profile_for_path
 
 TOKEN_TIMEOUT = 20
 
@@ -73,6 +73,30 @@ def export_lines(env: dict[str, str]) -> str:
 def run_in_profile(profile: Profile, command: list[str], with_gh_token: bool = False) -> int:
     """Execute a command with the profile env layered over the current one."""
     env = clean_environment(os.environ, profile_env(profile, with_gh_token))
+    try:
+        return subprocess.run(command, env=env).returncode
+    except FileNotFoundError:
+        from rich.console import Console
+
+        Console(stderr=True).print(_("[red]{cmd} not found in PATH.[/red]", cmd=command[0]))
+        return 127
+
+
+def run_in_workspace(
+    profile: Profile,
+    workspace: Workspace,
+    command: list[str],
+    with_gh_token: bool = False,
+) -> int:
+    """Execute with only the providers enabled for the exact workspace."""
+    from .providers import workspace_env
+
+    overlay = workspace_env(workspace, profile)
+    if with_gh_token and "github" in workspace.providers and profile.gh_user:
+        token = gh_token(profile)
+        if token:
+            overlay["GITHUB_TOKEN"] = token
+    env = clean_environment(os.environ, overlay)
     try:
         return subprocess.run(command, env=env).returncode
     except FileNotFoundError:

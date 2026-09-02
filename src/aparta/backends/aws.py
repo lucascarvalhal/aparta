@@ -8,7 +8,10 @@ variable is honored by the AWS CLI, every SDK, Terraform and the CDK.
 
 from __future__ import annotations
 
+import configparser
+import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 from ..fsutil import SafeWriter
@@ -55,6 +58,39 @@ def is_sso_profile(name: str, aws_dir: Path | None = None) -> bool:
         if section == name and re.match(r"\s*sso_\w+\s*=", line):
             return True
     return False
+
+
+def aws_sso_expiry(name: str, aws_dir: Path | None = None) -> float | None:
+    """Return the matching AWS SSO session expiry as a Unix timestamp."""
+    aws_dir = aws_dir or Path.home() / ".aws"
+    config = configparser.RawConfigParser()
+    try:
+        config.read(aws_dir / "config")
+        section = "default" if name == "default" else f"profile {name}"
+        if not config.has_section(section):
+            return None
+        start_url = config.get(section, "sso_start_url", fallback="").strip()
+        session = config.get(section, "sso_session", fallback="").strip()
+        if not start_url and session:
+            start_url = config.get(
+                f"sso-session {session}", "sso_start_url", fallback=""
+            ).strip()
+    except (configparser.Error, OSError):
+        return None
+    if not start_url:
+        return None
+
+    expiries: list[float] = []
+    for path in (aws_dir / "sso" / "cache").glob("*.json"):
+        try:
+            payload = json.loads(path.read_text())
+            if payload.get("startUrl") != start_url:
+                continue
+            raw = str(payload.get("expiresAt", "")).replace("Z", "+00:00")
+            expiries.append(datetime.fromisoformat(raw).timestamp())
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+    return max(expiries) if expiries else None
 
 
 def apply_aws(profile: Profile, writer: SafeWriter) -> list[Note]:

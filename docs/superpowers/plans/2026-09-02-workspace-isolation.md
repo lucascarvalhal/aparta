@@ -224,7 +224,7 @@ git commit -m "feat(cli): add contextual providers login and status"
 - Consumes: `resolve_workspace()`, `workspace_env()`, `clean_environment()`, and cached status metadata.
 - Produces: `activation_lines()`, `render_zsh_hook()`, `install_zsh_hook()`, and `aparta env --activate`.
 
-- [ ] **Step 1: Write failing shell transition tests**
+- [x] **Step 1: Write failing shell transition tests**
 
 ```python
 def test_activation_unsets_every_managed_key_before_exporting_workspace(tmp_path):
@@ -237,13 +237,13 @@ def test_unregistered_folder_deactivates_context(tmp_path):
     assert "unset APARTA_WORKSPACE APARTA_PROFILE" in text
 ```
 
-- [ ] **Step 2: Run shell tests and verify the module is missing**
+- [x] **Step 2: Run shell tests and verify the module is missing**
 
 Run: `uv run pytest tests/test_shell.py -q`
 
 Expected: FAIL because `aparta.shell` does not exist.
 
-- [ ] **Step 3: Implement quoted activation and the zsh hook**
+- [x] **Step 3: Implement quoted activation and the zsh hook**
 
 ```python
 def activation_lines(workspace: Workspace | None, profile: Profile | None) -> str:
@@ -257,13 +257,13 @@ The generated zsh code uses `add-zsh-hook chpwd` and `add-zsh-hook precmd`,
 keeps the original `RPROMPT`, and calculates the 30-minute warning locally
 from `APARTA_EXPIRES_AT`.
 
-- [ ] **Step 4: Test hook installation merge and idempotency**
+- [x] **Step 4: Test hook installation merge and idempotency**
 
 Run: `uv run pytest tests/test_shell.py tests/test_dry_run.py -q`
 
 Expected: PASS with one marked startup block after repeated installation.
 
-- [ ] **Step 5: Commit automatic activation**
+- [x] **Step 5: Commit automatic activation**
 
 ```bash
 git add src/aparta/shell.py src/aparta/cli.py src/aparta/runner.py src/aparta/i18n.py tests/test_shell.py

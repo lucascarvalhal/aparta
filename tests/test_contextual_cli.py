@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import subprocess
+import json
+import sys
 import time
 from pathlib import Path
 
@@ -172,3 +174,71 @@ def test_status_hides_long_or_renewable_expiry_countdown(configured, monkeypatch
     assert result.exit_code == 0, result.output
     assert "10m" not in result.output
     assert "renewable" in result.output.lower()
+
+
+def test_shell_status_never_starts_a_network_probe(configured, monkeypatch):
+    """Rendering every prompt must stay instant even when the cache is empty."""
+    repo, _profile = configured
+    monkeypatch.chdir(repo)
+
+    def explode(*args, **kwargs):  # pragma: no cover - must not be called
+        raise AssertionError("the prompt must never probe providers synchronously")
+
+    monkeypatch.setattr(auth, "check_profile", explode)
+
+    result = runner.invoke(app, ["status", "--shell"])
+
+    assert result.exit_code == 0, result.output
+    assert "aparta:api" in result.output
+
+
+def test_shell_status_sanitizes_workspace_name_for_prompt_expansion(configured, monkeypatch):
+    """A workspace label must never become executable zsh prompt syntax."""
+    repo, profile = configured
+    workspace = Workspace("bad$(touch_x)", str(repo), profile.name, ["git"])
+    save_workspaces({workspace.name: workspace}, SafeWriter())
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["status", "--shell"])
+
+    assert result.exit_code == 0, result.output
+    assert "$(" not in result.output
+    assert "bad??touch_x?" in result.output
+
+
+def test_env_activate_emits_unsets_and_current_workspace_exports(configured, monkeypatch):
+    """The shell hook needs one eval-safe transition, not additive exports."""
+    repo, profile = configured
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("GH_CONFIG_DIR", "/effektra/gh")
+
+    result = runner.invoke(app, ["env", "--activate"])
+
+    assert result.exit_code == 0, result.output
+    assert "unset " in result.output
+    assert "GH_CONFIG_DIR" in result.output
+    assert f"export APARTA_PROFILE={profile.name}" in result.output
+    assert f"export CLOUDSDK_CONFIG={profile.gcloud_config_dir}" in result.output
+
+
+def test_run_uses_only_the_current_worktree_providers(configured, monkeypatch):
+    """A shared profile's extra providers must not leak into a restricted worktree."""
+    repo, profile = configured
+    profile.gh_user = "eneva-gh"
+    save_profiles({profile.name: profile}, SafeWriter())
+    workspace = Workspace("eneva-api", str(repo), profile.name, ["gcloud"])
+    save_workspaces({workspace.name: workspace}, SafeWriter())
+    monkeypatch.chdir(repo)
+    output = repo / "received-env.json"
+    code = (
+        "import json, os, pathlib; "
+        f"pathlib.Path({str(output)!r}).write_text(json.dumps(dict(os.environ)))"
+    )
+
+    result = runner.invoke(app, ["run", "--", sys.executable, "-c", code])
+
+    assert result.exit_code == 0, result.output
+    received = json.loads(output.read_text())
+    assert received["CLOUDSDK_CONFIG"] == str(profile.gcloud_config_dir)
+    assert "GOOGLE_APPLICATION_CREDENTIALS" not in received
+    assert "GH_CONFIG_DIR" not in received

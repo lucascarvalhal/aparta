@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aparta.backends.aws import apply_aws, aws_profile_exists, list_aws_profiles
+from aparta.backends.aws import (
+    apply_aws,
+    aws_profile_exists,
+    aws_sso_expiry,
+    list_aws_profiles,
+)
 from aparta.fsutil import SafeWriter
 from aparta.profiles import Profile, load_profiles, save_profiles
 
@@ -79,3 +84,39 @@ def test_is_sso_profile_reads_the_config_section(tmp_path):
     assert is_sso_profile("sso-one", tmp_path) is True
     assert is_sso_profile("static-two", tmp_path) is False
     assert is_sso_profile("absent", tmp_path) is False
+
+
+def test_aws_sso_expiry_matches_the_profiles_session_cache(tmp_path):
+    """Using another SSO session's cache could show the wrong countdown."""
+    import json
+    from datetime import datetime, timezone
+
+    (tmp_path / "config").write_text(
+        "[profile eneva]\n"
+        "sso_session = eneva-session\n"
+        "region = us-east-1\n"
+        "\n"
+        "[sso-session eneva-session]\n"
+        "sso_start_url = https://eneva.awsapps.com/start\n"
+    )
+    cache = tmp_path / "sso" / "cache"
+    cache.mkdir(parents=True)
+    (cache / "eneva.json").write_text(
+        json.dumps(
+            {
+                "startUrl": "https://eneva.awsapps.com/start",
+                "expiresAt": "2026-09-02T18:45:00Z",
+            }
+        )
+    )
+    (cache / "other.json").write_text(
+        json.dumps(
+            {
+                "startUrl": "https://other.awsapps.com/start",
+                "expiresAt": "2030-01-01T00:00:00Z",
+            }
+        )
+    )
+
+    expected = datetime(2026, 9, 2, 18, 45, tzinfo=timezone.utc).timestamp()
+    assert aws_sso_expiry("eneva", tmp_path) == expected

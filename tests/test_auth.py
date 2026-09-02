@@ -33,7 +33,9 @@ def _result(code: int, stdout: str = "", stderr: str = ""):
 
 def test_valid_credential_is_ok(monkeypatch):
     monkeypatch.setattr(auth.subprocess, "run", _result(0, stdout="ya29.token"))
-    assert auth.check_gcloud(PROFILE).state == auth.OK
+    status = auth.check_gcloud(PROFILE)
+    assert status.state == auth.OK
+    assert status.renewable is True
 
 
 def test_probe_disables_prompts_so_it_never_hangs(monkeypatch):
