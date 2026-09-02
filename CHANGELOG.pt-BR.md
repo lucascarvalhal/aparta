@@ -8,6 +8,15 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.8.1] - 2026-09-02
+
+### Corrigido
+
+- O primeiro `aparta add` em um workspace legado agora materializa uma lista
+  exata com Git e o provider solicitado. Repositórios não herdam mais acessos
+  de gcloud ou ADC sem relação com o perfil inteiro nem mostram `blocked`
+  quando esses providers de nuvem não são usados ali.
+
 ## [0.8.0] - 2026-09-02
 
 ### Adicionado
@@ -360,7 +369,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8

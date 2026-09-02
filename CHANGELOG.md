@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-02
+
+### Fixed
+
+- The first `aparta add` in a legacy workspace now materializes an exact
+  provider list containing Git and the requested provider. Repositories no
+  longer inherit unrelated gcloud or ADC access from the whole profile and no
+  longer show `blocked` when those cloud providers are not used there.
+
 ## [0.8.0] - 2026-09-02
 
 ### Added
@@ -346,7 +355,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
