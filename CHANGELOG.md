@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Exact workspace records bind each Git checkout or linked worktree to one
+  profile and an explicit provider set. Sibling worktrees can now run at the
+  same time with different gcloud, ADC, AWS, GitHub and SSH selectors.
+- `aparta add <provider>` uses the current workspace, while `aparta add
+  <workspace> <provider>` targets one explicitly. `aparta login` and `aparta
+  status` follow the same contextual rule.
+- `aparta shell-install` installs automatic zsh activation on directory
+  changes. The right prompt shows the active workspace and cached credential
+  lifetime without opening a login flow. Login remains an explicit action.
+
+### Changed
+
+- Workspace activation now clears every Aparta-managed selector before
+  applying the exact workspace environment. An isolated ADC path is pinned
+  even before its file exists, so Google libraries fail closed instead of
+  falling back to the global ADC. `aparta run` reconfirms a cached expiration
+  before blocking a protected command.
+- Adding or applying a workspace reconciles its agent configuration with only
+  the providers enabled there. The Codex adapter now writes the supported
+  `[shell_environment_policy.set]` table and migrates Aparta-owned keys from
+  the old `[env]` table while preserving unrelated user configuration.
+
 ## [0.7.0] - 2026-08-28
 
 ### Added

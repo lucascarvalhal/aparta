@@ -322,7 +322,7 @@ Run: `uv run pytest tests/test_agents_merge.py tests/test_apply.py tests/test_re
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit adapter corrections**
+- [x] **Step 6: Commit adapter corrections**
 
 ```bash
 git add src/aparta/agents/codex.py src/aparta/apply.py tests/test_agents_merge.py tests/test_apply.py README.md README.pt-BR.md
@@ -340,25 +340,25 @@ git commit -m "fix(agents): reconcile workspace environment safely"
 - Consumes: all previous tasks.
 - Produces: user-visible release notes and complete verification evidence.
 
-- [ ] **Step 1: Run formatting-neutral source checks**
+- [x] **Step 1: Run formatting-neutral source checks**
 
 Run: `python -m compileall -q src tests && git diff --check`
 
 Expected: exit code 0.
 
-- [ ] **Step 2: Run the complete suite**
+- [x] **Step 2: Run the complete suite**
 
 Run: `uv run pytest -q`
 
 Expected: all tests pass.
 
-- [ ] **Step 3: Exercise CLI help and contextual error paths**
+- [x] **Step 3: Exercise CLI help and contextual error paths**
 
 Run: `uv run aparta help && uv run aparta add --help && uv run aparta login --help && uv run aparta status --help`
 
 Expected: every command renders, contextual forms are documented, and no update or credential probe pollutes machine-readable output.
 
-- [ ] **Step 4: Add release-facing notes without publishing**
+- [x] **Step 4: Add release-facing notes without publishing**
 
 Describe the exact workspace boundary, automatic activation, contextual CLI,
 credential countdown semantics, global-selector clearing, and Codex adapter

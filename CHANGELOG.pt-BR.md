@@ -8,6 +8,34 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Adicionado
+
+- Registros exatos de workspace vinculam cada checkout Git ou worktree ligada
+  a um perfil e a um conjunto explícito de providers. Worktrees irmãs agora
+  podem rodar ao mesmo tempo com seletores diferentes de gcloud, ADC, AWS,
+  GitHub e SSH.
+- `aparta add <provider>` usa o workspace atual, enquanto `aparta add
+  <workspace> <provider>` aponta um destino explícito. `aparta login` e
+  `aparta status` seguem a mesma regra contextual.
+- `aparta shell-install` instala a ativação automática no zsh ao trocar de
+  diretório. O prompt direito mostra o workspace ativo e o tempo de vida das
+  credenciais em cache sem abrir um fluxo de login. O login continua sendo uma
+  ação explícita.
+
+### Modificado
+
+- A ativação do workspace agora limpa todos os seletores gerenciados pelo
+  Aparta antes de aplicar o ambiente exato. O caminho do ADC isolado fica
+  fixado mesmo antes de o arquivo existir, fazendo as bibliotecas Google
+  falharem fechadas em vez de recorrerem ao ADC global. O `aparta run`
+  confirma novamente uma expiração em cache antes de bloquear um comando
+  protegido.
+- Adicionar ou aplicar um workspace reconcilia a configuração dos agentes
+  apenas com os providers habilitados nele. O adapter do Codex agora escreve a
+  tabela suportada `[shell_environment_policy.set]` e migra as chaves do Aparta
+  da tabela `[env]` antiga, preservando configurações não relacionadas do
+  usuário.
+
 ## [0.7.0] - 2026-08-28
 
 ### Adicionado
