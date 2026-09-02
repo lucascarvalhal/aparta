@@ -6,8 +6,9 @@ import subprocess
 
 import pytest
 
-from aparta import runner
+from aparta import auth, runner
 from aparta.profiles import Profile
+from aparta.workspaces import Workspace
 
 
 @pytest.fixture(autouse=True)
@@ -166,3 +167,57 @@ def test_export_lines_are_shell_safe():
 def test_missing_command_returns_127(tmp_path):
     profile = _profiles(tmp_path)["work"]
     assert runner.run_in_profile(profile, ["definitely-not-a-binary-xyz"]) == 127
+
+
+def test_workspace_run_blocks_a_cached_expired_selected_provider(tmp_path, monkeypatch):
+    profile = _profiles(tmp_path)["work"]
+    workspace = Workspace(
+        name="whirlpool",
+        path=str(tmp_path / "whirlpool"),
+        profile="work",
+        providers=["gcloud", "adc"],
+    )
+    monkeypatch.setattr(
+        auth,
+        "read_cached_status",
+        lambda selected: [auth.AuthStatus("ADC", auth.REAUTH, "session expired")],
+    )
+    monkeypatch.setattr(
+        auth,
+        "cached_check",
+        lambda selected, force=False: [
+            auth.AuthStatus("ADC", auth.REAUTH, "session expired")
+        ],
+    )
+
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("expired credentials must block the protected process")
+
+    monkeypatch.setattr(runner.subprocess, "run", must_not_run)
+
+    assert runner.run_in_workspace(profile, workspace, ["terraform", "plan"]) == 1
+
+
+def test_workspace_run_ignores_an_expired_provider_not_enabled_here(tmp_path, monkeypatch):
+    profile = _profiles(tmp_path)["work"]
+    workspace = Workspace(
+        name="local-only",
+        path=str(tmp_path / "local-only"),
+        profile="work",
+        providers=["git"],
+    )
+    monkeypatch.setattr(
+        auth,
+        "read_cached_status",
+        lambda selected: [auth.AuthStatus("ADC", auth.REAUTH, "session expired")],
+    )
+    called = {}
+
+    def fake_run(command, **kwargs):
+        called["command"] = command
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    assert runner.run_in_workspace(profile, workspace, ["git", "status"]) == 0
+    assert called["command"] == ["git", "status"]

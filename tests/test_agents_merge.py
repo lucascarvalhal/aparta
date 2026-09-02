@@ -1,6 +1,7 @@
 """Merging of settings.local.json (Claude Code), .codex/config.toml and .envrc."""
 
 import json
+import sys
 from pathlib import Path
 
 from aparta.agents.claude_code import ClaudeCodeAdapter, merge_settings_env
@@ -51,11 +52,31 @@ def test_claude_adapter_inject_and_validate(tmp_path: Path):
 
 
 def test_codex_merge_preserves_toml():
-    existing = 'model = "gpt-5"\n\n[env]\nFOO = "bar"\n'
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:  # pragma: no cover
+        import tomli as tomllib
+
+    existing = (
+        'model = "gpt-5"\n\n'
+        '[env]\nFOO = "bar"\nGH_CONFIG_DIR = "/old"\n\n'
+        '[shell_environment_policy.set]\nOTHER = "keep"\n'
+    )
     merged = merge_codex_env(existing, ENV)
-    assert 'model = "gpt-5"' in merged
-    assert 'FOO = "bar"' in merged
-    assert 'CLOUDSDK_ACTIVE_CONFIG_NAME = "pessoal"' in merged
+    data = tomllib.loads(merged)
+    assert data["model"] == "gpt-5"
+    assert data["env"] == {"FOO": "bar"}
+    assert data["shell_environment_policy"]["set"] == {
+        "OTHER": "keep",
+        **ENV,
+    }
+
+
+def test_codex_adapter_applies_without_preexisting_codex_directory(tmp_path):
+    """Requiring .codex to exist silently skips the agent selected by the user."""
+    from aparta.agents.codex import CodexAdapter
+
+    assert CodexAdapter().detect(tmp_path) is True
 
 
 def test_envrc_merge_appends_and_updates():

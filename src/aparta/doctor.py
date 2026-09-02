@@ -20,7 +20,10 @@ from rich.table import Table
 from .agents import get_adapters
 from .i18n import _
 from .discovery import find_repos
-from .profiles import Profile
+from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles
+from .providers import workspace_env
+from .runner import clean_environment
+from .workspaces import Workspace, default_providers, load_workspaces, workspace_for_path
 
 console = Console()
 
@@ -43,8 +46,7 @@ class Issue:
 
 
 def _run(args: list[str], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
-    env.update(extra_env or {})
+    env = clean_environment(os.environ, extra_env or {})
     try:
         return subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
     except FileNotFoundError:
@@ -164,17 +166,34 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
                 )
                 issues.append(Issue(HUMAN, status.provider))
 
-    # agents: env injected in each repo
-    expected_env = profile.env()
-    if expected_env:
-        for adapter in get_adapters(profile.agents):
-            for repo in repos:
-                if not adapter.detect(repo):
-                    continue
+    # agents: each repo is validated against its exact workspace providers
+    saved_workspaces = load_workspaces()
+    ownership_profiles = load_profiles()
+    ownership_profiles.setdefault(profile.name, profile)
+    for adapter in get_adapters(profile.agents):
+        for repo in repos:
+            if not adapter.detect(repo):
+                continue
+            workspace = workspace_for_path(repo, ownership_profiles, saved_workspaces)
+            expected_env = (
+                workspace_env(workspace, profile)
+                if workspace is not None and workspace.profile == profile.name
+                else profile.env()
+            )
+            unexpected = [
+                key
+                for key in MANAGED_ENV_KEYS
+                if key not in expected_env and key in adapter.read_env(repo)
+            ]
+            if not expected_env and not unexpected:
+                continue
+            if unexpected:
+                ok, msg = False, _("env mismatch: {keys}", keys=", ".join(unexpected))
+            else:
                 ok, msg = adapter.validate(repo, expected_env)
-                all_ok &= _row(rows, adapter.name, repo.name, ok, msg)
-                if not ok:
-                    issues.append(Issue(ENV, f"{adapter.name}: {repo.name}", repo))
+            all_ok &= _row(rows, adapter.name, repo.name, ok, msg)
+            if not ok:
+                issues.append(Issue(ENV, f"{adapter.name}: {repo.name}", repo))
 
     return rows, bool(all_ok), issues
 
@@ -287,21 +306,24 @@ def _print_notes(notes, verbose: bool) -> None:
 
 
 def _reinject_env(profile: Profile, repos: list[Path], writer) -> int:
-    """Re-inject the profile env into the given repos, as `apply` does."""
-    env = profile.env()
+    """Re-inject each exact workspace env into the given repos, as apply does."""
+    from .apply import apply_workspace_agents
+
+    saved_workspaces = load_workspaces()
+    profiles = load_profiles()
+    profiles.setdefault(profile.name, profile)
     before = len(writer.changes)
     for repo in repos:
-        for adapter in get_adapters(profile.agents):
-            if not adapter.detect(repo):
-                continue
-            try:
-                adapter.inject(repo, env, writer)
-                adapter.install_check(repo, writer)
-            except ValueError as exc:
-                # one broken config file must not stop the repair
-                console.print(
-                    _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
-                )
+        workspace = workspace_for_path(repo, profiles, saved_workspaces)
+        if workspace is None:
+            workspace = Workspace(
+                repo.name,
+                str(repo.resolve()),
+                profile.name,
+                default_providers(profile),
+            )
+        if workspace.profile == profile.name:
+            apply_workspace_agents(profile, workspace, writer)
     # env and the startup hook usually share a file: count files, not writes
     return len(set(writer.changes[before:]))
 

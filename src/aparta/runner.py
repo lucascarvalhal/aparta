@@ -89,7 +89,39 @@ def run_in_workspace(
     with_gh_token: bool = False,
 ) -> int:
     """Execute with only the providers enabled for the exact workspace."""
-    from .providers import workspace_env
+    from . import auth
+    from .providers import canonical_providers, status_provider_name, workspace_env
+
+    def relevant_problem(statuses: list[auth.AuthStatus]) -> auth.AuthStatus | None:
+        selected = set(canonical_providers(workspace.providers))
+        return next(
+            (
+                status
+                for status in statuses
+                if status.needs_human and status_provider_name(status.provider) in selected
+            ),
+            None,
+        )
+
+    if auth.checks_enabled():
+        cached = auth.read_cached_status(profile) or []
+        problem = relevant_problem(cached)
+        if problem is not None:
+            # Confirm a cached failure synchronously. A manual login outside
+            # aparta must not leave a stale verdict blocking the workspace.
+            problem = relevant_problem(auth.cached_check(profile, force=True))
+        if problem is not None:
+            from rich.console import Console
+
+            Console(stderr=True).print(
+                _(
+                    "[red]{provider} credential for workspace '{workspace}' requires login: {detail}.[/red] Run [bold]aparta login[/bold] in that workspace.",
+                    provider=problem.provider,
+                    workspace=workspace.name,
+                    detail=problem.detail,
+                )
+            )
+            return 1
 
     overlay = workspace_env(workspace, profile)
     if with_gh_token and "github" in workspace.providers and profile.gh_user:

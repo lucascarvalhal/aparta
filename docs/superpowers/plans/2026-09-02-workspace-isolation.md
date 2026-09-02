@@ -284,7 +284,7 @@ git commit -m "feat(shell): activate registered workspaces automatically"
 - Consumes: workspace-filtered environment and `MANAGED_ENV_KEYS`.
 - Produces: Codex `shell_environment_policy.set` merge, old `[env]` migration, unconditional selected-adapter application, and current documentation.
 
-- [ ] **Step 1: Write failing Codex schema and migration tests**
+- [x] **Step 1: Write failing Codex schema and migration tests**
 
 ```python
 def test_codex_uses_supported_shell_environment_policy_and_migrates_owned_old_keys():
@@ -297,26 +297,26 @@ def test_codex_adapter_applies_without_preexisting_directory(tmp_path):
     assert CodexAdapter().detect(tmp_path) is True
 ```
 
-- [ ] **Step 2: Run the adapter tests and verify they fail on `[env]` and detection**
+- [x] **Step 2: Run the adapter tests and verify they fail on `[env]` and detection**
 
 Run: `uv run pytest tests/test_agents_merge.py tests/test_apply.py -q`
 
 Expected: FAIL because the current adapter writes `[env]` and skips new repos.
 
-- [ ] **Step 3: Implement the supported Codex merge and reconciliation**
+- [x] **Step 3: Implement the supported Codex merge and reconciliation**
 
 Write and validate values under `shell_environment_policy.set`. Remove only
 Aparta-owned keys from the old `[env]` table, preserve unrelated values, and
 remove an empty old table. Make `detect()` return true for configured Codex
 workspaces.
 
-- [ ] **Step 4: Update English and Portuguese documentation**
+- [x] **Step 4: Update English and Portuguese documentation**
 
 Document exact workspaces, `add`, contextual `login`, `status`, automatic zsh
 activation, fail-closed ADC behavior, and the supported Codex configuration
 key.
 
-- [ ] **Step 5: Run adapter and documentation-adjacent tests**
+- [x] **Step 5: Run adapter and documentation-adjacent tests**
 
 Run: `uv run pytest tests/test_agents_merge.py tests/test_apply.py tests/test_registry.py -q`
 

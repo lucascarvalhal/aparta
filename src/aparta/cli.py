@@ -399,13 +399,17 @@ def add(
         workspace.providers,
     )
     options = ctx.obj or {}
+    writer = SafeWriter(
+        dry_run=options.get("dry_run", False),
+        verbose=options.get("verbose", False),
+    )
     save_workspaces(
         workspaces,
-        SafeWriter(
-            dry_run=options.get("dry_run", False),
-            verbose=options.get("verbose", False),
-        ),
+        writer,
     )
+    from .apply import apply_workspace_agents
+
+    apply_workspace_agents(profile, workspaces[workspace.name], writer)
     console.print(
         _(
             "[green]{provider}[/green] enabled in workspace '{workspace}'.",
@@ -744,10 +748,13 @@ def show_help() -> None:
     table.add_row("aparta remove <profile>", _("Remove a profile and undo what it applied (backups kept)."))
     table.add_row("aparta doctor \\[profile]", _("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
     table.add_row("aparta list", _("List configured profiles."))
-    table.add_row("aparta login <profile>", _("Reauthenticate a profile, in its own scope."))
+    table.add_row("aparta add \\[workspace] <provider>", _("Enable a provider in the current or named workspace."))
+    table.add_row("aparta login \\[workspace|profile]", _("Reauthenticate the current workspace or an explicit target."))
+    table.add_row("aparta status \\[workspace|profile]", _("Show workspace identity, providers and credential expiry."))
     table.add_row("aparta check", _("Check every credential, quiet when all is well."))
     table.add_row("aparta run -- <cmd>", _("Run a command with the folder's profile environment."))
     table.add_row("aparta env \\[profile]", _("Print the profile's exports for scripts: eval \"$(aparta env)\"."))
+    table.add_row("aparta shell-install", _("Install automatic zsh activation when directories change."))
     table.add_row("aparta fallback", _("Show what runs outside any profile; --secure makes it neutral, --restore undoes it."))
     table.add_row("aparta update", _("Update aparta to the latest release."))
     table.add_row("aparta help", _("This screen."))

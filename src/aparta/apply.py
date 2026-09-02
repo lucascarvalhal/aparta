@@ -23,6 +23,8 @@ from .fsutil import SafeWriter
 from .i18n import _
 from . import __version__
 from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles, save_profiles
+from .providers import workspace_env
+from .workspaces import Workspace, load_workspaces, workspace_for_path
 
 console = Console()
 
@@ -32,6 +34,41 @@ BACKENDS: list[tuple[str, Callable[[Profile, SafeWriter], "list[Note]"]]] = [
     ("gcloud", apply_gcloud),
     ("aws", apply_aws),
 ]
+
+
+def apply_workspace_agents(
+    profile: Profile,
+    workspace: Workspace,
+    writer: SafeWriter,
+) -> int:
+    """Reconcile selected agent files for one exact workspace."""
+    env = workspace_env(workspace, profile)
+    before = len(writer.changes)
+    for adapter in get_adapters(profile.agents):
+        if not adapter.detect(workspace.root_path):
+            continue
+        try:
+            if env:
+                adapter.inject(workspace.root_path, env, writer)
+            stale = [
+                key
+                for key in MANAGED_ENV_KEYS
+                if key not in env and key in adapter.read_env(workspace.root_path)
+            ]
+            if stale:
+                adapter.remove_env(workspace.root_path, stale, writer)
+            if env:
+                adapter.install_check(workspace.root_path, writer)
+        except ValueError as exc:
+            console.print(
+                _(
+                    "[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.",
+                    adapter=adapter.name,
+                    repo=workspace.root_path.name,
+                    error=exc,
+                )
+            )
+    return len(set(writer.changes[before:]))
 
 
 def _nested_profile_roots(
@@ -91,42 +128,49 @@ def apply_profile(
         if len(writer.changes) > before or any(n.level == "info" for n in notes):
             console.print(_("  [green]OK[/green] {area}", area=label))
 
-    env = profile.env()
-    if not env:
+    default_env = profile.env()
+    if not default_env:
         console.print(_("[dim]Profile has no gh/gcloud: no env to inject into agents.[/dim]"))
-    else:
-        repos = profile_repos(profile, siblings)
-        if not repos:
-            console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
-        before = len(writer.changes)
-        adapters = get_adapters(profile.agents)
-        for repo in repos:
-            for adapter in adapters:
-                if not adapter.detect(repo):
-                    continue
-                try:
+    repos = profile_repos(profile, siblings)
+    if not repos:
+        console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
+    before = len(writer.changes)
+    adapters = get_adapters(profile.agents)
+    saved_workspaces = load_workspaces()
+    ownership_profiles = siblings or load_profiles()
+    for repo in repos:
+        workspace = workspace_for_path(repo, ownership_profiles, saved_workspaces)
+        if workspace is not None and workspace.profile != profile.name:
+            continue
+        env = workspace_env(workspace, profile) if workspace is not None else default_env
+        for adapter in adapters:
+            if not adapter.detect(repo):
+                continue
+            try:
+                if env:
                     adapter.inject(repo, env, writer)
-                    # a variable this profile no longer sets must go, or it keeps
-                    # pointing at a config the profile has moved away from
-                    stale = [
-                        k for k in MANAGED_ENV_KEYS
-                        if k not in env and k in adapter.read_env(repo)
-                    ]
-                    if stale:
-                        adapter.remove_env(repo, stale, writer)
-                    # the same agent should also warn when a credential dies
+                # A variable this workspace no longer sets must go, or it can
+                # retain another provider from the shared profile.
+                stale = [
+                    key
+                    for key in MANAGED_ENV_KEYS
+                    if key not in env and key in adapter.read_env(repo)
+                ]
+                if stale:
+                    adapter.remove_env(repo, stale, writer)
+                if env:
                     adapter.install_check(repo, writer)
-                except ValueError as exc:
-                    # one repo with a broken config file must not stop the apply
-                    console.print(
-                        _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
-                    )
-        # env and the startup hook can land in the same file: count files, not writes
-        touched = len(set(writer.changes[before:]))
-        if repos:
-            console.print(
-                _("  [green]OK[/green] agents: {n} config file(s) updated across {total} repo(s)", n=touched, total=len(repos))
-            )
+            except ValueError as exc:
+                # one repo with a broken config file must not stop the apply
+                console.print(
+                    _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
+                )
+    # env and the startup hook can land in the same file: count files, not writes
+    touched = len(set(writer.changes[before:]))
+    if repos:
+        console.print(
+            _("  [green]OK[/green] agents: {n} config file(s) updated across {total} repo(s)", n=touched, total=len(repos))
+        )
 
     if not writer.dry_run:
         _stamp_version(profile, writer)

@@ -85,6 +85,24 @@ def test_add_is_idempotent(configured, monkeypatch):
     assert "already" in second.output.lower()
 
 
+def test_add_immediately_reconciles_agent_environment(configured):
+    """Requiring a second apply would leave newly added providers inactive in agents."""
+    import json
+
+    repo, profile = configured
+    profile.gh_user = "eneva-gh"
+    profile.agents = ["claude-code"]
+    save_profiles({profile.name: profile}, SafeWriter())
+    workspace = Workspace("eneva-api", str(repo), profile.name, ["git"])
+    save_workspaces({workspace.name: workspace}, SafeWriter())
+
+    result = runner.invoke(app, ["add", "eneva-api", "github"])
+
+    assert result.exit_code == 0, result.output
+    settings = json.loads((repo / ".claude" / "settings.local.json").read_text())
+    assert settings["env"]["GH_CONFIG_DIR"] == str(profile.gh_config_dir)
+
+
 def test_add_rejects_global_gcloud_mode(configured, monkeypatch):
     """Enabling light gcloud would claim isolation while libraries still use global ADC."""
     repo, profile = configured

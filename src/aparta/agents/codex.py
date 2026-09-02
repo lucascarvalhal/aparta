@@ -1,4 +1,4 @@
-"""Codex CLI adapter: [env] section in the repo's .codex/config.toml (merged)."""
+"""Codex CLI adapter using project shell_environment_policy.set."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ else:  # pragma: no cover
 
 from ..i18n import _
 from ..fsutil import SafeWriter
+from ..profiles import MANAGED_ENV_KEYS
 from .base import CHECK_COMMAND, AgentAdapter, missing_keys
 
 
@@ -22,10 +23,23 @@ def merge_codex_env(existing_text: str, env: dict[str, str]) -> str:
         data = tomllib.loads(existing_text) if existing_text.strip() else {}
     except tomllib.TOMLDecodeError as exc:
         raise ValueError(_("config.toml is invalid")) from exc
-    current = data.get("env", {})
+    policy = data.get("shell_environment_policy", {})
+    if not isinstance(policy, dict):
+        policy = {}
+    current = policy.get("set", {})
     if not isinstance(current, dict):
         current = {}
-    data["env"] = {**current, **env}
+    policy["set"] = {**current, **env}
+    data["shell_environment_policy"] = policy
+
+    old_env = data.get("env")
+    if isinstance(old_env, dict):
+        for key in MANAGED_ENV_KEYS:
+            old_env.pop(key, None)
+        if old_env:
+            data["env"] = old_env
+        else:
+            data.pop("env", None)
     return tomli_w.dumps(data)
 
 
@@ -37,7 +51,7 @@ class CodexAdapter(AgentAdapter):
         return repo / ".codex" / "config.toml"
 
     def detect(self, repo: Path) -> bool:
-        return (repo / ".codex").exists()
+        return True
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.config_path(repo)
@@ -52,7 +66,8 @@ class CodexAdapter(AgentAdapter):
             data = tomllib.loads(path.read_text())
         except tomllib.TOMLDecodeError:
             return False, _("config.toml is invalid")
-        current = data.get("env", {})
+        policy = data.get("shell_environment_policy", {})
+        current = policy.get("set", {}) if isinstance(policy, dict) else {}
         missing = missing_keys(current if isinstance(current, dict) else {}, env)
         return (not missing, _("env ok") if not missing else _("env mismatch: {keys}", keys=", ".join(missing)))
 
@@ -64,13 +79,34 @@ class CodexAdapter(AgentAdapter):
             data = tomllib.loads(path.read_text())
         except tomllib.TOMLDecodeError:
             return False
-        env = data.get("env", {})
-        if not isinstance(env, dict) or not any(k in env for k in keys):
-            return False
-        for k in keys:
-            env.pop(k, None)
-        data["env"] = env
-        return writer.write_text(path, tomli_w.dumps(data))
+        changed = False
+        policy = data.get("shell_environment_policy", {})
+        env = policy.get("set", {}) if isinstance(policy, dict) else {}
+        if isinstance(env, dict):
+            for key in keys:
+                if key in env:
+                    env.pop(key)
+                    changed = True
+            if isinstance(policy, dict):
+                if env:
+                    policy["set"] = env
+                else:
+                    policy.pop("set", None)
+                if policy:
+                    data["shell_environment_policy"] = policy
+                else:
+                    data.pop("shell_environment_policy", None)
+        old_env = data.get("env", {})
+        if isinstance(old_env, dict):
+            for key in keys:
+                if key in old_env:
+                    old_env.pop(key)
+                    changed = True
+            if old_env:
+                data["env"] = old_env
+            else:
+                data.pop("env", None)
+        return writer.write_text(path, tomli_w.dumps(data)) if changed else False
 
     def install_check(self, repo: Path, writer: SafeWriter) -> bool:
         """Add a SessionStart hook. Codex asks the user to trust it once."""
@@ -121,7 +157,13 @@ class CodexAdapter(AgentAdapter):
         if not path.exists():
             return {}
         try:
-            env = tomllib.loads(path.read_text()).get("env", {})
+            data = tomllib.loads(path.read_text())
         except tomllib.TOMLDecodeError:
             return {}
-        return env if isinstance(env, dict) else {}
+        old_env = data.get("env", {})
+        policy = data.get("shell_environment_policy", {})
+        current = policy.get("set", {}) if isinstance(policy, dict) else {}
+        result = old_env if isinstance(old_env, dict) else {}
+        if isinstance(current, dict):
+            result = {**result, **current}
+        return result

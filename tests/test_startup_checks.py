@@ -107,7 +107,7 @@ def test_codex_gets_a_session_start_hook(tmp_path: Path):
     data = tomllib.loads((tmp_path / ".codex" / "config.toml").read_text())
     hook = data["hooks"]["SessionStart"][0]
     assert hook["hooks"][0]["command"] == CHECK_COMMAND
-    assert data["env"]["GH_CONFIG_DIR"] == "/x"  # env survives
+    assert data["shell_environment_policy"]["set"]["GH_CONFIG_DIR"] == "/x"
     assert adapter.install_check(tmp_path, SafeWriter()) is False
 
     adapter.uninstall_check(tmp_path, SafeWriter())

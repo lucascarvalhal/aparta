@@ -102,10 +102,15 @@ aparta scan       # somente leitura: mostra os grupos de projetos encontrados
 aparta apply X    # reaplica um perfil (por exemplo, depois de clonar repos novos)
 aparta remove X   # remove um perfil e desfaz o que ele aplicou (com backups)
 aparta list       # lista os perfis configurados
-aparta login X    # reautentica um perfil, no escopo dele mesmo
+aparta add bitbucket       # adiciona um provedor à worktree atual
+aparta add repo bitbucket  # ou aponta um workspace registrado explicitamente
+aparta login      # reautentica a worktree atual quando necessário
+aparta login X    # ou aponta um workspace/perfil a partir de outra pasta
+aparta status     # workspace ativo, provedores, saúde e expiração conhecida
 aparta check      # confere as credenciais, silencioso quando está tudo certo
 aparta run -- cmd # roda qualquer comando com o ambiente do perfil da pasta
 aparta env        # imprime os exports do perfil para scripts: eval "$(aparta env)"
+aparta shell-install # instala a ativação automática no zsh
 aparta fallback   # o que roda fora dos perfis; --secure deixa neutro, --restore desfaz
 aparta update     # atualiza o aparta para a versão mais recente
 aparta help       # todos os comandos e o que cada um faz
@@ -118,8 +123,8 @@ aparta --verbose  # em qualquer comando: mostra cada arquivo, backup e diff
 Sessão de nuvem não dura para sempre: o padrão do Google Workspace para clientes novos é 16 horas, e cada organização pode definir de 1 a 24. O aparta trata isso em três etapas:
 
 - **Renovação silenciosa enquanto é possível.** Enquanto o refresh token vale, o aparta renova o access token por você e você nem percebe.
-- **Aviso antes de doer, não depois.** Quando a credencial realmente precisa de uma pessoa, o aparta avisa na próxima vez que você o executa, dizendo qual perfil e qual comando resolve. A verificação é cacheada, nunca trava nada, e `APARTA_AUTH_CHECK=off` desliga.
-- **Um comando que não tem como cair no lugar errado.** O `aparta login <perfil>` roda o login do provedor dentro do escopo daquele perfil e reafirma a conta certa no final. Ele pula o que ainda está válido, e o `--provider gcloud|gh|adc|aws` mira uma credencial só.
+- **Aviso antes de doer, não depois.** O prompt sempre identifica o workspace ativo. Quando um provedor expõe uma expiração não renovável, aparece um contador nos últimos 30 minutos. Credenciais renovadas automaticamente aparecem como renováveis, sem um cronômetro enganoso. `APARTA_EXPIRY_WARNING_MINUTES` altera o limite.
+- **Um comando que não tem como cair no lugar errado.** `aparta login` resolve a worktree atual; `aparta login <workspace-ou-perfil>` funciona de qualquer pasta. O login roda dentro do escopo selecionado, pula credenciais válidas e `--provider gcloud|gh|adc|aws` mira uma credencial.
 - **O ADC é verificado do jeito que as bibliotecas enxergam.** O gcloud guarda um comprovante de reautenticação em cache, então a sonda dele pode dizer "válida" enquanto Terraform, Dataform e qualquer SDK tomam `invalid_rapt` num refresh comum. O aparta sonda as credenciais de aplicação do perfil com esse refresh comum, e o `aparta login` cria ou renova elas dentro do escopo do perfil. Perfil que escolheu viver sem ADC não é cobrado.
 - **A AWS entra pelo mesmo princípio.** A sonda é a chamada STS que todo SDK faz; sessão SSO vencida é renovada com `aws sso login` no escopo do perfil, e perfil de chaves estáticas é apontado para o `aws configure`, o único que consegue trocar essas chaves.
 - **O aviso aparece onde o acidente acontece.** O aparta instala uma verificação de início pelo mecanismo nativo de cada agente, então a mensagem surge dentro do Claude Code, Codex, Gemini CLI, Antigravity ou opencode, e não só quando você mesmo roda o aparta. A verificação lê um cache, então nada fica esperando a rede.
@@ -136,7 +141,9 @@ O GitHub é apenas reportado, não alterado: o gh guarda o token ativo no chavei
 
 ## Scripts e shells comuns
 
-Os agentes recebem o ambiente do perfil pelos adapters, mas um terminal comum ou um script rodado na mão não herda nada, e script wrapper escrito na mão costuma esquecer justo as partes que importam. Dois comandos fecham essa lacuna:
+`aparta shell-install` instala uma vez a ativação automática no zsh. Daí em diante, entrar em um repositório ou worktree registrado seleciona o workspace exato, limpa seletores herdados de outro cliente e mostra a contagem regressiva das credenciais no prompt direito. Ao sair dos workspaces registrados, o ambiente gerenciado é limpo novamente.
+
+Os agentes também recebem o ambiente do workspace pelos adapters. Scripts podem pedir explicitamente esse mesmo ambiente:
 
 ```bash
 aparta run -- terraform apply          # qualquer comando, com o env do perfil da pasta
@@ -144,7 +151,7 @@ aparta run --profile trabalho -- gcloud storage ls   # ou nomeando o perfil
 eval "$(aparta env)"                   # as mesmas variáveis como linhas de export, para scripts
 ```
 
-O perfil vem da raiz configurada mais funda que contém a pasta atual, repos adotados incluídos. O `--with-gh-token`, nos dois comandos, também exporta o `GITHUB_TOKEN` lido do gh do perfil, útil para o provider do GitHub no Terraform; ele é opcional de propósito, porque coloca um segredo do chaveiro no ambiente de todos os processos filhos.
+O workspace é resolvido pelo Git top-level exato, então worktrees irmãs podem usar perfis e providers diferentes com segurança. O `--with-gh-token`, nos dois comandos, também exporta o `GITHUB_TOKEN` lido do gh do perfil, útil para o provider do GitHub no Terraform; ele é opcional de propósito, porque coloca um segredo do chaveiro no ambiente de todos os processos filhos.
 
 ## Duas formas de separar o gcloud
 
@@ -169,7 +176,7 @@ Quando um perfil usa Google Cloud, o assistente pergunta até onde a separação
 | Agente | Mecanismo de injeção | Aviso de expiração |
 |---|---|---|
 | Claude Code | campo `env` em `.claude/settings.local.json` (merge) | hook `SessionStart` |
-| Codex CLI | seção `[env]` em `.codex/config.toml` do repositório | hook `SessionStart` (o Codex pede sua confirmação uma vez) |
+| Codex CLI | [`[shell_environment_policy.set]`](https://developers.openai.com/codex/config-reference) no `.codex/config.toml` do repositório | hook `SessionStart` (o Codex pede sua confirmação uma vez) |
 | Gemini CLI | `.gemini/.env` do projeto (carregado nativamente pelo CLI) | hook `SessionStart` em `.gemini/settings.json` |
 | Antigravity | `terminal.integrated.env.{osx,linux}` em `.vscode/settings.json` | task que roda ao abrir a pasta |
 | opencode | plugin `shell.env` gerado em `.opencode/plugins/aparta-env.js` | o mesmo plugin, no início e a cada sessão nova |
@@ -183,6 +190,7 @@ Quer suporte para um agente novo? É criar um arquivo em `src/aparta/agents/`, o
 - Toda escrita em arquivo existente cria backup com timestamp e faz **merge**: o aparta nunca sobrescreve seus dotfiles.
 - O `--dry-run` mostra cada mudança como diff antes de você decidir qualquer coisa.
 - A varredura é 100% somente leitura.
+- A ativação do workspace limpa seletores de credencial herdados antes de aplicar o workspace exato. Se o ADC isolado estiver ausente, a operação falha fechada em vez de recorrer a uma conta global.
 - Nada é enviado para lugar nenhum. Sem telemetria, sem chamadas de rede além das que você mesmo dispara (`gh auth login`, `gcloud auth login`).
 - Mudou de ideia? O `aparta remove` desfaz tudo o que um perfil aplicou, e os backups continuam lá.
 
