@@ -96,7 +96,7 @@ git commit -m "feat(workspaces): resolve exact repository contexts"
 - Consumes: `Workspace`, `MANAGED_ENV_KEYS`, and profile provider settings.
 - Produces: `workspace_env(workspace, profile) -> dict[str, str]` and `clean_environment(base, overlay) -> dict[str, str]`.
 
-- [ ] **Step 1: Write failing cross-client leakage and missing-ADC tests**
+- [x] **Step 1: Write failing cross-client leakage and missing-ADC tests**
 
 ```python
 def test_clean_environment_drops_selectors_from_previous_client():
@@ -109,13 +109,13 @@ def test_isolated_profile_blocks_global_adc_when_its_adc_is_missing(tmp_path, mo
     assert profile.env()["GOOGLE_APPLICATION_CREDENTIALS"] == str(tmp_path / "gcloud-whirlpool" / "application_default_credentials.json")
 ```
 
-- [ ] **Step 2: Run the focused tests and verify they fail on retained selectors and absent ADC**
+- [x] **Step 2: Run the focused tests and verify they fail on retained selectors and absent ADC**
 
 Run: `uv run pytest tests/test_run_env.py tests/test_gcloud_backend.py -q`
 
 Expected: FAIL because inherited selectors remain and missing ADC is omitted.
 
-- [ ] **Step 3: Implement clearing and the fail-closed ADC selector**
+- [x] **Step 3: Implement clearing and the fail-closed ADC selector**
 
 ```python
 def clean_environment(base: Mapping[str, str], overlay: Mapping[str, str]) -> dict[str, str]:
@@ -127,13 +127,13 @@ def clean_environment(base: Mapping[str, str], overlay: Mapping[str, str]) -> di
 Always add the isolated profile ADC path to `Profile.env()`, whether or not the
 file exists.
 
-- [ ] **Step 4: Run focused runtime tests**
+- [x] **Step 4: Run focused runtime tests**
 
 Run: `uv run pytest tests/test_run_env.py tests/test_gcloud_backend.py tests/test_auth.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the security boundary**
+- [x] **Step 5: Commit the security boundary**
 
 ```bash
 git add src/aparta/profiles.py src/aparta/runner.py tests/test_run_env.py tests/test_gcloud_backend.py

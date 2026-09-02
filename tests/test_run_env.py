@@ -79,14 +79,48 @@ def test_run_layers_the_profile_env_over_the_current_one(tmp_path, monkeypatch):
     assert seen["env"]["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "work"
 
 
-def test_adc_is_only_exported_when_the_file_exists(tmp_path):
+def test_run_drops_managed_selectors_inherited_from_another_client(tmp_path, monkeypatch):
+    """Layering over the shell must not retain a provider the workspace did not select."""
+    profile = _profiles(tmp_path)["work"]
+    seen = {}
+
+    def fake_run(command, env=None, **kwargs):
+        seen["env"] = env
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setenv("GH_CONFIG_DIR", "/effektra/gh")
+    monkeypatch.setenv("GH_TOKEN", "effektra-secret")
+    monkeypatch.setenv("AWS_PROFILE", "effektra")
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/effektra/adc.json")
+
+    assert runner.run_in_profile(profile, ["terraform", "plan"]) == 0
+
+    assert "GH_CONFIG_DIR" not in seen["env"]
+    assert "GH_TOKEN" not in seen["env"]
+    assert "AWS_PROFILE" not in seen["env"]
+    assert seen["env"]["GOOGLE_APPLICATION_CREDENTIALS"] == str(
+        profile.gcloud_config_dir / "application_default_credentials.json"
+    )
+
+
+def test_clean_environment_preserves_unrelated_values_and_replaces_managed_ones():
+    """Removing unrelated shell values would make automatic activation destructive."""
+    clean = runner.clean_environment(
+        {"PATH": "/bin", "GH_CONFIG_DIR": "/old", "AWS_PROFILE": "old"},
+        {"GH_CONFIG_DIR": "/new"},
+    )
+
+    assert clean == {"PATH": "/bin", "GH_CONFIG_DIR": "/new"}
+
+
+def test_isolated_adc_path_is_exported_before_the_file_exists(tmp_path):
+    """Omitting the selector lets Google libraries fall through to the global ADC."""
     profile = _profiles(tmp_path)["work"]
     env = runner.profile_env(profile)
-    assert "GOOGLE_APPLICATION_CREDENTIALS" not in env
-    profile.gcloud_config_dir.mkdir(parents=True)
-    (profile.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
-    env = runner.profile_env(profile)
-    assert env["GOOGLE_APPLICATION_CREDENTIALS"].endswith("application_default_credentials.json")
+    assert env["GOOGLE_APPLICATION_CREDENTIALS"] == str(
+        profile.gcloud_config_dir / "application_default_credentials.json"
+    )
 
 
 def test_gh_token_is_strictly_opt_in(tmp_path, monkeypatch):

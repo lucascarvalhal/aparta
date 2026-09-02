@@ -50,12 +50,42 @@ def profiles_path() -> Path:
 # a profile that switched gcloud mode) instead of leaving them dangling.
 MANAGED_ENV_KEYS = (
     "GH_CONFIG_DIR",
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "GLAB_CONFIG_DIR",
+    "GLAB_TOKEN",
+    "GITLAB_TOKEN",
+    "BITBUCKET_TOKEN",
     "CLOUDSDK_CONFIG",
     "CLOUDSDK_ACTIVE_CONFIG_NAME",
+    "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE",
     "GOOGLE_APPLICATION_CREDENTIALS",
+    "GOOGLE_CLOUD_PROJECT",
+    "GCLOUD_PROJECT",
     "CLOUDSDK_CORE_DISABLE_FILE_LOGGING",
     "AWS_PROFILE",
+    "AWS_DEFAULT_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_SECURITY_TOKEN",
+    "AWS_SHARED_CREDENTIALS_FILE",
+    "AWS_CONFIG_FILE",
+    "AWS_WEB_IDENTITY_TOKEN_FILE",
+    "AWS_ROLE_ARN",
+    "GIT_CONFIG_GLOBAL",
+    "GIT_CONFIG_COUNT",
+    "GIT_SSH_COMMAND",
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
 )
+
+# Git's command-scoped config uses numbered keys whose suffix is not known in
+# advance. Environment construction clears every matching key before creating
+# a workspace overlay.
+MANAGED_ENV_PREFIXES = ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
 
 
 @dataclass
@@ -113,8 +143,10 @@ class Profile:
                 # and Go libraries (so Terraform too) hardcode the global ADC
                 # path; pointing at the file directly is honored by all of them
                 adc = self.gcloud_config_dir / "application_default_credentials.json"
-                if adc.exists():
-                    env["GOOGLE_APPLICATION_CREDENTIALS"] = str(adc)
+                # Point at the isolated location even before login creates it.
+                # A missing explicit file fails closed; omitting this variable
+                # lets Google libraries borrow the global ADC instead.
+                env["GOOGLE_APPLICATION_CREDENTIALS"] = str(adc)
                 # each isolated dir would otherwise grow its own log tree
                 env["CLOUDSDK_CORE_DISABLE_FILE_LOGGING"] = "1"
             else:

@@ -185,8 +185,11 @@ def test_isolated_env_points_sdks_at_the_profile_adc(tmp_path, monkeypatch):
     profile = Profile(
         name="acme", root="~/a", git_email="a@b.c", gcloud_account="a@b.c", gcloud_isolated=True
     )
-    # no ADC file yet: nothing to point at, so the variable stays out
-    assert "GOOGLE_APPLICATION_CREDENTIALS" not in profile.env()
+    # A missing profile ADC must block the global lookup chain, not omit the
+    # selector and silently borrow another client's global credential.
+    assert profile.env()["GOOGLE_APPLICATION_CREDENTIALS"] == str(
+        tmp_path / "gcloud-acme" / "application_default_credentials.json"
+    )
 
     adc = tmp_path / "gcloud-acme" / "application_default_credentials.json"
     adc.parent.mkdir(parents=True)

@@ -13,12 +13,26 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+from collections.abc import Mapping
 
 from .i18n import _
-from .profiles import Profile
+from .profiles import MANAGED_ENV_KEYS, MANAGED_ENV_PREFIXES, Profile
 from .workspaces import profile_for_path
 
 TOKEN_TIMEOUT = 20
+
+
+def is_managed_env_key(key: str) -> bool:
+    return key in MANAGED_ENV_KEYS or key.startswith(MANAGED_ENV_PREFIXES)
+
+
+def clean_environment(
+    base: Mapping[str, str], overlay: Mapping[str, str]
+) -> dict[str, str]:
+    """Replace Aparta-owned selectors instead of layering across clients."""
+    clean = {key: value for key, value in base.items() if not is_managed_env_key(key)}
+    clean.update(overlay)
+    return clean
 
 
 def gh_token(profile: Profile) -> str:
@@ -58,8 +72,7 @@ def export_lines(env: dict[str, str]) -> str:
 
 def run_in_profile(profile: Profile, command: list[str], with_gh_token: bool = False) -> int:
     """Execute a command with the profile env layered over the current one."""
-    env = dict(os.environ)
-    env.update(profile_env(profile, with_gh_token))
+    env = clean_environment(os.environ, profile_env(profile, with_gh_token))
     try:
         return subprocess.run(command, env=env).returncode
     except FileNotFoundError:
