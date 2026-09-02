@@ -13,28 +13,12 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
-from pathlib import Path
 
 from .i18n import _
 from .profiles import Profile
+from .workspaces import profile_for_path
 
 TOKEN_TIMEOUT = 20
-
-
-def profile_for_path(path: Path, profiles: dict[str, Profile]) -> Profile | None:
-    """The profile owning a path: deepest root wins, adopted repos count."""
-    path = path.resolve()
-    best: Profile | None = None
-    best_depth = -1
-    for profile in profiles.values():
-        candidates = [profile.root_path] + [Path(r).expanduser() for r in profile.adopted_repos]
-        for root in candidates:
-            root = root.resolve()
-            if path == root or root in path.parents:
-                depth = len(root.parts)
-                if depth > best_depth:
-                    best, best_depth = profile, depth
-    return best
 
 
 def gh_token(profile: Profile) -> str:

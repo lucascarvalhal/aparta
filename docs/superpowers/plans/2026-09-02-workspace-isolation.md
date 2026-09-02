@@ -32,7 +32,7 @@
 - Consumes: `Profile`, `load_profiles()`, and the existing deepest-root ownership rule.
 - Produces: `Workspace`, `load_workspaces()`, `save_workspaces()`, `git_workspace_root()`, `resolve_workspace()`, and `workspace_for_path()`.
 
-- [ ] **Step 1: Write failing persistence and exact-resolution tests**
+- [x] **Step 1: Write failing persistence and exact-resolution tests**
 
 ```python
 def test_workspace_roundtrip_and_exact_worktree_resolution(tmp_path):
@@ -46,13 +46,13 @@ def test_current_worktree_beats_broad_profile_root(tmp_path):
     assert workspace_for_path(tmp_path / "repo-feature" / "src", {"eneva": profile}, {"feature": workspace}) == workspace
 ```
 
-- [ ] **Step 2: Run the focused tests and verify missing workspace APIs cause failure**
+- [x] **Step 2: Run the focused tests and verify missing workspace APIs cause failure**
 
 Run: `uv run pytest tests/test_workspaces.py -q`
 
 Expected: FAIL because `aparta.workspaces` does not exist.
 
-- [ ] **Step 3: Implement the typed registry and resolver**
+- [x] **Step 3: Implement the typed registry and resolver**
 
 ```python
 @dataclass
@@ -71,13 +71,13 @@ def workspace_for_path(path: Path, profiles: dict[str, Profile], workspaces: dic
     return implicit_workspace(root, profile) if profile else None
 ```
 
-- [ ] **Step 4: Run the focused tests until they pass**
+- [x] **Step 4: Run the focused tests until they pass**
 
 Run: `uv run pytest tests/test_workspaces.py tests/test_run_env.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the workspace foundation**
+- [x] **Step 5: Commit the workspace foundation**
 
 ```bash
 git add src/aparta/workspaces.py src/aparta/runner.py tests/test_workspaces.py
