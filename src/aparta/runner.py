@@ -37,7 +37,7 @@ def clean_environment(
 
 def gh_token(profile: Profile) -> str:
     """The profile's GitHub token, read from gh's keyring scope."""
-    env = dict(os.environ, GH_CONFIG_DIR=str(profile.gh_config_dir))
+    env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
     try:
         r = subprocess.run(
             ["gh", "auth", "token"],

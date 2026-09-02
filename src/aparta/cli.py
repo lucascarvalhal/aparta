@@ -46,7 +46,7 @@ def main(
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
     # run and env stay quiet: their stdout belongs to the wrapped command
     # (or to an eval), so no warning may pollute it
-    if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env"):
+    if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env", "status"):
         from .updates import notify_or_autoupdate
 
         notify_or_autoupdate()
@@ -328,20 +328,205 @@ def update() -> None:
 
 
 @app.command()
-def login(
-    profile_name: str = typer.Argument(..., help=_("Profile to reauthenticate.")),
-    provider: str = typer.Option("", "--provider", help=_("Only this provider (gcloud, gh, adc or aws).")),
+def add(
+    ctx: typer.Context,
+    values: list[str] = typer.Argument(..., help=_("[workspace] provider to enable.")),
 ) -> None:
-    """Reauthenticate a profile, in its own isolated scope."""
-    from .auth import login_profile
+    """Enable a provider in the current or explicitly named workspace."""
+    from pathlib import Path
+
+    from .providers import ProviderError, canonical_provider, validate_provider
+    from .workspaces import (
+        Workspace,
+        WorkspaceResolutionError,
+        load_workspaces,
+        resolve_workspace,
+        save_workspaces,
+    )
+
+    if len(values) == 1:
+        selector, raw_provider = "", values[0]
+    elif len(values) == 2:
+        selector, raw_provider = values
+    else:
+        console.print(_("[red]Usage: aparta add [workspace] <provider>[/red]"))
+        raise typer.Exit(2)
 
     profiles = load_profiles()
-    profile = profiles.get(profile_name)
-    if not profile:
-        console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
+    workspaces = load_workspaces()
+    try:
+        workspace = resolve_workspace(selector, Path.cwd(), profiles, workspaces)
+        profile = profiles[workspace.profile]
+        provider = canonical_provider(raw_provider)
+        validate_provider(profile, provider)
+    except (WorkspaceResolutionError, ProviderError, KeyError) as exc:
+        console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
-    if not login_profile(profile, provider):
+
+    if provider in workspace.providers:
+        console.print(
+            _(
+                "[green]{provider}[/green] is already enabled in workspace '{workspace}'.",
+                provider=provider,
+                workspace=workspace.name,
+            )
+        )
+        return
+
+    workspace.providers = list(dict.fromkeys([*workspace.providers, provider]))
+    existing_same_path = next(
+        (name for name, saved in workspaces.items() if saved.root_path == workspace.root_path),
+        "",
+    )
+    if existing_same_path:
+        workspace.name = existing_same_path
+    elif workspace.name in workspaces and workspaces[workspace.name].root_path != workspace.root_path:
+        base = f"{workspace.profile}-{workspace.name}"
+        name = base
+        suffix = 2
+        while name in workspaces:
+            name = f"{base}-{suffix}"
+            suffix += 1
+        workspace.name = name
+    workspaces[workspace.name] = Workspace(
+        workspace.name,
+        str(workspace.root_path),
+        workspace.profile,
+        workspace.providers,
+    )
+    options = ctx.obj or {}
+    save_workspaces(
+        workspaces,
+        SafeWriter(
+            dry_run=options.get("dry_run", False),
+            verbose=options.get("verbose", False),
+        ),
+    )
+    console.print(
+        _(
+            "[green]{provider}[/green] enabled in workspace '{workspace}'.",
+            provider=provider,
+            workspace=workspace.name,
+        )
+    )
+
+
+def _login_target(selector: str):
+    """Resolve a direct profile or an exact workspace for authentication."""
+    from pathlib import Path
+
+    from .workspaces import load_workspaces, resolve_workspace
+
+    profiles = load_profiles()
+    if selector and selector in profiles:
+        return profiles[selector], None
+    workspace = resolve_workspace(selector, Path.cwd(), profiles, load_workspaces())
+    return profiles[workspace.profile], workspace
+
+
+@app.command()
+def login(
+    profile_name: str = typer.Argument("", help=_("Workspace or profile to reauthenticate (default: current workspace).")),
+    provider: str = typer.Option("", "--provider", help=_("Only this provider (gcloud, gh, adc or aws).")),
+) -> None:
+    """Reauthenticate the current workspace or an explicit target."""
+    from .auth import login_profile
+    from .providers import ProviderError, canonical_provider
+    from .workspaces import WorkspaceResolutionError
+
+    try:
+        profile, workspace = _login_target(profile_name)
+        selected_provider = canonical_provider(provider) if provider else ""
+    except (WorkspaceResolutionError, ProviderError, KeyError) as exc:
+        console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1)
+    enabled = workspace.providers if workspace is not None else None
+    if not login_profile(profile, selected_provider, enabled_providers=enabled):
+        raise typer.Exit(1)
+
+
+def _expiry_warning_minutes() -> int:
+    import os
+
+    try:
+        return max(0, int(os.environ.get("APARTA_EXPIRY_WARNING_MINUTES", "30")))
+    except ValueError:
+        return 30
+
+
+@app.command()
+def status(
+    selector: str = typer.Argument("", help=_("Workspace or profile to inspect (default: current workspace).")),
+    shell: bool = typer.Option(False, "--shell", help=_("Print a compact prompt status.")),
+) -> None:
+    """Show the current workspace, provider health, and known expiry warning."""
+    import math
+    import time
+    from pathlib import Path
+
+    from .auth import OK, cached_check
+    from .providers import canonical_providers, status_provider_name
+    from .workspaces import (
+        WorkspaceResolutionError,
+        default_providers,
+        load_workspaces,
+        resolve_workspace,
+    )
+
+    profiles = load_profiles()
+    workspace = None
+    try:
+        if selector and selector in profiles:
+            profile = profiles[selector]
+            providers = default_providers(profile)
+        else:
+            workspace = resolve_workspace(selector, Path.cwd(), profiles, load_workspaces())
+            profile = profiles[workspace.profile]
+            providers = canonical_providers(workspace.providers)
+    except (WorkspaceResolutionError, KeyError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+
+    statuses = [
+        item
+        for item in cached_check(profile)
+        if status_provider_name(item.provider) in providers
+    ]
+    blocked = any(item.needs_human for item in statuses)
+    unknown = any(item.state != OK and not item.needs_human for item in statuses)
+    state = "blocked" if blocked else "unknown" if unknown else "ok"
+
+    now = time.time()
+    warning_seconds = _expiry_warning_minutes() * 60
+    imminent = [
+        item
+        for item in statuses
+        if item.expires_at is not None
+        and not item.renewable
+        and item.expires_at - now <= warning_seconds
+    ]
+    remaining = None
+    if imminent:
+        remaining = min(item.expires_at for item in imminent if item.expires_at is not None) - now
+    countdown = f"{max(0, math.ceil(remaining / 60))}m" if remaining is not None else ""
+    renewable = any(item.renewable for item in statuses)
+    workspace_name = workspace.name if workspace is not None else profile.name
+
+    if shell:
+        extras = f" {countdown}" if countdown else ""
+        print(f"[aparta:{workspace_name} {state}{extras}]")
+        return
+
+    console.print(_("Workspace: [bold]{name}[/bold]", name=workspace_name))
+    console.print(_("Profile: [bold]{name}[/bold]", name=profile.name))
+    console.print(_("Providers: {providers}", providers=", ".join(providers)))
+    if countdown:
+        console.print(_("Credential expires in [yellow]{remaining}[/yellow].", remaining=countdown))
+    elif renewable:
+        console.print(_("Credential is renewable automatically."))
+    for item in statuses:
+        detail = f": {item.detail}" if item.detail else ""
+        console.print(f"{item.provider}: {item.state}{detail}")
 
 
 def _resolve_profile(profile_name: str):

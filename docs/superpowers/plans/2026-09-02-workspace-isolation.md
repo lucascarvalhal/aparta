@@ -154,7 +154,7 @@ git commit -m "fix(runtime): prevent inherited credential fallback"
 - Consumes: `resolve_workspace()`, `Workspace.providers`, `login_profile()`, and `cached_check()`.
 - Produces: provider canonicalization, `aparta add [workspace] provider`, optional-context `aparta login`, and `aparta status`.
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 ```python
 def test_add_one_argument_targets_current_worktree(runner, configured_workspace, monkeypatch):
@@ -169,13 +169,13 @@ def test_login_without_argument_uses_current_workspace(runner, configured_worksp
     assert result.exit_code == 0
 ```
 
-- [ ] **Step 2: Run the focused tests and verify CLI contract failures**
+- [x] **Step 2: Run the focused tests and verify CLI contract failures**
 
 Run: `uv run pytest tests/test_contextual_cli.py -q`
 
 Expected: FAIL because `add`, optional login context, and status do not exist.
 
-- [ ] **Step 3: Implement canonical provider definitions and CLI parsing**
+- [x] **Step 3: Implement canonical provider definitions and CLI parsing**
 
 ```python
 PROVIDER_ALIASES = {"gh": "github", "google": "gcloud"}
@@ -192,19 +192,19 @@ def parse_add_arguments(values: list[str]) -> tuple[str, str]:
 Persist explicit workspace providers only after validation succeeds. Reject
 `gcloud` and `adc` for light profiles with an actionable isolated-mode error.
 
-- [ ] **Step 4: Implement status output from cached provider health**
+- [x] **Step 4: Implement status output from cached provider health**
 
 Extend `AuthStatus` with optional `expires_at` and `renewable` fields. Human
 status reports every selected provider. Shell status returns only workspace,
 profile, state, and earliest known non-renewable expiry.
 
-- [ ] **Step 5: Run focused CLI and auth tests**
+- [x] **Step 5: Run focused CLI and auth tests**
 
 Run: `uv run pytest tests/test_contextual_cli.py tests/test_auth.py tests/test_i18n.py -q`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit contextual commands**
+- [x] **Step 6: Commit contextual commands**
 
 ```bash
 git add src/aparta/providers.py src/aparta/cli.py src/aparta/auth.py src/aparta/i18n.py tests/test_contextual_cli.py tests/test_auth.py

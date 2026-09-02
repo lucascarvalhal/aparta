@@ -140,11 +140,14 @@ def test_gh_token_reads_from_the_profile_scope(tmp_path, monkeypatch):
 
     def fake_run(args, env=None, **kwargs):
         seen["config_dir"] = (env or {}).get("GH_CONFIG_DIR")
+        seen["inherited_token"] = (env or {}).get("GH_TOKEN")
         return subprocess.CompletedProcess(args, 0, stdout="tok", stderr="")
 
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    monkeypatch.setenv("GH_TOKEN", "another-client")
     runner.gh_token(profile)
     assert seen["config_dir"] == str(profile.gh_config_dir)
+    assert seen["inherited_token"] is None
 
 
 def test_export_lines_are_shell_safe():

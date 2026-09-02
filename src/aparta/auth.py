@@ -22,6 +22,7 @@ from pathlib import Path
 
 from .i18n import _
 from .profiles import Profile, config_dir
+from .runner import clean_environment
 
 OK = "ok"
 REAUTH = "reauth"
@@ -48,6 +49,8 @@ class AuthStatus:
     provider: str  # "gcloud" or "gh"
     state: str  # OK, REAUTH, MISSING or UNKNOWN
     detail: str = ""
+    expires_at: float | None = None
+    renewable: bool = False
 
     @property
     def needs_human(self) -> bool:
@@ -75,10 +78,11 @@ def check_gcloud(profile: Profile) -> AuthStatus | None:
     """Probe the profile's gcloud credential, refreshing it silently."""
     if not profile.gcloud_account:
         return None
-    env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS="1")
-    env.update(
-        {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
-    )
+    overlay = {
+        k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
+    }
+    overlay["CLOUDSDK_CORE_DISABLE_PROMPTS"] = "1"
+    env = clean_environment(os.environ, overlay)
     try:
         r = subprocess.run(
             ["gcloud", "auth", "print-access-token", "--account", profile.gcloud_account],
@@ -174,10 +178,11 @@ def check_adc(profile: Profile) -> AuthStatus | None:
     if status is not None:
         return status
     # not a user credential (or unreadable): fall back to gcloud's own probe
-    env = dict(os.environ, CLOUDSDK_CORE_DISABLE_PROMPTS="1")
-    env.update(
-        {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
-    )
+    overlay = {
+        k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
+    }
+    overlay["CLOUDSDK_CORE_DISABLE_PROMPTS"] = "1"
+    env = clean_environment(os.environ, overlay)
     try:
         r = subprocess.run(
             ["gcloud", "auth", "application-default", "print-access-token"],
@@ -219,7 +224,7 @@ def check_aws(profile: Profile) -> AuthStatus | None:
     """
     if not profile.aws_profile:
         return None
-    env = dict(os.environ, AWS_PROFILE=profile.aws_profile)
+    env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
     try:
         r = subprocess.run(
             ["aws", "sts", "get-caller-identity", "--output", "json"],
@@ -243,7 +248,7 @@ def check_gh(profile: Profile) -> AuthStatus | None:
     """Probe the profile's GitHub token with a cheap authenticated call."""
     if not profile.gh_user:
         return None
-    env = dict(os.environ, GH_CONFIG_DIR=str(profile.gh_config_dir))
+    env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
     try:
         r = subprocess.run(
             ["gh", "api", "user", "--jq", ".login"],
@@ -339,7 +344,11 @@ def _flush_stdin() -> None:
         pass
 
 
-def login_profile(profile: Profile, provider: str = "") -> bool:
+def login_profile(
+    profile: Profile,
+    provider: str = "",
+    enabled_providers: list[str] | None = None,
+) -> bool:
     """Run the interactive login for a profile, in the profile's own scope.
 
     The whole point is that the user never has to remember an environment
@@ -351,16 +360,30 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
     console = Console()
     ok = True
 
-    if profile.gcloud_account and provider in ("", "gcloud"):
+    from .providers import auth_provider_name, canonical_providers
+
+    forced = auth_provider_name(provider) if provider else ""
+    enabled = (
+        set(canonical_providers(enabled_providers))
+        if enabled_providers is not None
+        else {"gcloud", "adc", "github", "aws"}
+    )
+    wants_gcloud = forced == "gcloud" if forced else "gcloud" in enabled
+    wants_adc = forced == "adc" if forced else "adc" in enabled
+    wants_github = forced == "gh" if forced else "github" in enabled
+    wants_aws = forced == "aws" if forced else "aws" in enabled
+
+    if profile.gcloud_account and wants_gcloud:
         env = _gcloud_env(profile)
         # asked for the whole profile, not gcloud specifically: skip the
         # browser dance when the credential is still good
-        status = check_gcloud(profile) if provider == "" else None
+        status = check_gcloud(profile) if not forced else None
         if status is not None and status.state == OK:
             console.print(
                 _("[green]gcloud:[/green] '{account}' is still valid; skipping the browser login", account=profile.gcloud_account)
             )
-            ok &= _ensure_adc(profile, env, console)
+            if wants_adc:
+                ok &= _ensure_adc(profile, env, console)
         else:
             console.print(
                 _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
@@ -380,16 +403,17 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
                     timeout=PROBE_TIMEOUT,
                 )
                 console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
-                ok &= _ensure_adc(profile, env, console)
+                if wants_adc:
+                    ok &= _ensure_adc(profile, env, console)
             else:
                 ok = False
 
-    if profile.gcloud_account and provider == "adc":
+    if profile.gcloud_account and wants_adc and not wants_gcloud:
         ok &= _ensure_adc(profile, _gcloud_env(profile), console, announce_ok=True)
 
-    if profile.gh_user and provider in ("", "gh"):
-        env = dict(os.environ, GH_CONFIG_DIR=str(profile.gh_config_dir))
-        status = check_gh(profile) if provider == "" else None
+    if profile.gh_user and wants_github:
+        env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
+        status = check_gh(profile) if not forced else None
         if status is not None and status.state == OK:
             console.print(
                 _(
@@ -413,8 +437,8 @@ def login_profile(profile: Profile, provider: str = "") -> bool:
             else:
                 ok = False
 
-    if profile.aws_profile and provider in ("", "aws"):
-        status = check_aws(profile) if provider == "" else None
+    if profile.aws_profile and wants_aws:
+        status = check_aws(profile) if not forced else None
         if status is not None and not status.needs_human:
             if status.state == OK:
                 console.print(
@@ -438,7 +462,7 @@ def _aws_login(profile: Profile, console) -> bool:
     """
     from .backends.aws import is_sso_profile
 
-    env = dict(os.environ, AWS_PROFILE=profile.aws_profile)
+    env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
     if not is_sso_profile(profile.aws_profile):
         console.print(
             _(
@@ -461,11 +485,10 @@ def _aws_login(profile: Profile, console) -> bool:
 
 
 def _gcloud_env(profile: Profile) -> dict:
-    env = dict(os.environ)
-    env.update(
-        {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
-    )
-    return env
+    overlay = {
+        k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
+    }
+    return clean_environment(os.environ, overlay)
 
 
 def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False) -> bool:

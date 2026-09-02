@@ -50,6 +50,20 @@ def test_probe_disables_prompts_so_it_never_hangs(monkeypatch):
     assert seen["stdin"] == subprocess.DEVNULL
 
 
+def test_gcloud_probe_clears_foreign_credential_override(monkeypatch):
+    """A credential-file override takes precedence over the selected gcloud account."""
+    seen = {}
+    monkeypatch.setenv("CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE", "/effektra/key.json")
+
+    def run(args, env=None, **kwargs):
+        seen["env"] = env
+        return subprocess.CompletedProcess(args, 0, stdout="token", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    auth.check_gcloud(PROFILE)
+    assert "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE" not in seen["env"]
+
+
 def test_expired_session_asks_for_a_human(monkeypatch):
     monkeypatch.setattr(
         auth.subprocess,
@@ -108,6 +122,41 @@ def test_github_sso_is_recognized(monkeypatch):
     assert "SSO" in status.detail or "sso" in status.detail.lower()
 
 
+def test_github_probe_clears_inherited_token_before_selecting_config(monkeypatch):
+    """GH_TOKEN overrides GH_CONFIG_DIR and could silently select another client."""
+    seen = {}
+    monkeypatch.setenv("GH_TOKEN", "effektra-token")
+
+    def run(args, env=None, **kwargs):
+        seen["env"] = env
+        return subprocess.CompletedProcess(args, 0, stdout="ana-acme", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth.check_gh(PROFILE).state == auth.OK
+    assert "GH_TOKEN" not in seen["env"]
+    assert seen["env"]["GH_CONFIG_DIR"] == str(PROFILE.gh_config_dir)
+
+
+def test_aws_probe_clears_static_env_keys_before_selecting_named_profile(monkeypatch):
+    """AWS_ACCESS_KEY_ID outranks AWS_PROFILE in the standard credential chain."""
+    profile = Profile(
+        name="acme", root="~/acme", git_email="a@b.c", aws_profile="acme"
+    )
+    seen = {}
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "EFFEKTRA")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
+
+    def run(args, env=None, **kwargs):
+        seen["env"] = env
+        return subprocess.CompletedProcess(args, 0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth.check_aws(profile).state == auth.OK
+    assert "AWS_ACCESS_KEY_ID" not in seen["env"]
+    assert "AWS_SECRET_ACCESS_KEY" not in seen["env"]
+    assert seen["env"]["AWS_PROFILE"] == "acme"
+
+
 def test_providers_the_profile_does_not_use_are_skipped():
     bare = Profile(name="x", root="~/x", git_email="a@b.c")
     assert auth.check_gcloud(bare) is None
@@ -163,6 +212,19 @@ def test_login_skips_providers_whose_credential_is_still_valid(monkeypatch, caps
 
     monkeypatch.setattr(auth.subprocess, "run", explode)
     assert auth.login_profile(PROFILE) is True
+
+
+def test_login_limits_automatic_checks_to_workspace_providers(monkeypatch):
+    """A gcloud-only worktree must not open a GitHub login from its shared profile."""
+    monkeypatch.setattr(auth, "check_gcloud", lambda p: auth.AuthStatus("gcloud", auth.OK))
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+    monkeypatch.setattr(auth, "_ensure_adc", lambda *a, **k: True)
+
+    def explode(*a, **kw):  # pragma: no cover - must not be called
+        raise AssertionError("disabled providers must not run a login")
+
+    monkeypatch.setattr(auth, "check_gh", explode)
+    assert auth.login_profile(PROFILE, enabled_providers=["gcloud"]) is True
 
 
 def test_explicit_provider_forces_the_login_even_when_valid(monkeypatch):
