@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-02
+
 ### Added
 
 - Exact workspace records bind each Git checkout or linked worktree to one
@@ -22,6 +24,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- CI now runs for both `dev` and `main`, and provisions zsh before testing the
+  automatic shell activation behavior on Linux runners.
 - Workspace activation now clears every Aparta-managed selector before
   applying the exact workspace environment. An isolated ADC path is pinned
   even before its file exists, so Google libraries fail closed instead of
@@ -342,7 +346,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7

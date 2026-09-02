@@ -8,6 +8,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.8.0] - 2026-09-02
+
 ### Adicionado
 
 - Registros exatos de workspace vinculam cada checkout Git ou worktree ligada
@@ -24,6 +26,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ### Modificado
 
+- O CI agora roda na `dev` e na `main` e instala zsh antes de testar o
+  comportamento de ativação automática do shell nos runners Linux.
 - A ativação do workspace agora limpa todos os seletores gerenciados pelo
   Aparta antes de aplicar o ambiente exato. O caminho do ADC isolado fica
   fixado mesmo antes de o arquivo existir, fazendo as bibliotecas Google
@@ -356,7 +360,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
 [0.6.8]: https://github.com/lucascarvalhal/aparta/compare/v0.6.7...v0.6.8
 [0.6.7]: https://github.com/lucascarvalhal/aparta/compare/v0.6.6...v0.6.7
