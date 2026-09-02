@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 permissions:
@@ -22,5 +22,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
+      - name: Install zsh
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes zsh
       - name: Run tests
         run: uv run pytest
