@@ -119,11 +119,14 @@ def _warn_about_stale_profiles() -> None:
 
 
 def _warn_about_credentials() -> None:
-    """One line per profile that needs a human, nothing when all is well."""
+    """Expired credentials of the profile owning this folder, or of every profile outside one."""
     from .auth import problems
 
     try:
-        for name, status in problems(list(load_profiles().values())):
+        profiles = load_profiles()
+        current = profile_for_path(Path.cwd(), profiles)
+        scope = [current] if current is not None else list(profiles.values())
+        for name, status in problems(scope):
             console.print(
                 _(
                     "[yellow]{provider} of profile '{name}': {detail}. Run [bold]aparta login {name}[/bold].[/yellow]",

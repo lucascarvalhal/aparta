@@ -165,3 +165,31 @@ def test_generated_plugin_is_syntactically_valid(tmp_path: Path):
     plugin.write_text(render_plugin({"A": "1", "B": 'quote"inside'}, with_check=True))
     result = subprocess.run([node, "--check", str(plugin)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_startup_warning_is_scoped_to_the_profile_owning_the_folder(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from aparta import auth
+    from aparta.cli import app
+    from aparta.fsutil import SafeWriter
+    from aparta.profiles import Profile, save_profiles
+
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "cfg"))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    here = tmp_path / "personal" / "app"
+    here.mkdir(parents=True)
+    profiles = {
+        "personal": Profile(name="personal", root=str(tmp_path / "personal"), git_email="a@b.c"),
+        "client": Profile(name="client", root=str(tmp_path / "client"), git_email="x@y.z"),
+    }
+    save_profiles(profiles, SafeWriter())
+    monkeypatch.setattr(
+        auth, "cached_check", lambda p, force=False: [auth.AuthStatus("gcloud", auth.REAUTH, "expired")]
+    )
+    monkeypatch.chdir(here)
+
+    result = CliRunner().invoke(app, ["list"])
+
+    assert "profile 'personal'" in result.output
+    assert "profile 'client'" not in result.output
