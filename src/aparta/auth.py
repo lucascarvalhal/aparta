@@ -432,7 +432,15 @@ def login_profile(
                 ok = False
 
     if profile.gcloud_account and wants_adc and not wants_gcloud:
-        ok &= _ensure_adc(profile, _gcloud_env(profile), console, announce_ok=True)
+        env = _gcloud_env(profile)
+        if forced == "adc" and profile.gcloud_isolated:
+            # asked for the ADC by name: renew it, like `--provider gcloud`
+            # renews the CLI credential without asking whether it needs to
+            from .backends.gcloud import has_adc
+
+            ok &= _run_adc_login(profile, env, console, created=not has_adc(profile.gcloud_config_dir))
+        else:
+            ok &= _ensure_adc(profile, env, console, announce_ok=True)
 
     if profile.gh_user and wants_github:
         env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})

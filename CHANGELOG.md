@@ -18,6 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/).
   session costs one trip to the browser instead of two. The copy is probed
   like a library first; if it does not pass, the interactive ADC login runs
   as before.
+- `aparta login <profile> --provider adc` now renews the application
+  credentials on request, like `--provider gcloud` already did for the CLI
+  credential, instead of reporting them valid and doing nothing.
 
 ### Fixed
 

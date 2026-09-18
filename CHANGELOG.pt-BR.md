@@ -17,6 +17,9 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   recém-renovado quando o Google aceita, então uma sessão expirada custa
   uma ida ao navegador em vez de duas. A cópia é sondada como uma biblioteca
   antes de valer; se não passar, o login interativo do ADC roda como antes.
+- `aparta login <perfil> --provider adc` agora renova as credenciais de
+  aplicação quando você pede, como `--provider gcloud` já fazia com a
+  credencial do CLI, em vez de dizer que estão válidas e não fazer nada.
 
 ### Corrigido
 

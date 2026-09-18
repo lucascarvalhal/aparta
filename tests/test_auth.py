@@ -619,3 +619,22 @@ def test_adc_login_never_asks_about_google_application_credentials(monkeypatch, 
     assert len(envs) == 2  # reuse attempt, then the browser fallback
     assert all("GOOGLE_APPLICATION_CREDENTIALS" not in e for e in envs)
     assert all(e["CLOUDSDK_CONFIG"] == str(profile_dir) for e in envs)
+
+
+def test_forcing_the_adc_provider_renews_it_even_when_valid(monkeypatch, tmp_path):
+    """`--provider adc` is the explicit ask; answering "still valid" makes the
+    flag useless, exactly what `--provider gcloud` already avoids."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    profile_dir = ISOLATED.gcloud_config_dir
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.OK))
+    calls = []
+
+    def run(args, env=None, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth.login_profile(ISOLATED, provider="adc") is True
+    assert calls and calls[0][:4] == ["gcloud", "auth", "application-default", "login"]
