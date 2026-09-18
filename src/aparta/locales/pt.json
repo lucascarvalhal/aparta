@@ -330,7 +330,6 @@
   "gcloud: configuration '{name}' with {account} (project {project})": "gcloud: configuração '{name}' com {account} (projeto {project})",
   "copied:": "copiado:",
   "[red]gcloud configurations {verb} failed:[/red] {error}": "[red]gcloud configurations {verb} falhou:[/red] {error}",
-  "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]": "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]",
   " (project {project})": " (projeto {project})",
   "[green]gcloud:[/green] dropped foreign configurations: {names}": "[green]gcloud:[/green] configurações de outros perfis removidas: {names}"
 }

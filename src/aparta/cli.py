@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import math
 import os
@@ -15,6 +16,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
+from typer.models import ArgumentInfo
 
 from . import __version__
 from .apply import apply_profile
@@ -182,28 +184,25 @@ def _run_menu(dry_run: bool, verbose: bool = False) -> None:
             _print_profiles()
 
 
-@app.command()
+@app.command(help=_("Guided wizard: pick agents, detect or create profiles, apply."))
 def init(ctx: typer.Context) -> None:
-    """Interactive wizard: pick agents, configure profiles and apply."""
     _run_wizard(ctx.obj["dry_run"], ctx.obj["verbose"])
 
 
-@app.command()
+@app.command(help=_("Re-apply a profile: gitconfigs, gh, gcloud and agent env in the repos."))
 def apply(
     ctx: typer.Context,
-    profile_name: str = typer.Argument(..., help=_("Name of the profile to apply.")),
+    profile_name: str = typer.Argument(..., metavar="profile", help=_("Name of the profile to apply.")),
 ) -> None:
     """Apply a profile: gitconfigs, gh config dir, gcloud config and repo env."""
     profile = _profile_or_fail(load_profiles(), profile_name)
     apply_profile(profile, _writer(ctx))
 
 
-@app.command()
+@app.command(help=_("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
 def doctor(
     ctx: typer.Context,
-    profile_name: str = typer.Argument(
-        None, help=_("Profile to check (empty = all).")
-    ),
+    profile_name: str = typer.Argument(None, metavar="profile", help=_("Profile to check (empty = all).")),
     fix: bool = typer.Option(
         False,
         "--fix",
@@ -245,17 +244,14 @@ def _print_profiles() -> None:
     console.print(table)
 
 
-@app.command("list")
+@app.command("list", help=_("List configured profiles."))
 def list_profiles() -> None:
-    """List configured profiles."""
     _print_profiles()
 
 
-@app.command()
+@app.command(help=_("Read-only: find git repos and suggest profile groups (default: your home)."))
 def scan(
-    paths: list[str] = typer.Argument(
-        None, help=_("Folders to scan (empty = your whole home).")
-    ),
+    paths: list[str] = typer.Argument(None, metavar="folders", help=_("Folders to scan (empty = your whole home).")),
 ) -> None:
     """Scan the disk and suggest project groups (read-only, nothing changes)."""
     from .discovery import discover
@@ -281,10 +277,10 @@ def scan(
     console.print(_("Use [bold]aparta init[/bold] to turn them into profiles."))
 
 
-@app.command()
+@app.command(help=_("Remove a profile and undo what it applied (backups kept)."))
 def remove(
     ctx: typer.Context,
-    profile_name: str = typer.Argument(..., help=_("Name of the profile to remove.")),
+    profile_name: str = typer.Argument(..., metavar="profile", help=_("Name of the profile to remove.")),
     yes: bool = typer.Option(False, "--yes", "-y", help=_("Do not ask for confirmation.")),
 ) -> None:
     """Remove a profile and undo the configuration it applied."""
@@ -309,7 +305,7 @@ def remove(
         save_profiles(profiles, writer)
 
 
-@app.command()
+@app.command(help=_("Show what runs outside any profile; --secure makes it neutral, --restore undoes it."))
 def fallback(
     ctx: typer.Context,
     secure: bool = typer.Option(
@@ -336,9 +332,8 @@ def fallback(
         fallback_mod.show_state()
 
 
-@app.command()
+@app.command(help=_("Update aparta to the latest release."))
 def update() -> None:
-    """Update aparta to the latest release."""
     from .updates import check_for_update, run_update
 
     latest = check_for_update(force=True)
@@ -350,10 +345,10 @@ def update() -> None:
         raise typer.Exit(1)
 
 
-@app.command()
+@app.command(help=_("Enable a provider in the current or named workspace."))
 def add(
     ctx: typer.Context,
-    values: list[str] = typer.Argument(..., help=_("[workspace] provider to enable.")),
+    values: list[str] = typer.Argument(..., metavar="[workspace] <provider>", help=_("[workspace] provider to enable.")),
 ) -> None:
     """Enable a provider in the current or explicitly named workspace."""
     if len(values) == 1:
@@ -392,9 +387,9 @@ def add(
     console.print(_("[green]{provider}[/green] enabled in workspace '{workspace}'.", provider=provider, workspace=record.name))
 
 
-@app.command()
+@app.command(help=_("Reauthenticate the current workspace or an explicit target."))
 def login(
-    profile_name: str = typer.Argument("", help=_("Workspace or profile to reauthenticate (default: current workspace).")),
+    profile_name: str = typer.Argument("", metavar="workspace|profile", help=_("Workspace or profile to reauthenticate (default: current workspace).")),
     provider: str = typer.Option("", "--provider", help=_("Only this provider (gcloud, gh, adc or aws).")),
 ) -> None:
     """Reauthenticate the current workspace or an explicit target."""
@@ -417,9 +412,9 @@ def _expiry_warning_minutes() -> int:
         return 30
 
 
-@app.command()
+@app.command(help=_("Show workspace identity, providers and credential expiry."))
 def status(
-    selector: str = typer.Argument("", help=_("Workspace or profile to inspect (default: current workspace).")),
+    selector: str = typer.Argument("", metavar="workspace|profile", help=_("Workspace or profile to inspect (default: current workspace).")),
     shell: bool = typer.Option(False, "--shell", help=_("Print a compact prompt status.")),
 ) -> None:
     """Show the current workspace, provider health, and known expiry warning."""
@@ -496,7 +491,7 @@ def _current_workspace():
     return workspace, profile
 
 
-@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True}, help=_("Run a command with the folder's profile environment."))
 def run(
     ctx: typer.Context,
     profile_name: str = typer.Option(
@@ -524,11 +519,9 @@ def run(
     raise typer.Exit(code)
 
 
-@app.command()
+@app.command(help=_("Print the profile's exports for scripts: eval \"$(aparta env)\"."))
 def env(
-    profile_name: str = typer.Argument(
-        "", help=_("Profile to print (default: the one owning the current folder).")
-    ),
+    profile_name: str = typer.Argument("", metavar="profile", help=_("Profile to print (default: the one owning the current folder).")),
     with_gh_token: bool = typer.Option(
         False,
         "--with-gh-token",
@@ -575,9 +568,8 @@ def hook(shell: str = typer.Argument("zsh")) -> None:
     print(render_zsh_hook(), end="")
 
 
-@app.command("shell-install")
+@app.command("shell-install", help=_("Install automatic zsh activation when directories change."))
 def shell_install(ctx: typer.Context) -> None:
-    """Install automatic zsh workspace activation in the user's startup file."""
     from .shell import install_zsh_hook
 
     changed = install_zsh_hook(_writer(ctx))
@@ -587,7 +579,7 @@ def shell_install(ctx: typer.Context) -> None:
         console.print(_("[green]Automatic zsh workspace activation is already installed.[/green]"))
 
 
-@app.command()
+@app.command(help=_("Check every credential, quiet when all is well."))
 def check(
     quiet: bool = typer.Option(
         False, "--quiet", "-q", help=_("Print nothing when every credential is valid (for startup hooks).")
@@ -628,30 +620,34 @@ def check(
         console.print(_("[green]Every credential is valid.[/green]"))
 
 
-@app.command("help")
+def _usage(command) -> str:
+    """`name <required> [optional]` from the command's declared arguments."""
+    name = command.name or command.callback.__name__.replace("_", "-")
+    parts = [name]
+    for param in inspect.signature(command.callback).parameters.values():
+        info = param.default
+        if not isinstance(info, ArgumentInfo):
+            continue
+        label = info.metavar or param.name.replace("_", "-")
+        if "[" in label or "<" in label:
+            parts.append(label)
+        else:
+            parts.append(f"<{label}>" if info.default is ... else f"[{label}]")
+    if (command.context_settings or {}).get("allow_extra_args"):
+        parts.append("-- <cmd>")
+    return escape(" ".join(parts))
+
+
+@app.command("help", help=_("This screen."))
 def show_help() -> None:
-    """Show every command and what it does."""
     console.print(_("[bold]aparta[/bold]: the right account in every folder.") + "\n")
     table = Table(show_header=True)
     table.add_column(_("Command"), style="bold", no_wrap=True)
     table.add_column(_("What it does"), overflow="fold")
     table.add_row("aparta", _("First run opens the setup wizard; afterwards, an interactive menu."))
-    table.add_row("aparta init", _("Guided wizard: pick agents, detect or create profiles, apply."))
-    table.add_row("aparta scan \\[folders]", _("Read-only: find git repos and suggest profile groups (default: your home)."))
-    table.add_row("aparta apply <profile>", _("Re-apply a profile: gitconfigs, gh, gcloud and agent env in the repos."))
-    table.add_row("aparta remove <profile>", _("Remove a profile and undo what it applied (backups kept)."))
-    table.add_row("aparta doctor \\[profile]", _("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))
-    table.add_row("aparta list", _("List configured profiles."))
-    table.add_row("aparta add \\[workspace] <provider>", _("Enable a provider in the current or named workspace."))
-    table.add_row("aparta login \\[workspace|profile]", _("Reauthenticate the current workspace or an explicit target."))
-    table.add_row("aparta status \\[workspace|profile]", _("Show workspace identity, providers and credential expiry."))
-    table.add_row("aparta check", _("Check every credential, quiet when all is well."))
-    table.add_row("aparta run -- <cmd>", _("Run a command with the folder's profile environment."))
-    table.add_row("aparta env \\[profile]", _("Print the profile's exports for scripts: eval \"$(aparta env)\"."))
-    table.add_row("aparta shell-install", _("Install automatic zsh activation when directories change."))
-    table.add_row("aparta fallback", _("Show what runs outside any profile; --secure makes it neutral, --restore undoes it."))
-    table.add_row("aparta update", _("Update aparta to the latest release."))
-    table.add_row("aparta help", _("This screen."))
+    for command in app.registered_commands:
+        if not command.hidden:
+            table.add_row(f"aparta {_usage(command)}", command.help or "")
     console.print(table)
     console.print(
         "\n"
