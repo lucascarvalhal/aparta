@@ -32,8 +32,7 @@ def test_claude_code_hook_can_be_removed(tmp_path: Path):
     adapter = ClaudeCodeAdapter()
     adapter.install_check(tmp_path, SafeWriter())
     assert adapter.uninstall_check(tmp_path, SafeWriter()) is True
-    data = json.loads((tmp_path / ".claude" / "settings.local.json").read_text())
-    assert "SessionStart" not in json.dumps(data)
+    assert not (tmp_path / ".claude" / "settings.local.json").exists()
 
 
 def test_claude_code_keeps_other_session_hooks(tmp_path: Path):

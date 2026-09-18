@@ -47,8 +47,6 @@ def apply_workspace_agents(
             render_workspace_gitconfig(profile, workspace),
         )
     for adapter in get_adapters(profile.agents):
-        if not adapter.detect(workspace.root_path):
-            continue
         try:
             if env:
                 adapter.inject(workspace.root_path, env, writer)
@@ -148,8 +146,6 @@ def apply_profile(
             continue
         env = workspace_env(workspace, profile) if workspace is not None else default_env
         for adapter in adapters:
-            if not adapter.detect(repo):
-                continue
             try:
                 if env:
                     adapter.inject(repo, env, writer)

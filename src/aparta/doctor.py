@@ -154,8 +154,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
     ownership_profiles.setdefault(profile.name, profile)
     for adapter in get_adapters(profile.agents):
         for repo in repos:
-            if not adapter.detect(repo):
-                continue
             workspace = workspace_for_path(repo, ownership_profiles, saved_workspaces)
             if workspace is None:
                 workspace = Workspace(

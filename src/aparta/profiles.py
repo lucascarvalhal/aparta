@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
+from . import _toml
+
 from collections.abc import Mapping
 
 import os
-import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import tomli_w
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover
-    import tomli as tomllib
 
 from .fsutil import SafeWriter
 
@@ -165,7 +161,7 @@ def load_profiles(path: Path | None = None) -> dict[str, Profile]:
     path = path or profiles_path()
     if not path.exists():
         return {}
-    data = tomllib.loads(path.read_text())
+    data = _toml.loads(path.read_text())
     result: dict[str, Profile] = {}
     for name, raw in data.get("profiles", {}).items():
         fields = {k: v for k, v in raw.items() if k in Profile.__dataclass_fields__}
@@ -185,4 +181,4 @@ def save_profiles(
             for name, p in profiles.items()
         }
     }
-    writer.write_text(path, tomli_w.dumps(doc), label=str(path))
+    writer.write_text(path, _toml.dumps(doc), label=str(path))

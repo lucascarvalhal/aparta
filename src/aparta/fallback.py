@@ -2,21 +2,17 @@
 
 from __future__ import annotations
 
+from . import _toml
+
 import os
 import shutil
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import tomli_w
 from rich.console import Console
 from rich.table import Table
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover
-    import tomli as tomllib
 
 from .fsutil import SafeWriter
 from .i18n import _
@@ -172,7 +168,7 @@ def read_previous() -> str:
     if not path.exists():
         return ""
     try:
-        return str(tomllib.loads(path.read_text()).get("gcloud_config", ""))
+        return str(_toml.loads(path.read_text()).get("gcloud_config", ""))
     except (ValueError, OSError):
         return ""
 
@@ -308,7 +304,7 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
             console.print(
                 f"[yellow]--dry-run[/yellow] gcloud config configurations activate {NEUTRAL_CONFIG}"
             )
-            writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
+            writer.write_text(previous_path(), _toml.dumps({"gcloud_config": current}))
         if state.adc_present:
             console.print(
                 f"[yellow]--dry-run[/yellow] mv {global_adc_path()} {parked_adc_path()}"
@@ -320,7 +316,7 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
         return False
 
     if not state.secure:
-        writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
+        writer.write_text(previous_path(), _toml.dumps({"gcloud_config": current}))
 
         if not exists:
             created = _run(["gcloud", "config", "configurations", "create", NEUTRAL_CONFIG, "--no-activate"])

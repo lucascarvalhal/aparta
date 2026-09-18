@@ -3,12 +3,11 @@
 from pathlib import Path
 
 from aparta.agents import ADAPTERS, get_adapters
-from aparta.agents.base import REGISTRY, AgentAdapter
+from aparta.agents.base import AgentAdapter
 
 
 def test_all_builtin_adapters_registered():
     assert set(ADAPTERS) >= {"claude-code", "codex", "gemini", "antigravity", "direnv"}
-    assert ADAPTERS is REGISTRY
 
 
 def test_adapters_declare_display_name():
@@ -24,21 +23,21 @@ def test_new_adapter_file_registers_itself():
     class FakeAdapter(AgentAdapter):
         name = "fake-test-adapter"
 
-        def detect(self, repo: Path) -> bool:  # pragma: no cover
-            return True
+        def env_path(self, repo: Path) -> Path:  # pragma: no cover
+            return repo / "fake.json"
 
-        def inject(self, repo, env, writer) -> bool:  # pragma: no cover
-            return False
+        def env_of(self, doc):  # pragma: no cover
+            return {}
 
-        def validate(self, repo, env):  # pragma: no cover
-            return True, "ok"
+        def set_env(self, doc, env) -> None:  # pragma: no cover
+            pass
 
     try:
-        assert REGISTRY["fake-test-adapter"] is FakeAdapter
+        assert ADAPTERS["fake-test-adapter"] is FakeAdapter
         assert FakeAdapter.display_name == "fake-test-adapter"
         assert isinstance(get_adapters(["fake-test-adapter"])[0], FakeAdapter)
     finally:
-        del REGISTRY["fake-test-adapter"]
+        del ADAPTERS["fake-test-adapter"]
 
 
 def test_get_adapters_ignores_unknown():

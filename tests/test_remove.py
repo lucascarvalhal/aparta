@@ -107,8 +107,7 @@ def test_remove_profile_end_to_end(tmp_path: Path, monkeypatch):
     assert not generated_gitconfig.exists()
     assert load_workspaces() == {}
     assert not gh_dir.exists()
-    env = json.loads((repo / ".claude" / "settings.local.json").read_text())["env"]
-    assert "GH_CONFIG_DIR" not in env
+    assert not (repo / ".claude" / "settings.local.json").exists()
 
 
 def test_remove_strips_workspace_keys_and_the_isolated_gcloud_dir(tmp_path: Path, monkeypatch):

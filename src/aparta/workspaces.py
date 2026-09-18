@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
+from . import _toml
+
 import os
 import subprocess
-import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import tomli_w
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover
-    import tomli as tomllib
 
 from .fsutil import SafeWriter
 from .profiles import Profile, config_dir
@@ -45,7 +41,7 @@ def load_workspaces(path: Path | None = None) -> dict[str, Workspace]:
     path = path or workspaces_path()
     if not path.exists():
         return {}
-    data = tomllib.loads(path.read_text())
+    data = _toml.loads(path.read_text())
     result: dict[str, Workspace] = {}
     for name, raw in data.get("workspaces", {}).items():
         fields = {key: value for key, value in raw.items() if key in Workspace.__dataclass_fields__}
@@ -71,7 +67,7 @@ def save_workspaces(
             for name, workspace in sorted(workspaces.items())
         }
     }
-    writer.write_text(path, tomli_w.dumps(doc), label=str(path))
+    writer.write_text(path, _toml.dumps(doc), label=str(path))
 
 
 def git_workspace_root(path: Path) -> Path | None:

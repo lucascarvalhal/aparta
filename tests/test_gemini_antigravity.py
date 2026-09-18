@@ -3,16 +3,19 @@
 import json
 from pathlib import Path
 
-from aparta.agents.antigravity import AntigravityAdapter, merge_vscode_settings
-from aparta.agents.gemini import GeminiAdapter, merge_dotenv
+from aparta.agents.antigravity import AntigravityAdapter
+from aparta.agents.gemini import GeminiAdapter
 from aparta.fsutil import SafeWriter
 
 ENV = {"GH_CONFIG_DIR": "/home/x/.config/gh-pessoal", "CLOUDSDK_ACTIVE_CONFIG_NAME": "pessoal"}
 
 
-def test_merge_dotenv_appends_and_updates():
-    existing = 'GEMINI_API_KEY="abc"\nCLOUDSDK_ACTIVE_CONFIG_NAME="velho"\n'
-    merged = merge_dotenv(existing, ENV)
+def test_merge_dotenv_appends_and_updates(tmp_path: Path):
+    adapter = GeminiAdapter()
+    adapter.env_path(tmp_path).parent.mkdir(parents=True)
+    adapter.env_path(tmp_path).write_text('GEMINI_API_KEY="abc"\nCLOUDSDK_ACTIVE_CONFIG_NAME="velho"\n')
+    adapter.inject(tmp_path, ENV, SafeWriter())
+    merged = adapter.env_path(tmp_path).read_text()
     assert 'GEMINI_API_KEY="abc"' in merged
     assert merged.count("CLOUDSDK_ACTIVE_CONFIG_NAME") == 1
     assert 'CLOUDSDK_ACTIVE_CONFIG_NAME="pessoal"' in merged
@@ -29,14 +32,14 @@ def test_gemini_inject_and_validate(tmp_path: Path):
     assert ok, msg
 
 
-def test_vscode_merge_preserves_settings():
-    existing = json.dumps(
-        {
-            "editor.fontSize": 14,
-            "terminal.integrated.env.osx": {"FOO": "bar"},
-        }
+def test_vscode_merge_preserves_settings(tmp_path: Path):
+    adapter = AntigravityAdapter()
+    adapter.env_path(tmp_path).parent.mkdir(parents=True)
+    adapter.env_path(tmp_path).write_text(
+        json.dumps({"editor.fontSize": 14, "terminal.integrated.env.osx": {"FOO": "bar"}})
     )
-    merged = json.loads(merge_vscode_settings(existing, ENV))
+    adapter.inject(tmp_path, ENV, SafeWriter())
+    merged = json.loads(adapter.env_path(tmp_path).read_text())
     assert merged["editor.fontSize"] == 14
     assert merged["terminal.integrated.env.osx"]["FOO"] == "bar"
     assert merged["terminal.integrated.env.osx"]["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "pessoal"

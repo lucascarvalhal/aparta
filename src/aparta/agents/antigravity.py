@@ -1,141 +1,58 @@
-"""Antigravity adapter (Google's agent-first IDE, a VS Code fork)."""
+"""Antigravity adapter: terminal env in .vscode/settings.json, the check as a folderOpen task."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-from ..i18n import _
-from ..fsutil import SafeWriter
-from .base import CHECK_COMMAND, AgentAdapter, missing_keys
+from .base import AgentAdapter, JsonFormat
 
 _PLATFORM_KEYS = (
-    "terminal.integrated.env.osx",
-    "terminal.integrated.env.linux",
     "terminal.integrated.env.windows",
+    "terminal.integrated.env.linux",
+    "terminal.integrated.env.osx",
 )
-
-
-def merge_vscode_settings(existing_text: str, env: dict[str, str]) -> str:
-    """Merge env into terminal.integrated.env.{osx,linux}, preserving the rest."""
-    try:
-        data = json.loads(existing_text) if existing_text.strip() else {}
-    except json.JSONDecodeError as exc:
-        raise ValueError(_(".vscode/settings.json is invalid")) from exc
-    if not isinstance(data, dict):
-        raise ValueError(_(".vscode/settings.json is not a JSON object"))
-    for key in _PLATFORM_KEYS:
-        current = data.get(key, {})
-        if not isinstance(current, dict):
-            current = {}
-        data[key] = {**current, **env}
-    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
 class AntigravityAdapter(AgentAdapter):
     name = "antigravity"
     display_name = "Antigravity"
+    format = JsonFormat()
+    hook_key = ("tasks",)
+    hook_defaults = {"version": "2.0.0"}
 
-    def settings_path(self, repo: Path) -> Path:
+    def env_path(self, repo: Path) -> Path:
         return repo / ".vscode" / "settings.json"
 
-    def detect(self, repo: Path) -> bool:
-        return True
-
-    def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
-        path = self.settings_path(repo)
-        existing = path.read_text() if path.exists() else ""
-        return writer.write_text(path, merge_vscode_settings(existing, env))
-
-    def remove_env(self, repo: Path, keys: list[str], writer: SafeWriter) -> bool:
-        path = self.settings_path(repo)
-        if not path.exists():
-            return False
-        try:
-            data = json.loads(path.read_text())
-        except json.JSONDecodeError:
-            return False
-        changed = False
-        for platform_key in _PLATFORM_KEYS:
-            env = data.get(platform_key)
-            if isinstance(env, dict):
-                for k in keys:
-                    changed |= env.pop(k, None) is not None
-        if not changed:
-            return False
-        return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-    def read_env(self, repo: Path) -> dict[str, str]:
-        path = self.settings_path(repo)
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text())
-        except json.JSONDecodeError:
-            return {}
+    def env_of(self, doc: dict) -> dict[str, str]:
         env: dict[str, str] = {}
         for key in _PLATFORM_KEYS:
-            current = data.get(key)
+            current = doc.get(key)
             if isinstance(current, dict):
                 env.update(current)
         return env
 
-    def install_check(self, repo: Path, writer: SafeWriter) -> bool:
-        """Add a task that runs on folder open, the VS Code way."""
-        path = repo / ".vscode" / "tasks.json"
-        try:
-            data = json.loads(path.read_text()) if path.exists() else {}
-        except json.JSONDecodeError:
-            return False
-        if not isinstance(data, dict):
-            return False
-        data.setdefault("version", "2.0.0")
-        tasks = data.setdefault("tasks", [])
-        if not isinstance(tasks, list):
-            return False
-        if any(CHECK_COMMAND in json.dumps(task) for task in tasks):
-            return False
-        tasks.append(
-            {
-                "label": "aparta check",
-                "type": "shell",
-                "command": CHECK_COMMAND,
-                "presentation": {"reveal": "silent", "panel": "shared"},
-                "runOptions": {"runOn": "folderOpen"},
-            }
-        )
-        return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-    def uninstall_check(self, repo: Path, writer: SafeWriter) -> bool:
-        path = repo / ".vscode" / "tasks.json"
-        if not path.exists():
-            return False
-        try:
-            data = json.loads(path.read_text())
-        except json.JSONDecodeError:
-            return False
-        tasks = data.get("tasks", [])
-        remaining = [t for t in tasks if CHECK_COMMAND not in json.dumps(t)]
-        if len(remaining) == len(tasks):
-            return False
-        if remaining:
-            data["tasks"] = remaining
-            return writer.write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-        return writer.remove_file(path)
-
-    def validate(self, repo: Path, env: dict[str, str]) -> tuple[bool, str]:
-        path = self.settings_path(repo)
-        if not path.exists():
-            return False, _(".vscode/settings.json missing")
-        try:
-            data = json.loads(path.read_text())
-        except json.JSONDecodeError:
-            return False, _(".vscode/settings.json is invalid")
+    def set_env(self, doc: dict, env: dict[str, str]) -> None:
+        removed = set(self.env_of(doc)) - set(env)
         for key in _PLATFORM_KEYS:
-            current = data.get(key)
-            if not isinstance(current, dict):
-                current = {}
-            missing = missing_keys(current, env)
-            if missing:
-                return False, _("{key} mismatch: {keys}", key=key, keys=", ".join(missing))
-        return True, _("env ok")
+            current = doc.get(key)
+            merged = {k: v for k, v in current.items() if k not in removed} if isinstance(current, dict) else {}
+            merged.update(env)
+            if merged:
+                doc[key] = merged
+            else:
+                doc.pop(key, None)
+
+    def hook_path(self, repo: Path) -> Path:
+        return repo / ".vscode" / "tasks.json"
+
+    def hook_entry(self) -> dict:
+        return {
+            "label": "aparta check",
+            "type": "shell",
+            "command": self.hook_command,
+            "presentation": {"reveal": "silent", "panel": "shared"},
+            "runOptions": {"runOn": "folderOpen"},
+        }
+
+    def hook_is_empty(self, doc: dict) -> bool:
+        return set(doc) <= set(self.hook_defaults)
