@@ -14,6 +14,7 @@ from rich.table import Table
 
 from .agents import get_adapters
 from . import auth
+from .backends import print_notes
 from .backends.aws import aws_profile_exists
 from .backends.gcloud import apply_gcloud, has_adc
 from .backends.gh import apply_gh
@@ -142,8 +143,6 @@ def _check_aws(profile: Profile) -> Findings:
 def _check_credentials(profile: Profile) -> Findings:
     rows: list[Row] = []
     issues: list[Issue] = []
-    if not auth.checks_enabled():
-        return rows, issues
     for status in auth.cached_check(profile):
         if status.state == auth.OK:
             rows.append(Row(status.label, _("credential"), True, _("valid")))
@@ -240,10 +239,10 @@ def fix_profile(profile: Profile, issues: list[Issue], writer: SafeWriter) -> bo
         reconcile_workspace_git(profiles, load_workspaces(), writer)
         done.append(_("git: workspace identities reapplied"))
     if IssueKind.GH_DIR in kinds:
-        _print_notes(apply_gh(profile, writer), writer.verbose)
+        print_notes(apply_gh(profile, writer), console, writer.verbose)
         done.append(_("gh: config dir reapplied"))
     if kinds & {IssueKind.GCLOUD_DIR, IssueKind.GCLOUD_ACCOUNT, IssueKind.GCLOUD_PROJECT}:
-        _print_notes(apply_gcloud(profile, writer), writer.verbose)
+        print_notes(apply_gcloud(profile, writer), console, writer.verbose)
         done.append(_("gcloud: account and project reasserted"))
     env_repos = sorted({issue.repo for issue in issues if issue.kind == IssueKind.ENV and issue.repo})
     if env_repos:
@@ -271,12 +270,6 @@ def fix_profile(profile: Profile, issues: list[Issue], writer: SafeWriter) -> bo
     if all_ok:
         console.print(_("[green]doctor --fix: profile '{name}' is healthy now.[/green]", name=profile.name))
     return all_ok
-
-
-def _print_notes(notes, verbose: bool) -> None:
-    for note in notes:
-        if note.level != "info" or verbose:
-            console.print(note.text)
 
 
 def _reinject_env(profile: Profile, repos: list[Path], writer: SafeWriter) -> int:

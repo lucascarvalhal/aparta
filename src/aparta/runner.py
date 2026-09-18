@@ -75,7 +75,7 @@ def run_in_workspace(
         return next((status for status in statuses if status.needs_human), None)
 
     problem = auth.missing_adc(profile, selected)
-    if problem is None and auth.checks_enabled():
+    if problem is None:
         problem = blocker(auth.read_cached_status(profile))
         if problem is not None:
             problem = blocker(auth.cached_check(profile, force=True))

@@ -273,7 +273,9 @@ def read_cached_status(profile: Profile) -> list[AuthStatus] | None:
 
 
 def cached_check(profile: Profile, force: bool = False) -> list[AuthStatus]:
-    """Probe at most once per TTL per profile; the cache keeps it cheap."""
+    """Probe at most once per TTL per profile; the cache keeps it cheap, APARTA_AUTH_CHECK=off turns it off."""
+    if not checks_enabled():
+        return []
     cache = _read_cache()
     entry = cache.get(profile.name, {})
     fresh = time.time() - entry.get("checked_at", 0) < CACHE_TTL_SECONDS
@@ -309,8 +311,6 @@ def workspace_statuses(
 
 def problems(profiles: list[Profile]) -> list[tuple[str, AuthStatus]]:
     """(profile name, status) for everything that needs a human."""
-    if not checks_enabled():
-        return []
     return [
         (profile.name, status)
         for profile in profiles

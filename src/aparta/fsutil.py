@@ -105,6 +105,22 @@ class SafeWriter:
             console.print(f"[green]{_('moved:')}[/green] {label}")
         return True
 
+    def copy_tree(self, src: Path, dst: Path) -> bool:
+        """Copy a directory that does not exist yet; True if copied (or would)."""
+        if dst.exists():
+            return False
+        label = f"{src} -> {dst}"
+        if self.dry_run:
+            if self.verbose:
+                console.print(f"[yellow]--dry-run[/yellow] cp -r {label}")
+            self.changes.append(f"[dry-run] cp -r {label}")
+            return True
+        shutil.copytree(src, dst)
+        self.changes.append(label)
+        if self.verbose:
+            console.print(f"[green]{_('copied:')}[/green] {label}")
+        return True
+
     def remove_dir(self, path: Path, label: str | None = None) -> bool:
         """Remove a directory by renaming it to a backup. True if removed."""
         label = label or str(path)

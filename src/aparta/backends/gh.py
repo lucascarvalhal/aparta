@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -36,8 +35,7 @@ def apply_gh(profile: Profile, writer: SafeWriter) -> list[Note]:
         ))
         return notes
 
-    if not dst.exists():
-        shutil.copytree(src, dst)
+    if writer.copy_tree(src, dst):
         notes.append(Note("info", _("[green]created:[/green] {dst}", dst=dst)))
 
     result = subprocess.run(

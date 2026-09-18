@@ -102,8 +102,8 @@ aparta scan       # somente leitura: mostra os grupos de projetos encontrados
 aparta apply X    # reaplica um perfil (por exemplo, depois de clonar repos novos)
 aparta remove X   # remove um perfil e desfaz o que ele aplicou (com backups)
 aparta list       # lista os perfis configurados
-aparta add bitbucket       # adiciona um provedor à worktree atual
-aparta add repo bitbucket  # ou aponta um repo/workspace único explicitamente
+aparta add aws             # adiciona um provedor à worktree atual
+aparta add repo aws        # ou aponta um repo/workspace único explicitamente
 aparta login      # reautentica a worktree atual quando necessário
 aparta login X    # ou aponta um workspace/perfil a partir de outra pasta
 aparta status     # workspace ativo, provedores, saúde e expiração conhecida

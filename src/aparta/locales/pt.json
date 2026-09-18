@@ -42,7 +42,6 @@
   "[yellow]No profile configured yet.[/yellow]": "[yellow]Nenhum perfil configurado ainda.[/yellow]",
   "Which profile?": "Qual perfil?",
   "Name of the profile to apply.": "Nome do perfil a aplicar.",
-  "[red]Profile '{name}' not found.[/red] Run `aparta init`.": "[red]Perfil '{name}' não encontrado.[/red] Rode `aparta init`.",
   "Profile to check (empty = all).": "Perfil a validar (vazio = todos).",
   "[yellow]No profile configured. Run `aparta init`.[/yellow]": "[yellow]Nenhum perfil configurado. Rode `aparta init`.[/yellow]",
   "[red]Profile '{name}' not found.[/red]": "[red]Perfil '{name}' não encontrado.[/red]",
@@ -205,7 +204,6 @@
   "gh: config dir reapplied": "gh: config dir reaplicado",
   "gcloud: account and project reasserted": "gcloud: conta e projeto reafirmados",
   "agents: env reinjected into {n} config file(s)": "agentes: env reinjetado em {n} arquivo(s) de config",
-  "  [green]fixed[/green] {what}": "  [green]consertado[/green] {what}",
   "[yellow]--dry-run: nothing was changed; run without --dry-run to repair.[/yellow]": "[yellow]--dry-run: nada foi alterado; rode sem --dry-run para consertar de verdade.[/yellow]",
   "[yellow]Still failing after the fix: {items}. Run `aparta doctor {name}` for the detail.[/yellow]": "[yellow]Continua com problema depois do conserto: {items}. Rode `aparta doctor {name}` para ver o detalhe.[/yellow]",
   "[green]doctor --fix: profile '{name}' is healthy now.[/green]": "[green]doctor --fix: o perfil '{name}' está saudável agora.[/green]",
@@ -250,9 +248,6 @@
   "[green]Restored:[/green] '{name}' is the global default again.": "[green]Restaurado:[/green] '{name}' voltou a ser o padrão global.",
   "[red]gcloud configurations activate failed:[/red] {error}": "[red]gcloud configurations activate falhou:[/red] {error}",
   "gcloud not found": "gcloud não encontrado",
-  "[yellow]warning:[/yellow] {repo} is not a git repository; skipping.": "[yellow]aviso:[/yellow] {repo} não é um repositório git; pulando.",
-  "[red]adopting {repo} failed:[/red] {error}": "[red]adoção de {repo} falhou:[/red] {error}",
-  "[green]git:[/green] {repo} adopted by profile '{name}'": "[green]git:[/green] {repo} adotado pelo perfil '{name}'",
   "[yellow]warning:[/yellow] ~/.config/gh does not exist, run `gh auth login` first.": "[yellow]aviso:[/yellow] ~/.config/gh não existe, rode `gh auth login` antes.",
   "[yellow]--dry-run[/yellow] would copy {src} -> {dst}": "[yellow]--dry-run[/yellow] copiaria {src} -> {dst}",
   "[green]created:[/green] {dst}": "[green]criado:[/green] {dst}",
@@ -274,7 +269,6 @@
   "Public key": "Chave pública",
   "Upload this key to the GitHub account '{user}' now? (gh ssh-key add)": "Enviar esta chave para a conta GitHub '{user}' agora? (gh ssh-key add)",
   "[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]": "[dim]Quando quiser enviar: gh ssh-key add {key}.pub --title {name}[/dim]",
-  "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]": "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]",
   "[green]gh:[/green] key added to account '{user}'.": "[green]gh:[/green] chave adicionada à conta '{user}'.",
   "Remotes SSH shortcut (a Host from ~/.ssh/config; empty = use the key directly):": "Atalho SSH dos remotes (Host do ~/.ssh/config; vazio = usar a chave direta):",
   "SSH shortcut for this profile's remotes (rewrites GitHub URLs to use the right key):": "Atalho SSH para os remotes deste perfil (reescreve as URLs do GitHub para usar a chave certa):",
@@ -333,5 +327,7 @@
   "git: commits signed as {name}": "git: commits assinados como {name}",
   "ssh: dedicated key {key}": "ssh: chave dedicada {key}",
   "gcloud: configuration '{name}' with {account}": "gcloud: configuração '{name}' com {account}",
-  "gcloud: configuration '{name}' with {account} (project {project})": "gcloud: configuração '{name}' com {account} (projeto {project})"
+  "gcloud: configuration '{name}' with {account} (project {project})": "gcloud: configuração '{name}' com {account} (projeto {project})",
+  "copied:": "copiado:",
+  "[red]gcloud configurations {verb} failed:[/red] {error}": "[red]gcloud configurations {verb} falhou:[/red] {error}"
 }

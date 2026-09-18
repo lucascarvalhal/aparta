@@ -7,7 +7,7 @@ from typing import Callable
 from rich.console import Console
 
 from .agents import get_adapters
-from .backends import Note
+from .backends import Note, print_notes
 from .backends.aws import apply_aws
 from .backends.gcloud import apply_gcloud
 from .backends.gh import apply_gh
@@ -92,9 +92,7 @@ def apply_profile(
     for label, backend in BACKENDS:
         before = len(writer.changes)
         notes = backend(profile, writer)
-        for note in notes:
-            if note.level != "info" or writer.verbose:
-                console.print(note.text)
+        print_notes(notes, console, writer.verbose)
         if len(writer.changes) > before or any(n.level == "info" for n in notes):
             console.print(_("  [green]OK[/green] {area}", area=label))
 

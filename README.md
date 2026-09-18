@@ -102,8 +102,8 @@ aparta scan       # read-only: show detected project groups
 aparta apply X    # re-apply a profile (e.g. after cloning new repos)
 aparta remove X   # remove a profile and undo what it applied (backups kept)
 aparta list       # list configured profiles
-aparta add bitbucket       # add a provider to the current worktree
-aparta add repo bitbucket  # or target a unique repo/workspace explicitly
+aparta add aws             # add a provider to the current worktree
+aparta add repo aws        # or target a unique repo/workspace explicitly
 aparta login      # reauthenticate the current worktree when needed
 aparta login X    # or target a workspace/profile from another folder
 aparta status     # active workspace, providers, health and known expiry

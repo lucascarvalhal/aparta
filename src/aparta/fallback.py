@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from . import _toml
 
 import os
@@ -252,6 +254,57 @@ def show_state(state: State | None = None) -> State:
     return state
 
 
+def _secure_steps(writer: SafeWriter, state: State) -> list[tuple[str, str, Callable[[], bool]]]:
+    """(what will happen, the dry-run line, how to do it) for every change --secure makes."""
+    active = state.gcloud_active
+    current = active.name if active else ""
+    exists = any(cfg.name == NEUTRAL_CONFIG for cfg in state.gcloud_configs or [])
+
+    def remember() -> bool:
+        writer.write_text(previous_path(), _toml.dumps({"gcloud_config": current}))
+        return True
+
+    def gcloud(*args: str) -> Callable[[], bool]:
+        def run() -> bool:
+            result = _run(["gcloud", "config", "configurations", *args])
+            if result is None or result.returncode != 0:
+                console.print(_("[red]gcloud configurations {verb} failed:[/red] {error}", verb=args[0], error=_stderr(result)))
+                return False
+            return True
+
+        return run
+
+    def park() -> bool:
+        _park_adc(writer)
+        return True
+
+    steps: list[tuple[str, str, Callable[[], bool]]] = []
+    if not state.secure:
+        if not exists:
+            steps.append((
+                _("  - create the gcloud configuration '{name}' (no account, no project)", name=NEUTRAL_CONFIG),
+                f"gcloud config configurations create {NEUTRAL_CONFIG} --no-activate",
+                gcloud("create", NEUTRAL_CONFIG, "--no-activate"),
+            ))
+        steps.append((
+            _("  - remember '{name}' in {path}", name=current or _("(none)"), path=previous_path()),
+            "",
+            remember,
+        ))
+        steps.append((
+            _("  - make '{name}' the globally active configuration", name=NEUTRAL_CONFIG),
+            f"gcloud config configurations activate {NEUTRAL_CONFIG}",
+            gcloud("activate", NEUTRAL_CONFIG),
+        ))
+    if state.adc_present:
+        steps.append((
+            _("  - park the global ADC at {path} (--restore puts it back)", path=parked_adc_path()),
+            f"mv {global_adc_path()} {parked_adc_path()}",
+            park,
+        ))
+    return steps
+
+
 def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
     """Point the global gcloud default at a neutral configuration, reversibly."""
     state = read_state()
@@ -259,73 +312,33 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
         console.print(_("[yellow]gcloud is not installed, nothing to secure.[/yellow]"))
         console.print(note_gh())
         return False
-    active = state.gcloud_active
     if state.secure and not state.adc_present:
         console.print(
             _("[green]Nothing to do:[/green] '{name}' is already the global default.", name=NEUTRAL_CONFIG)
         )
         return True
 
-    current = active.name if active else ""
-    exists = any(cfg.name == NEUTRAL_CONFIG for cfg in state.gcloud_configs or [])
+    steps = _secure_steps(writer, state)
     console.print(_("[bold]This is what will happen:[/bold]"))
-    if not state.secure:
-        if not exists:
-            console.print(
-                _("  - create the gcloud configuration '{name}' (no account, no project)", name=NEUTRAL_CONFIG)
-            )
-        console.print(
-            _("  - remember '{name}' in {path}", name=current or _("(none)"), path=previous_path())
-        )
-        console.print(
-            _("  - make '{name}' the globally active configuration", name=NEUTRAL_CONFIG)
-        )
-    if state.adc_present:
-        console.print(
-            _("  - park the global ADC at {path} (--restore puts it back)", path=parked_adc_path())
-        )
-    console.print(
-        _("  - your other configurations, credentials and projects stay untouched")
-    )
+    for description, _line, _do in steps:
+        console.print(description)
+    console.print(_("  - your other configurations, credentials and projects stay untouched"))
     console.print(note_gh())
 
     if writer.dry_run:
-        if not state.secure:
-            if not exists:
-                console.print(
-                    f"[yellow]--dry-run[/yellow] gcloud config configurations create {NEUTRAL_CONFIG} --no-activate"
-                )
-            console.print(
-                f"[yellow]--dry-run[/yellow] gcloud config configurations activate {NEUTRAL_CONFIG}"
-            )
-            writer.write_text(previous_path(), _toml.dumps({"gcloud_config": current}))
-        if state.adc_present:
-            console.print(
-                f"[yellow]--dry-run[/yellow] mv {global_adc_path()} {parked_adc_path()}"
-            )
+        for _description, line, do in steps:
+            if line:
+                console.print(f"[yellow]--dry-run[/yellow] {line}")
+            else:
+                do()
         return True
 
     if not assume_yes and not prompts.confirm(_("Make the global fallback neutral?")):
         console.print(_("[yellow]Cancelled.[/yellow]"))
         return False
-
-    if not state.secure:
-        writer.write_text(previous_path(), _toml.dumps({"gcloud_config": current}))
-
-        if not exists:
-            created = _run(["gcloud", "config", "configurations", "create", NEUTRAL_CONFIG, "--no-activate"])
-            if created is None or created.returncode != 0:
-                console.print(
-                    _("[red]gcloud configurations create failed:[/red] {error}", error=_stderr(created))
-                )
-                return False
-        switched = _run(["gcloud", "config", "configurations", "activate", NEUTRAL_CONFIG])
-        if switched is None or switched.returncode != 0:
-            console.print(
-                _("[red]gcloud configurations activate failed:[/red] {error}", error=_stderr(switched))
-            )
+    for _description, _line, do in steps:
+        if not do():
             return False
-    _park_adc(writer)
     console.print(
         _(
             "[green]Done:[/green] outside a profile gcloud now has no account. "
