@@ -12,13 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Tag, pyproject.toml and npm/package.json must agree
+      - name: Tag, pyproject.toml, npm/package.json and the README badges must agree
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           PY=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
           NPM=$(node -p "require('./npm/package.json').version")
           echo "tag=$TAG pyproject=$PY npm=$NPM"
           [ "$TAG" = "$PY" ] && [ "$TAG" = "$NPM" ]
+          grep -q "badge/pypi-v${TAG}-" README.md && grep -q "badge/pypi-v${TAG}-" README.pt-BR.md
 
   build:
     needs: check-versions
