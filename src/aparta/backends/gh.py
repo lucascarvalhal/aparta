@@ -10,7 +10,8 @@ from ..i18n import _
 from . import Note
 
 from ..fsutil import SafeWriter
-from ..profiles import Profile, config_home
+from ..config import config_home
+from ..profiles import Profile
 
 
 def apply_gh(profile: Profile, writer: SafeWriter) -> list[Note]:

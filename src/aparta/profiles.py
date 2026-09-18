@@ -2,40 +2,12 @@
 
 from __future__ import annotations
 
-from . import _toml
-
 from collections.abc import Mapping
-
-import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-
-
+from .config import config_dir, gcloud_config_dir, gh_config_dir, load_table, save_table
 from .fsutil import SafeWriter
-
-
-def config_home() -> Path:
-    """Base user config directory, honoring XDG_CONFIG_HOME."""
-    return Path(os.environ.get("XDG_CONFIG_HOME", "~/.config")).expanduser()
-
-
-def config_dir() -> Path:
-    """Config directory; APARTA_CONFIG_DIR overrides it (used by tests)."""
-    override = os.environ.get("APARTA_CONFIG_DIR")
-    if override:
-        return Path(override)
-    return config_home() / "aparta"
-
-
-def gh_config_dir(profile_name: str, config_root: Path | None = None) -> Path:
-    """Single source of truth for the gh-<profile> config dir convention."""
-    return (config_root or config_home()) / f"gh-{profile_name}"
-
-
-def gcloud_config_dir(profile_name: str, config_root: Path | None = None) -> Path:
-    """Isolated gcloud config dir for a profile (CLOUDSDK_CONFIG)."""
-    return (config_root or config_home()) / f"gcloud-{profile_name}"
 
 
 def profiles_path() -> Path:
@@ -167,13 +139,10 @@ class Profile:
 
 def load_profiles(path: Path | None = None) -> dict[str, Profile]:
     path = path or profiles_path()
-    if not path.exists():
-        return {}
-    data = _toml.loads(path.read_text())
     result: dict[str, Profile] = {}
-    for name, raw in data.get("profiles", {}).items():
-        fields = {k: v for k, v in raw.items() if k in Profile.__dataclass_fields__}
-        result[name] = Profile(name=name, **{k: v for k, v in fields.items() if k != "name"})
+    for name, raw in load_table(path, "profiles").items():
+        fields = {k: v for k, v in raw.items() if k in Profile.__dataclass_fields__ and k != "name"}
+        result[name] = Profile(name=name, **fields)
     return result
 
 
@@ -182,11 +151,8 @@ def save_profiles(
     writer: SafeWriter,
     path: Path | None = None,
 ) -> None:
-    path = path or profiles_path()
-    doc = {
-        "profiles": {
-            name: {k: v for k, v in asdict(p).items() if k != "name" and v != ""}
-            for name, p in profiles.items()
-        }
+    rows = {
+        name: {k: v for k, v in asdict(p).items() if k != "name" and v != ""}
+        for name, p in profiles.items()
     }
-    writer.write_text(path, _toml.dumps(doc), label=str(path))
+    save_table(path or profiles_path(), "profiles", rows, writer)

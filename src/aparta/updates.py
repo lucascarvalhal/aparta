@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
+import re
+import os
 import subprocess
 import sys
 import time
@@ -13,36 +16,30 @@ from rich.console import Console
 
 from . import __version__
 from .i18n import _
-from .profiles import config_dir
+from .config import read_json, read_setting, setting_path, write_json, write_setting
+from .profiles import load_profiles
 
 console = Console()
 
 CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 PYPI_URL = "https://pypi.org/pypi/aparta/json"
+UPDATE_MODES = ("auto", "manual", "off")
 
 
 def update_mode() -> str:
     """'auto', 'manual' (default) or 'off'."""
-    import os
-
     env = os.environ.get("APARTA_UPDATES")
-    if env in ("auto", "manual", "off"):
+    if env in UPDATE_MODES:
         return env
-    try:
-        value = (config_dir() / "updates").read_text().strip()
-    except OSError:
-        return "manual"
-    return value if value in ("auto", "manual", "off") else "manual"
+    return read_setting("updates", allowed=UPDATE_MODES, default="manual")
 
 
 def set_update_mode(mode: str) -> None:
-    d = config_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    (d / "updates").write_text(mode + "\n")
+    write_setting("updates", mode)
 
 
 def update_mode_saved() -> bool:
-    return (config_dir() / "updates").exists()
+    return setting_path("updates").exists()
 
 
 def fetch_latest_version(timeout: float = 2.0) -> str:
@@ -67,22 +64,13 @@ def check_for_update(force: bool = False) -> str:
     """Newest version when an update exists, '' otherwise. Cached daily."""
     if update_mode() == "off" and not force:
         return ""
-    cache = config_dir() / "update-check.json"
     now = time.time()
-    if not force and cache.exists():
-        try:
-            data = json.loads(cache.read_text())
-            if now - data.get("checked_at", 0) < CHECK_INTERVAL_SECONDS:
-                latest = data.get("latest", "")
-                return latest if _is_newer(latest, __version__) else ""
-        except (json.JSONDecodeError, OSError):
-            pass
+    data = {} if force else read_json("update-check.json")
+    if now - data.get("checked_at", 0) < CHECK_INTERVAL_SECONDS:
+        latest = data.get("latest", "")
+        return latest if _is_newer(latest, __version__) else ""
     latest = fetch_latest_version()
-    try:
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        cache.write_text(json.dumps({"checked_at": now, "latest": latest}))
-    except OSError:
-        pass
+    write_json("update-check.json", {"checked_at": now, "latest": latest})
     return latest if _is_newer(latest, __version__) else ""
 
 
@@ -100,9 +88,6 @@ def detect_install_method() -> str:
 
 def installed_version() -> str:
     """Version of the aparta on PATH, which after an upgrade is the new one."""
-    import os
-    import re
-    import shutil
 
     binary = shutil.which("aparta")
     if not binary:
@@ -159,7 +144,6 @@ def run_update(target: str = "") -> bool:
         else:
             console.print(_("[green]aparta updated. The new version applies on the next run.[/green]"))
         try:
-            from .profiles import load_profiles
 
             if load_profiles():
                 console.print(

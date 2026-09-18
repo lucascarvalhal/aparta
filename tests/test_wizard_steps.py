@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from aparta import wizard
+from aparta import prompts, wizard
 from aparta.backends import Note
 from aparta.discovery import ContextSuggestion
 
@@ -14,7 +14,7 @@ def test_ask_ssh_uses_suggested_key(monkeypatch):
         captured["default"] = default
         return default
 
-    monkeypatch.setattr(wizard, "_choose_from", fake_choose)
+    monkeypatch.setattr(prompts, "choose", fake_choose)
     monkeypatch.setattr(wizard, "list_ssh_keys", lambda: ["/k/a", "/k/b"])
     monkeypatch.setattr(wizard, "_ask_ssh_alias", lambda key, suggested: "github.com-acme")
 
@@ -25,7 +25,7 @@ def test_ask_ssh_uses_suggested_key(monkeypatch):
 
 
 def test_ask_ssh_generates_new_key(monkeypatch):
-    monkeypatch.setattr(wizard, "_choose_from", lambda *a, **kw: wizard.NEW_SSH_KEY)
+    monkeypatch.setattr(prompts, "choose", lambda *a, **kw: wizard.NEW_SSH_KEY)
     monkeypatch.setattr(wizard, "list_ssh_keys", lambda: [])
     monkeypatch.setattr(wizard, "generate_ssh_key", lambda name, dry_run: "/new/key")
     monkeypatch.setattr(wizard, "_ask_ssh_alias", lambda key, suggested: "")
@@ -36,21 +36,21 @@ def test_ask_ssh_generates_new_key(monkeypatch):
 
 def test_ask_gh_triggers_login_on_sentinel(monkeypatch):
     monkeypatch.setattr(wizard, "list_gh_accounts", lambda: [])
-    monkeypatch.setattr(wizard, "_choose_from", lambda *a, **kw: wizard.NEW_GH_LOGIN)
+    monkeypatch.setattr(prompts, "choose", lambda *a, **kw: wizard.NEW_GH_LOGIN)
     monkeypatch.setattr(wizard, "login_new_gh_account", lambda name, dry_run: "new-user")
     assert wizard._ask_gh("acme", None, dry_run=False) == "new-user"
 
 
 def test_ask_gcloud_skip_means_no_project_prompt(monkeypatch):
     monkeypatch.setattr(wizard, "list_gcloud_accounts", lambda: ["a@b.c"])
-    monkeypatch.setattr(wizard, "_choose_from", lambda *a, **kw: "")
+    monkeypatch.setattr(prompts, "choose", lambda *a, **kw: "")
     account, project, isolated = wizard._ask_gcloud("acme", None, dry_run=False)
     assert (account, project, isolated) == ("", "", False)
 
 
 def test_ask_gcloud_offers_isolation_when_an_account_is_chosen(monkeypatch):
     monkeypatch.setattr(wizard, "list_gcloud_accounts", lambda: ["a@b.c"])
-    monkeypatch.setattr(wizard, "_choose_from", lambda *a, **kw: "a@b.c")
+    monkeypatch.setattr(prompts, "choose", lambda *a, **kw: "a@b.c")
     class FakeText:
         def __init__(self, *a, **kw):
             pass

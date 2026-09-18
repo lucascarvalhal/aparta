@@ -46,7 +46,8 @@ def test_load_missing_file_returns_empty(tmp_path: Path):
 
 
 def test_config_dir_env_override(tmp_path: Path, monkeypatch):
-    from aparta.profiles import config_dir, profiles_path
+    from aparta.config import config_dir
+    from aparta.profiles import profiles_path
 
     monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path))
     assert config_dir() == tmp_path
@@ -64,7 +65,7 @@ def test_empty_agents_list_survives_roundtrip(tmp_path):
 
 
 def test_gh_config_dir_honors_xdg(tmp_path, monkeypatch):
-    from aparta.profiles import gh_config_dir
+    from aparta.config import gh_config_dir
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     assert gh_config_dir("acme") == tmp_path / "xdg" / "gh-acme"

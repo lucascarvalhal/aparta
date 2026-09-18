@@ -7,6 +7,8 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from .config import config_dir, read_setting, write_setting
+
 LANGUAGES = ("en", "pt")
 LOCALES = Path(__file__).parent / "locales"
 
@@ -29,27 +31,17 @@ def _normalize(value: str) -> str:
 def saved_language() -> str:
     """Language persisted by the wizard's first-run question ('' if none)."""
     global _saved_cache
-    from .profiles import config_dir
-
     d = config_dir()
     if _saved_cache is None or _saved_cache[0] != d:
-        try:
-            value = (d / "language").read_text().strip()
-        except OSError:
-            value = ""
-        _saved_cache = (d, value if value in LANGUAGES else "")
+        _saved_cache = (d, read_setting("language", allowed=LANGUAGES))
     return _saved_cache[1]
 
 
 def set_language(lang: str) -> None:
     """Persist the chosen language in aparta's config directory."""
     global _saved_cache
-    from .profiles import config_dir
-
-    d = config_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    (d / "language").write_text(lang + "\n")
-    _saved_cache = (d, lang)
+    write_setting("language", lang)
+    _saved_cache = (config_dir(), lang)
 
 
 def resolve_lang() -> str:

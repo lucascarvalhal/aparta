@@ -63,7 +63,7 @@ def test_check_off_mode_skips_network(monkeypatch):
 
 
 def test_check_survives_corrupt_cache(monkeypatch):
-    from aparta.profiles import config_dir
+    from aparta.config import config_dir
 
     config_dir().mkdir(parents=True, exist_ok=True)
     (config_dir() / "update-check.json").write_text("{broken")

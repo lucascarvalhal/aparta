@@ -19,7 +19,9 @@ from rich.console import Console
 from .backends.aws import aws_sso_expiry, is_sso_profile
 from .backends.gcloud import has_adc
 from .i18n import _
-from .profiles import Profile, clean_environment, config_dir
+from . import prompts
+from .config import read_json, write_json
+from .profiles import Profile, clean_environment
 from .providers import canonical_provider, canonical_providers
 
 OK = "ok"
@@ -234,24 +236,15 @@ def check_profile(profile: Profile) -> list[AuthStatus]:
     ]
 
 
-def _cache_path() -> Path:
-    return config_dir() / "auth-check.json"
+CACHE_FILE = "auth-check.json"
 
 
 def _read_cache() -> dict:
-    try:
-        return json.loads(_cache_path().read_text())
-    except (OSError, json.JSONDecodeError):
-        return {}
+    return read_json(CACHE_FILE)
 
 
 def _write_cache(data: dict) -> None:
-    try:
-        path = _cache_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data))
-    except OSError:
-        pass
+    write_json(CACHE_FILE, data)
 
 
 def _statuses_from(entry: dict) -> list[AuthStatus] | None:
@@ -298,19 +291,9 @@ def problems(profiles: list[Profile]) -> list[tuple[str, AuthStatus]]:
     ]
 
 
-def _flush_stdin() -> None:
-    """Drop stray bytes pending on stdin before an interactive prompt."""
-    try:
-        import termios
-
-        termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
-    except Exception:
-        pass
-
-
 def _interactive(args: list[str], env: dict[str, str], console: Console) -> bool:
     """Run a login command that owns the terminal; False when it fails or is missing."""
-    _flush_stdin()
+    prompts.flush_stdin()
     try:
         return subprocess.run(args, env=env).returncode == 0
     except FileNotFoundError:
@@ -487,9 +470,7 @@ def _offer_adc(profile: Profile, env: dict, console: Console) -> bool:
     if not sys.stdin.isatty():
         console.print(_("Create them with: aparta login {name}", name=profile.name))
         return True
-    from .wizard import _confirm
-
-    if not _confirm(_("Create them now? (opens the browser)"), default=True):
+    if not prompts.confirm(_("Create them now? (opens the browser)"), default=True):
         return True
     return _run_adc_login(profile, env, console, created=True)
 

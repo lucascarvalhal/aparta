@@ -283,7 +283,7 @@ def test_adc_offer_runs_inside_the_profile_scope(monkeypatch, tmp_path, capsys):
     profile_dir = ISOLATED.gcloud_config_dir
     profile_dir.mkdir(parents=True)
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
-    monkeypatch.setattr("aparta.wizard._confirm", lambda q, default=False: True)
+    monkeypatch.setattr("aparta.prompts.confirm", lambda q, default=False: True)
     applied = []
     monkeypatch.setattr("aparta.apply.apply_profile", lambda p, w, siblings=None: applied.append(p.name))
     seen = {}

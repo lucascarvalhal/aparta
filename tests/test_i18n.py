@@ -46,7 +46,7 @@ def test_set_language_persists(tmp_path, monkeypatch):
 
 
 def test_garbage_in_language_file_is_ignored(tmp_path, monkeypatch):
-    from aparta.profiles import config_dir
+    from aparta.config import config_dir
 
     config_dir().mkdir(parents=True, exist_ok=True)
     (config_dir() / "language").write_text("klingon\n")

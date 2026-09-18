@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .fsutil import tilde
-from .profiles import config_home, gh_config_dir as gh_config_path
+from .config import config_home, gh_config_dir as gh_config_path
 
 IGNORED_DIRS = {
     "node_modules",

@@ -12,7 +12,8 @@ from ..i18n import _
 from . import Note
 
 from ..fsutil import SafeWriter, tilde
-from ..profiles import Profile, config_dir
+from ..config import config_dir
+from ..profiles import Profile
 from ..workspaces import (
     Workspace,
     git_workspace_root,

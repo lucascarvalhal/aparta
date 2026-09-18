@@ -22,7 +22,7 @@ def gcloud_home(config_root: Path | None = None) -> Path:
     override = os.environ.get("CLOUDSDK_CONFIG")
     if override:
         return Path(override).expanduser()
-    from ..profiles import config_home
+    from ..config import config_home
 
     return config_home() / "gcloud"
 

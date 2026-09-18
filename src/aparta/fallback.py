@@ -16,7 +16,8 @@ from rich.table import Table
 
 from .fsutil import SafeWriter
 from .i18n import _
-from .profiles import config_dir
+from . import prompts
+from .config import config_dir
 
 console = Console()
 
@@ -251,13 +252,6 @@ def show_state(state: State | None = None) -> State:
     return state
 
 
-def _ask(question: str) -> bool:
-    """Localized yes/no; isolated so tests can replace it."""
-    from .wizard import _confirm
-
-    return _confirm(question)
-
-
 def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
     """Point the global gcloud default at a neutral configuration, reversibly."""
     state = read_state()
@@ -311,7 +305,7 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
             )
         return True
 
-    if not assume_yes and not _ask(_("Make the global fallback neutral?")):
+    if not assume_yes and not prompts.confirm(_("Make the global fallback neutral?")):
         console.print(_("[yellow]Cancelled.[/yellow]"))
         return False
 

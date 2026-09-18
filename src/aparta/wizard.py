@@ -15,11 +15,13 @@ from .agents import ADAPTERS
 from .discovery import ContextSuggestion, discover
 from .fsutil import SafeWriter
 from .i18n import _
-from .profiles import Profile, gh_config_dir, load_profiles, profiles_path, save_profiles
+from . import prompts
+from .config import gh_config_dir
+from .profiles import Profile, load_profiles, profiles_path, save_profiles
+from .prompts import SKIP
 
 console = Console()
 
-SKIP = "(skip)"
 NEW_GH_LOGIN = "(connect a new GitHub account...)"
 NEW_GCLOUD_LOGIN = "(connect a new Google account...)"
 NEW_SSH_KEY = "(generate a new SSH key for this profile...)"
@@ -115,9 +117,7 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
     dst.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, GH_CONFIG_DIR=str(dst))
     try:
-        from .auth import _flush_stdin
-
-        _flush_stdin()
+        prompts.flush_stdin()
         r = subprocess.run(["gh", "auth", "login"], env=env)
     except FileNotFoundError:
         console.print(_("[red]gh not found in PATH.[/red]"))
@@ -207,7 +207,7 @@ def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
 
 def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
     """Offer to upload the freshly created public key via `gh ssh-key add`."""
-    if not _confirm(
+    if not prompts.confirm(
         _("Upload this key to the GitHub account '{user}' now? (gh ssh-key add)", user=gh_user),
         default=True,
     ):
@@ -239,39 +239,6 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
         )
     else:
         console.print(_("[green]gh:[/green] key added to account '{user}'.", user=gh_user))
-
-
-def _confirm(question: str, default: bool = False) -> bool:
-    """Yes/no with localized keys: y/N in English, s/N in Portuguese."""
-    import questionary
-
-    yes = _("y")
-    suffix = f" ({yes}/n)"
-    answer = questionary.text(question + suffix, qmark="").ask()
-    if answer is None:
-        raise KeyboardInterrupt
-    answer = answer.strip().lower()
-    if not answer:
-        return default
-    return answer[0] in (yes, "y", "s")
-
-
-def _choose_from(
-    question: str,
-    options: list[str],
-    sentinels: tuple[str, ...] = (SKIP,),
-    default: str = "",
-) -> str:
-    """Select over options plus translated sentinel actions; '' when skipped."""
-    import questionary
-
-    choices = [questionary.Choice(o, value=o) for o in options]
-    choices += [questionary.Choice(_(s), value=s) for s in sentinels]
-    default_choice = next((c for c in choices if default and c.value == default), None)
-    answer = questionary.select(question, choices=choices, default=default_choice, qmark="").ask()
-    if answer is None:
-        raise KeyboardInterrupt
-    return "" if answer == SKIP else answer
 
 
 def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
@@ -352,7 +319,7 @@ def _ask_identity(
         return None
     name = name.strip()
     if name in existing_names:
-        if not _confirm(_("'{name}' already exists. Overwrite?", name=name)):
+        if not prompts.confirm(_("'{name}' already exists. Overwrite?", name=name)):
             return None
 
     root = questionary.path(
@@ -391,7 +358,7 @@ def _ask_ssh(
         if suggestion and suggestion.ssh_key
         else ""
     )
-    ssh_key = _choose_from(
+    ssh_key = prompts.choose(
         _("Dedicated SSH key for this profile:"),
         list_ssh_keys(),
         sentinels=(NEW_SSH_KEY, SKIP),
@@ -411,7 +378,7 @@ def _ask_gh(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> s
     accounts = list_gh_accounts()
     if not accounts:
         console.print(_("[dim]No gh account logged in yet (gh auth status).[/dim]"))
-    gh_user = _choose_from(
+    gh_user = prompts.choose(
         _("GitHub CLI account for this profile:"),
         accounts,
         sentinels=(NEW_GH_LOGIN, SKIP),
@@ -428,7 +395,7 @@ def _ask_aws(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> 
     profiles = list_aws_profiles()
     if not profiles:
         console.print(_("[dim]No AWS profile found yet (~/.aws/config).[/dim]"))
-    chosen = _choose_from(
+    chosen = prompts.choose(
         _("AWS profile for this profile:"),
         profiles,
         sentinels=(NEW_AWS_PROFILE, SKIP),
@@ -455,7 +422,7 @@ def _ask_gcloud(
     accounts = list_gcloud_accounts()
     if not accounts:
         console.print(_("[dim]No gcloud account logged in yet (gcloud auth list).[/dim]"))
-    account = _choose_from(
+    account = prompts.choose(
         _("gcloud account for this profile:"),
         accounts,
         sentinels=(NEW_GCLOUD_LOGIN, SKIP),
@@ -749,7 +716,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         )
         suggestions = [s for s in discover() if s.name not in profiles]
         extra = ""
-        if _confirm(_("Scan an extra folder outside your home?")):
+        if prompts.confirm(_("Scan an extra folder outside your home?")):
             extra = (questionary.path(_("Which folder?"), default="", qmark="").ask() or "").strip()
         if extra:
             known_roots = {s.root for s in suggestions}
@@ -794,7 +761,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
                 new_profiles.append(profile)
 
     while True:
-        if new_profiles and not _confirm(_("Configure another profile?")):
+        if new_profiles and not prompts.confirm(_("Configure another profile?")):
             break
         profile = _ask_context(
             agents,
@@ -806,7 +773,7 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
             new_profiles.append(profile)
         elif new_profiles:
             break
-        elif not _confirm(_("Try again?"), default=True):
+        elif not prompts.confirm(_("Try again?"), default=True):
             break
 
     if not new_profiles:

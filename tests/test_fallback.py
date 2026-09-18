@@ -109,7 +109,7 @@ def test_secure_saves_the_previous_configuration_before_switching(monkeypatch):
 def test_secure_asks_before_changing_anything(monkeypatch):
     calls = []
     monkeypatch.setattr(fallback.subprocess, "run", _recorder(calls))
-    monkeypatch.setattr(fallback, "_ask", lambda question: False)
+    monkeypatch.setattr("aparta.prompts.confirm", lambda question, default=False: False)
     assert fallback.make_secure(SafeWriter()) is False
     assert not any(ACTIVATE in cmd for cmd, _env in calls)
     assert not fallback.previous_path().exists()
@@ -141,7 +141,7 @@ def test_secure_reports_a_failing_gcloud(monkeypatch):
 def test_dry_run_runs_no_command_and_writes_nothing(monkeypatch):
     calls = []
     monkeypatch.setattr(fallback.subprocess, "run", _recorder(calls))
-    monkeypatch.setattr(fallback, "_ask", lambda question: pytest.fail("no prompt in dry-run"))
+    monkeypatch.setattr("aparta.prompts.confirm", lambda question, default=False: pytest.fail("no prompt in dry-run"))
     assert fallback.make_secure(SafeWriter(dry_run=True)) is True
     assert not any(CREATE in cmd or ACTIVATE in cmd for cmd, _env in calls)
     assert not fallback.previous_path().exists()

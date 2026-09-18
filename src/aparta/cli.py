@@ -270,9 +270,9 @@ def remove(
         console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
         raise typer.Exit(1)
     if not yes:
-        from .wizard import _confirm
+        from . import prompts
 
-        confirmed = _confirm(
+        confirmed = prompts.confirm(
             _("Remove '{name}' and undo its gitconfig, gh, gcloud and agent env?", name=profile_name)
         )
         if not confirmed:

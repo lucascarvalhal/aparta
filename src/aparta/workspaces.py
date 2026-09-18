@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from . import _toml
-
 import os
 import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-
-
+from .config import config_dir, load_table, save_table
 from .fsutil import SafeWriter
-from .profiles import Profile, config_dir
+from .profiles import Profile
 
 
 class WorkspaceResolutionError(ValueError):
@@ -38,19 +35,13 @@ def workspaces_path() -> Path:
 
 
 def load_workspaces(path: Path | None = None) -> dict[str, Workspace]:
-    path = path or workspaces_path()
-    if not path.exists():
-        return {}
-    data = _toml.loads(path.read_text())
     result: dict[str, Workspace] = {}
-    for name, raw in data.get("workspaces", {}).items():
-        fields = {key: value for key, value in raw.items() if key in Workspace.__dataclass_fields__}
-        providers = list(dict.fromkeys(fields.get("providers", [])))
+    for name, raw in load_table(path or workspaces_path(), "workspaces").items():
         result[name] = Workspace(
             name=name,
-            path=str(fields.get("path", "")),
-            profile=str(fields.get("profile", "")),
-            providers=providers,
+            path=str(raw.get("path", "")),
+            profile=str(raw.get("profile", "")),
+            providers=list(dict.fromkeys(raw.get("providers", []))),
         )
     return result
 
@@ -60,14 +51,11 @@ def save_workspaces(
     writer: SafeWriter,
     path: Path | None = None,
 ) -> None:
-    path = path or workspaces_path()
-    doc = {
-        "workspaces": {
-            name: {key: value for key, value in asdict(workspace).items() if key != "name"}
-            for name, workspace in sorted(workspaces.items())
-        }
+    rows = {
+        name: {key: value for key, value in asdict(workspace).items() if key != "name"}
+        for name, workspace in sorted(workspaces.items())
     }
-    writer.write_text(path, _toml.dumps(doc), label=str(path))
+    save_table(path or workspaces_path(), "workspaces", rows, writer)
 
 
 def git_workspace_root(path: Path) -> Path | None:
