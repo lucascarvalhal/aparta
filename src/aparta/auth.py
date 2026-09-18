@@ -607,12 +607,13 @@ def _adc_login_env(env: dict) -> dict:
 def _adc_from_cli_credential(profile: Profile, env: dict, console) -> bool:
     """Try to derive the ADC from the CLI credential, with no browser.
 
-    `gcloud auth application-default login ACCOUNT` reuses the credential
-    already in the profile's store when it is valid, so right after a CLI
-    login the ADC can be written without a second trip to the browser.
-    The result is probed like a library before it counts: a copy that
-    still fails the plain refresh is worthless, and the caller falls back
-    to the interactive flow.
+    `gcloud auth login ACCOUNT --update-adc` takes the cached-credentials
+    branch when the account is already in the profile's store and writes
+    that credential to the ADC file without a web flow (surface/auth/
+    login.py, ShouldUseCachedCredentials then LoginAs). Right after a CLI
+    login that is always the case. The result is probed like a library
+    before it counts: a copy that still fails the plain refresh is
+    worthless, and the caller falls back to the interactive flow.
     """
     if not profile.gcloud_account:
         return False
@@ -621,9 +622,10 @@ def _adc_from_cli_credential(profile: Profile, env: dict, console) -> bool:
             [
                 "gcloud",
                 "auth",
-                "application-default",
                 "login",
                 profile.gcloud_account,
+                "--update-adc",
+                "--brief",
                 "--no-launch-browser",
                 "--quiet",
             ],

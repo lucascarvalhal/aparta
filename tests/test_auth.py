@@ -588,8 +588,8 @@ def test_adc_is_derived_from_the_cli_credential_without_a_browser(monkeypatch, t
     assert auth._ensure_adc(ISOLATED, dict(ISOLATED.env()), Console()) is True
     assert len(calls) == 1  # no interactive fallback
     args, env, kwargs = calls[0]
-    assert args[:5] == ["gcloud", "auth", "application-default", "login", "ana@acme.com"]
-    assert "--no-launch-browser" in args and "--quiet" in args
+    assert args[:4] == ["gcloud", "auth", "login", "ana@acme.com"]
+    assert "--update-adc" in args and "--no-launch-browser" in args and "--quiet" in args
     assert kwargs["stdin"] is subprocess.DEVNULL
     assert env["CLOUDSDK_CONFIG"] == str(profile_dir)
 
@@ -637,4 +637,4 @@ def test_forcing_the_adc_provider_renews_it_even_when_valid(monkeypatch, tmp_pat
 
     monkeypatch.setattr(auth.subprocess, "run", run)
     assert auth.login_profile(ISOLATED, provider="adc") is True
-    assert calls and calls[0][:4] == ["gcloud", "auth", "application-default", "login"]
+    assert calls and "--update-adc" in calls[0]  # a renewal ran, not a probe
