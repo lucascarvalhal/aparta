@@ -554,7 +554,7 @@ def status(
 def _resolve_profile(profile_name: str):
     """The named profile, or the one owning the current folder."""
 
-    from .runner import profile_for_path
+    from .workspaces import profile_for_path
 
     err = Console(stderr=True)
     profiles = load_profiles()

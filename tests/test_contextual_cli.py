@@ -343,3 +343,25 @@ def test_run_uses_only_the_current_worktree_providers(configured, monkeypatch):
         profile.gcloud_config_dir / "application_default_credentials.json"
     )
     assert "GH_CONFIG_DIR" not in received
+
+
+def test_env_with_an_explicit_profile_prints_its_exports(configured, monkeypatch):
+    repo, profile = configured
+    monkeypatch.chdir(repo)
+
+    result = runner.invoke(app, ["env", profile.name])
+
+    assert result.exit_code == 0, result.output
+    assert "CLOUDSDK_CONFIG" in result.output
+
+
+def test_run_with_an_explicit_profile_executes_the_command(configured, monkeypatch):
+    repo, profile = configured
+    monkeypatch.chdir(repo)
+    profile.gcloud_config_dir.mkdir(parents=True, exist_ok=True)
+    (profile.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+
+    result = runner.invoke(app, ["run", "--profile", profile.name, "--", "true"])
+
+    assert result.exit_code == 0, result.output
