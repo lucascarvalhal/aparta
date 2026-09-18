@@ -48,7 +48,7 @@ def test_check_is_cached_daily(monkeypatch):
 
     monkeypatch.setattr(updates, "fetch_latest_version", fake_fetch)
     assert updates.check_for_update() == "99.0.0"
-    assert updates.check_for_update() == "99.0.0"  # served from cache
+    assert updates.check_for_update() == "99.0.0"
     assert len(calls) == 1
 
 

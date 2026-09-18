@@ -46,8 +46,6 @@ def main(
         console.print(f"aparta {__version__}")
         raise typer.Exit()
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
-    # run and env stay quiet: their stdout belongs to the wrapped command
-    # (or to an eval), so no warning may pollute it
     if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env", "status", "hook"):
         from .updates import notify_or_autoupdate
 
@@ -93,7 +91,6 @@ def _warn_about_credentials() -> None:
                 )
             )
     except Exception:
-        # a credential check must never keep the CLI from running
         pass
 
 
@@ -188,8 +185,6 @@ def doctor(
         raise typer.Exit(1)
     selected = [profiles[profile_name]] if profile_name else list(profiles.values())
 
-    # list comprehension on purpose: all() must not short-circuit, every
-    # profile's table should render even after a failure
     options = ctx.obj or {}
     ok = all(
         [
@@ -518,8 +513,6 @@ def status(
     unknown = bool(expected_auth - known) or any(
         item.state != OK and not item.needs_human for item in statuses
     )
-    # the prompt tells the human what to do, in their language: a credential
-    # that needs them says so, instead of a bare "blocked"
     state = _("reauth needed") if blocked else _("unknown") if unknown else "ok"
 
     now = time.time()
@@ -728,7 +721,6 @@ def check(
 
     lines: list[str] = []
     for profile in profiles.values():
-        # hooks use the cache so opening an agent never waits on the network
         for status in cached_check(profile, force=not (quiet or as_json)):
             if status.state == OK:
                 continue
@@ -739,7 +731,6 @@ def check(
                 lines.append(_("  run `aparta login {name}`", name=profile.name))
 
     if as_json:
-        # the Gemini hook contract: JSON on stdout and nothing else
         print(jsonlib.dumps({"systemMessage": "\n".join(lines)} if lines else {}))
         return
     for line in lines:

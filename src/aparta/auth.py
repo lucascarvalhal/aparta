@@ -1,15 +1,4 @@
-"""Credential health per profile: silent refresh, honest states, one command.
-
-gcloud refreshes access tokens on its own while the refresh token lives, so
-probing is also the renewal. What cannot be automated is reauthentication
-after the organization's session policy expires (Google Workspace defaults to
-16 hours for new customers): that needs a human at a browser or a security
-key, by design. The best a tool can do is notice early, say so clearly and
-offer a single command that runs the login in the right place.
-
-A network failure is never reported as an expired credential: it becomes
-UNKNOWN, so a flaky connection cannot cry wolf.
-"""
+"""Credential health per profile: silent refresh, honest states, one command."""
 
 from __future__ import annotations
 
@@ -32,7 +21,6 @@ UNKNOWN = "unknown"
 CACHE_TTL_SECONDS = 10 * 60
 PROBE_TIMEOUT = 20
 
-# stderr fingerprints, from the gcloud and gh error surfaces
 _REVOKED = ("invalid_grant", "expired or revoked", "invalid credentials")
 _REAUTH_NEEDED = ("reauthentication", "invalid_rapt", "credentials are invalid")
 _NO_ACCOUNT = (
@@ -46,8 +34,8 @@ _SSO = ("x-github-sso", "saml enforcement", "sso")
 
 @dataclass
 class AuthStatus:
-    provider: str  # "gcloud" or "gh"
-    state: str  # OK, REAUTH, MISSING or UNKNOWN
+    provider: str
+    state: str
     detail: str = ""
     expires_at: float | None = None
     renewable: bool = False
@@ -106,15 +94,7 @@ TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 
 
 def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
-    """Refresh the ADC the way google-auth does, with no help from gcloud.
-
-    gcloud can mint tokens from an ADC the raw libraries cannot: it knows
-    the organization's reauth policy and holds a cached reauth proof
-    (RAPT), so `print-access-token` says "valid" while Terraform and
-    Dataform get invalid_rapt from a plain refresh. Only a plain refresh
-    against the token endpoint tells the truth about what a library sees.
-    Returns None when this probe does not apply (not a user credential).
-    """
+    """Refresh the ADC the way google-auth does, with no help from gcloud."""
     import urllib.error
     import urllib.parse
     import urllib.request
@@ -124,7 +104,7 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
     except (OSError, json.JSONDecodeError):
         return None
     if data.get("type") != "authorized_user":
-        return None  # service accounts do not sit behind reauth policies
+        return None
     body = urllib.parse.urlencode(
         {
             "grant_type": "refresh_token",
@@ -144,9 +124,6 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
         except Exception:
             err = {}
         text = " ".join(str(v) for v in err.values())
-        # the RAPT verdict arrives as invalid_grant + invalid_rapt; the
-        # policy message is the honest one, so check it before _classify
-        # matches the generic invalid_grant
         if "invalid_rapt" in text.lower():
             return AuthStatus("ADC", REAUTH, _("session expired by your organization's policy"))
         state, detail = _classify(text)
@@ -154,19 +131,11 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
             return AuthStatus("ADC", UNKNOWN, detail or str(e))
         return AuthStatus("ADC", state, detail)
     except Exception:
-        # a network failure must never cry wolf
         return AuthStatus("ADC", UNKNOWN, _("check timed out"))
 
 
 def check_adc(profile: Profile) -> AuthStatus | None:
-    """Probe the profile's application default credentials.
-
-    The CLI credential and the ADC are two independent credentials that
-    expire on their own schedules: `gcloud` commands can work all day while
-    Terraform trips on an ADC the same reauth policy already expired. A
-    profile without an ADC is a choice, not an error, so only an existing
-    file is probed, and probed like a library, not like gcloud.
-    """
+    """Probe the profile's application default credentials."""
     if not profile.gcloud_isolated:
         return None
     from .backends.gcloud import has_adc
@@ -177,7 +146,6 @@ def check_adc(profile: Profile) -> AuthStatus | None:
     status = _refresh_adc_like_a_library(adc_path)
     if status is not None:
         return status
-    # not a user credential (or unreadable): fall back to gcloud's own probe
     overlay = {
         k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
     }
@@ -202,7 +170,6 @@ def check_adc(profile: Profile) -> AuthStatus | None:
     return AuthStatus("ADC", state, detail)
 
 
-# aws stderr fingerprints, from the CLI and botocore error surfaces
 _AWS_EXPIRED = ("token has expired", "expiredtoken", "sso session", "requires re-authentication")
 _AWS_MISSING = ("unable to locate credentials", "could not be found")
 
@@ -217,11 +184,7 @@ def _classify_aws(stderr: str) -> tuple[str, str]:
 
 
 def check_aws(profile: Profile) -> AuthStatus | None:
-    """Probe the AWS profile the way every SDK does: an STS call.
-
-    Static keys do not expire, but SSO sessions and role session tokens
-    do; only asking STS who we are tells the truth for all of them.
-    """
+    """Probe the AWS profile the way every SDK does: an STS call."""
     if not profile.aws_profile:
         return None
     env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
@@ -277,8 +240,6 @@ def check_profile(profile: Profile) -> list[AuthStatus]:
         if s is not None
     ]
 
-
-# ----------------------------------------------------------------- cache
 
 def _cache_path() -> Path:
     return config_dir() / "auth-check.json"
@@ -339,15 +300,8 @@ def problems(profiles: list[Profile]) -> list[tuple[str, AuthStatus]]:
     return found
 
 
-# ------------------------------------------------------------------ login
-
 def _flush_stdin() -> None:
-    """Drop stray bytes pending on stdin before an interactive prompt.
-
-    Terminals answer status queries with escape sequences on stdin; gh's
-    prompt library aborts on them ("unexpected escape sequence from
-    terminal") instead of ignoring them.
-    """
+    """Drop stray bytes pending on stdin before an interactive prompt."""
     try:
         import sys
         import termios
@@ -362,12 +316,7 @@ def login_profile(
     provider: str = "",
     enabled_providers: list[str] | None = None,
 ) -> bool:
-    """Run the interactive login for a profile, in the profile's own scope.
-
-    The whole point is that the user never has to remember an environment
-    variable: the credential always lands in the right place, and the
-    expected account is reasserted afterwards.
-    """
+    """Run the interactive login for a profile, in the profile's own scope."""
     from rich.console import Console
 
     console = Console()
@@ -388,8 +337,6 @@ def login_profile(
 
     if profile.gcloud_account and wants_gcloud:
         env = _gcloud_env(profile)
-        # asked for the whole profile, not gcloud specifically: skip the
-        # browser dance when the credential is still good
         status = check_gcloud(profile) if not forced else None
         if status is not None and status.state == OK:
             console.print(
@@ -417,7 +364,6 @@ def login_profile(
                 console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
                 return False
             if r.returncode == 0:
-                # a login can leave another account selected; put ours back
                 subprocess.run(
                     ["gcloud", "config", "set", "account", profile.gcloud_account],
                     env=env,
@@ -434,8 +380,6 @@ def login_profile(
     if profile.gcloud_account and wants_adc and not wants_gcloud:
         env = _gcloud_env(profile)
         if forced == "adc" and profile.gcloud_isolated:
-            # asked for the ADC by name: renew it, like `--provider gcloud`
-            # renews the CLI credential without asking whether it needs to
             from .backends.gcloud import has_adc
 
             ok &= _run_adc_login(profile, env, console, created=not has_adc(profile.gcloud_config_dir))
@@ -491,17 +435,12 @@ def login_profile(
         else:
             ok &= _aws_login(profile, console)
 
-    # the cached verdict is stale now
     cached_check(profile, force=True)
     return ok
 
 
 def _aws_login(profile: Profile, console) -> bool:
-    """Renew what a browser can renew: the SSO session.
-
-    Static keys never expire on their own; when they are the problem, the
-    only honest move is pointing at `aws configure`.
-    """
+    """Renew what a browser can renew: the SSO session."""
     from .backends.aws import is_sso_profile
 
     env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
@@ -534,13 +473,7 @@ def _gcloud_env(profile: Profile) -> dict:
 
 
 def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False) -> bool:
-    """Create or renew the profile's application default credentials.
-
-    A fresh CLI credential says nothing about the ADC: they are two
-    independent credentials the same reauth policy expires on its own
-    schedule, and Terraform only ever uses the ADC. Saying "still valid"
-    while the ADC sits expired would be lying by omission.
-    """
+    """Create or renew the profile's application default credentials."""
     from .backends.gcloud import has_adc
 
     if not profile.gcloud_isolated:
@@ -569,14 +502,7 @@ def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False)
 
 
 def _offer_adc(profile: Profile, env: dict, console) -> bool:
-    """A profile with no ADC yet gets the offer to create one.
-
-    Telling the user the command is not enough: run in their own shell,
-    without the profile's CLOUDSDK_CONFIG, it would create the GLOBAL ADC
-    shared by every profile, the exact leak the isolation exists to prevent.
-    So the login runs right here with the profile's environment. Declining
-    is fine: no ADC is safer than the wrong ADC.
-    """
+    """A profile with no ADC yet gets the offer to create one."""
     import sys
 
     console.print(
@@ -593,28 +519,12 @@ def _offer_adc(profile: Profile, env: dict, console) -> bool:
 
 
 def _adc_login_env(env: dict) -> dict:
-    """The env for an ADC login, without GOOGLE_APPLICATION_CREDENTIALS.
-
-    The profile env pins that variable at the isolated file so libraries
-    find it. gcloud, seeing it set, stops to ask "Do you want to continue
-    (Y/n)?" before writing to the very same path. CLOUDSDK_CONFIG alone
-    already sends the file to the profile's folder, so the variable adds
-    nothing here but the question.
-    """
+    """The env for an ADC login, without GOOGLE_APPLICATION_CREDENTIALS."""
     return {k: v for k, v in env.items() if k != "GOOGLE_APPLICATION_CREDENTIALS"}
 
 
 def _adc_from_cli_credential(profile: Profile, env: dict, console) -> bool:
-    """Try to derive the ADC from the CLI credential, with no browser.
-
-    `gcloud auth login ACCOUNT --update-adc` takes the cached-credentials
-    branch when the account is already in the profile's store and writes
-    that credential to the ADC file without a web flow (surface/auth/
-    login.py, ShouldUseCachedCredentials then LoginAs). Right after a CLI
-    login that is always the case. The result is probed like a library
-    before it counts: a copy that still fails the plain refresh is
-    worthless, and the caller falls back to the interactive flow.
-    """
+    """Try to derive the ADC from the CLI credential, with no browser."""
     if not profile.gcloud_account:
         return False
     try:
@@ -653,8 +563,6 @@ def _run_adc_login(profile: Profile, env: dict, console, created: bool) -> bool:
         r = subprocess.CompletedProcess([], 0)
     else:
         if profile.gcloud_account:
-            # the ADC flow cannot preselect an account; the human picking the
-            # wrong one would put another identity in this profile's file
             console.print(
                 _("[dim]In the browser, pick the account {account}.[/dim]", account=profile.gcloud_account)
             )
@@ -676,8 +584,6 @@ def _run_adc_login(profile: Profile, env: dict, console, created: bool) -> bool:
         console.print(_("[green]gcloud:[/green] application credentials renewed"))
         return True
     console.print(_("[green]gcloud:[/green] application credentials created for this profile"))
-    # the env of every repo must now point GOOGLE_APPLICATION_CREDENTIALS
-    # at the new file; a fresh apply reconciles that
     from .apply import apply_profile
     from .fsutil import SafeWriter
     from .profiles import load_profiles

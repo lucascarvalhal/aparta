@@ -42,11 +42,7 @@ class DirenvAdapter(AgentAdapter):
         return writer.write_text(path, remove_env_lines(path.read_text(), keys))
 
     def install_check(self, repo: Path, writer: SafeWriter) -> bool:
-        """Append the credential check, so entering the folder warns you.
-
-        This is the widest net: any shell, and therefore any agent that
-        shells out, goes through direnv when the user has it installed.
-        """
+        """Append the credential check, so entering the folder warns you."""
         path = self.envrc_path(repo)
         existing = path.read_text() if path.exists() else ""
         if CHECK_COMMAND in existing:

@@ -1,9 +1,4 @@
-"""Context discovery: scan the disk and infer profile suggestions.
-
-Signals, strongest first: existing ~/.gitconfig includeIf blocks, the
-effective user.email of repos under common roots grouped by parent folder,
-and traces left by agent adapters. Everything here is read-only.
-"""
+"""Context discovery: scan the disk and infer profile suggestions."""
 
 from __future__ import annotations
 
@@ -17,7 +12,6 @@ from pathlib import Path
 from .fsutil import tilde
 from .profiles import config_home, gh_config_dir as gh_config_path
 
-# Build artifacts and dependency caches, never project roots.
 IGNORED_DIRS = {
     "node_modules",
     ".venv",
@@ -32,7 +26,6 @@ IGNORED_DIRS = {
     "site-packages",
 }
 
-# OS-managed home directories that cannot contain the user's own projects.
 SYSTEM_DIRS = {
     "Library",
     "Applications",
@@ -49,22 +42,20 @@ DEFAULT_SCAN_DEPTH = 4
 @dataclass
 class ContextSuggestion:
     name: str
-    root: str  # shown with ~ when possible
+    root: str
     git_email: str = ""
-    git_name: str = ""  # user.name from the included gitconfig
+    git_name: str = ""
     repo_count: int = 0
-    gh_config: str = ""  # e.g. "gh-personal" (dir found in agent env)
-    gcloud_config: str = ""  # e.g. "personal" (CLOUDSDK_ACTIVE_CONFIG_NAME)
-    ssh_key: str = ""  # from core.sshCommand in the included gitconfig
-    ssh_alias: str = ""  # from the [url "git@<alias>:"] insteadOf block
-    gh_user: str = ""  # from the gh_config hosts.yml
-    gcloud_account: str = ""  # from the named gcloud configuration
-    gcloud_project: str = ""  # same source (project = ... line)
-    aws_profile: str = ""  # from agent env (AWS_PROFILE) or a matching ~/.aws profile
-    source: str = "repos"  # "gitconfig" | "repos"
+    gh_config: str = ""
+    gcloud_config: str = ""
+    ssh_key: str = ""
+    ssh_alias: str = ""
+    gh_user: str = ""
+    gcloud_account: str = ""
+    gcloud_project: str = ""
+    aws_profile: str = ""
+    source: str = "repos"
 
-
-# ---------------------------------------------------- signal 1: ~/.gitconfig
 
 def parse_includeifs(gitconfig_text: str) -> list[tuple[str, str]]:
     """Extract (gitdir, path) pairs from [includeIf "gitdir:..."] blocks."""
@@ -126,8 +117,6 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
     return suggestions
 
 
-# --------------------------------------------------- signal 2: repos on disk
-
 def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
     """git repos under root, depth-limited, skipping non-project directories."""
     repos: list[Path] = []
@@ -164,11 +153,7 @@ def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
 def find_all_repos(
     scan_roots: list[str] | None = None, max_depth: int = DEFAULT_SCAN_DEPTH
 ) -> list[Path]:
-    """Every git repo under the given roots (the user's home by default).
-
-    No assumptions about folder naming: the whole tree is walked, pruning
-    only hidden directories, build artifacts and OS-managed directories.
-    """
+    """Every git repo under the given roots (the user's home by default)."""
     roots = [Path(r).expanduser() for r in scan_roots] if scan_roots else [Path.home()]
     repos: dict[Path, None] = {}
     for root in roots:
@@ -191,8 +176,6 @@ def repo_git_email(repo: Path) -> str:
     return r.stdout.strip()
 
 
-# --------------------------------------------- signal 3: adapter traces
-
 def read_agent_env(repo: Path) -> dict[str, str]:
     """Env already injected by previous setups, read via the agent registry."""
     from .agents import ADAPTERS
@@ -203,8 +186,6 @@ def read_agent_env(repo: Path) -> dict[str, str]:
             env.setdefault(key, value)
     return env
 
-
-# ------------------------------------------------------------------ discover
 
 def _scan_groups(repos: list[Path]) -> list[ContextSuggestion]:
     """Group repos by parent folder; summarize majority e-mail/gh/gcloud."""
@@ -268,8 +249,7 @@ def gcloud_config_values(name: str, gcloud_dir: Path | None = None) -> tuple[str
 def _enrich_accounts(
     s: ContextSuggestion, config_root: Path | None = None, aws_dir: Path | None = None
 ) -> None:
-    """Resolve gh user and gcloud account from configs on disk, falling
-    back to aparta's own naming convention (gh-<name>, config_<name>)."""
+    """Resolve gh user and gcloud account from disk, falling back to gh-<name> and config_<name>."""
     config_root = config_root or config_home()
     gh_dir = s.gh_config or gh_config_path(s.name, config_root).name
     if (config_root / gh_dir).exists():
@@ -307,12 +287,7 @@ def discover(
     config_root: Path | None = None,
     aws_dir: Path | None = None,
 ) -> list[ContextSuggestion]:
-    """Context suggestions: gitconfig includeIfs first, then the disk scan.
-
-    The scan walks the user's home (or the given roots) with no naming
-    assumptions. Scan groups whose root an includeIf already covers only
-    enrich the existing suggestion (repo count, detected accounts).
-    """
+    """Context suggestions: gitconfig includeIfs first, then the disk scan."""
     by_root: dict[str, ContextSuggestion] = {}
 
     for s in suggestions_from_gitconfig(gitconfig):

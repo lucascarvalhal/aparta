@@ -35,7 +35,7 @@ def test_new_adapter_file_registers_itself():
 
     try:
         assert REGISTRY["fake-test-adapter"] is FakeAdapter
-        assert FakeAdapter.display_name == "fake-test-adapter"  # falls back to name
+        assert FakeAdapter.display_name == "fake-test-adapter"
         assert isinstance(get_adapters(["fake-test-adapter"])[0], FakeAdapter)
     finally:
         del REGISTRY["fake-test-adapter"]

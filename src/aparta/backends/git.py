@@ -47,11 +47,6 @@ def render_context_gitconfig(profile: Profile) -> str:
     return "\n".join(lines) + "\n"
 
 
-# ------------------------------------------------- per-profile gitconfig merge
-
-# Keys aparta owns inside ~/.gitconfig-<profile>; everything else the user
-# put there (name, signing, aliases, comments) is preserved untouched.
-
 def _parse_sections(text: str) -> list[tuple[str | None, list[str]]]:
     """Split a gitconfig into (header, body lines), preserving raw text."""
     sections: list[tuple[str | None, list[str]]] = []
@@ -116,11 +111,7 @@ def _set_url_insteadof(sections: list[tuple[str | None, list[str]]], alias: str,
 
 
 def merge_context_gitconfig(existing_text: str, profile: Profile) -> str:
-    """Merge the profile's settings into an existing gitconfig.
-
-    Only the keys aparta manages are written; unknown sections, keys and
-    comments survive. An empty input renders the file from scratch.
-    """
+    """Merge the profile's settings into an existing gitconfig."""
     if not existing_text.strip():
         return render_context_gitconfig(profile)
 
@@ -356,10 +347,6 @@ def reconcile_workspace_git(
             exact_blocks.append(render_includeif_block(gitdir, include_path).rstrip())
 
     if exact_blocks:
-        # Git's URL rewrite tie-breaker keeps the first equally specific
-        # insteadOf, while scalar settings keep the last value. Bracketing the
-        # user's untouched global config makes both rules select this exact
-        # workspace without deleting unrelated global customization.
         blocks = "\n\n".join(exact_blocks)
         middle = user_config.strip("\n")
         merged = blocks + ("\n\n" + middle if middle else "") + "\n\n" + blocks + "\n"
@@ -397,8 +384,7 @@ def apply_git(
 
 
 def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = None) -> list[Note]:
-    """Adopted repos (outside root): the local .git/config includes the
-    profile's gitconfig, inheriting e-mail/key/insteadOf without moving."""
+    """Adopted repos include the profile's gitconfig locally, without moving folders."""
     notes: list[Note] = []
     if not profile.adopted_repos:
         return notes
@@ -416,7 +402,7 @@ def apply_adopted_git(profile: Profile, writer: SafeWriter, home: Path | None = 
             timeout=30,
         )
         if include in current.stdout.splitlines():
-            continue  # already adopted
+            continue
         if writer.dry_run:
             notes.append(Note(
                 "info",

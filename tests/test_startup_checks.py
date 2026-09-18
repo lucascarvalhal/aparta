@@ -19,7 +19,6 @@ def test_claude_code_gets_a_session_start_hook(tmp_path: Path):
 
     data = json.loads((tmp_path / ".claude" / "settings.local.json").read_text())
     assert CHECK_COMMAND in json.dumps(data["hooks"]["SessionStart"])
-    # the env it already had survives
     assert data["env"]["GH_CONFIG_DIR"] == "/x"
 
 
@@ -55,8 +54,8 @@ def test_direnv_appends_the_check_to_envrc(tmp_path: Path):
 
     text = (tmp_path / ".envrc").read_text()
     assert CHECK_COMMAND in text
-    assert 'export GH_CONFIG_DIR="/x"' in text  # the env line is untouched
-    assert adapter.install_check(tmp_path, SafeWriter()) is False  # idempotent
+    assert 'export GH_CONFIG_DIR="/x"' in text
+    assert adapter.install_check(tmp_path, SafeWriter()) is False
 
     adapter.uninstall_check(tmp_path, SafeWriter())
     assert CHECK_COMMAND not in (tmp_path / ".envrc").read_text()
@@ -123,7 +122,6 @@ def test_gemini_hook_uses_the_json_contract(tmp_path: Path):
 
     data = json.loads((tmp_path / ".gemini" / "settings.json").read_text())
     command = data["hooks"]["SessionStart"][0]["hooks"][0]["command"]
-    # Gemini refuses anything but JSON on stdout, so the hook asks for JSON
     assert command == CHECK_JSON_COMMAND
     assert "--json" in command
 
@@ -144,7 +142,6 @@ def test_opencode_plugin_keeps_env_and_gains_the_check(tmp_path: Path):
     assert "session.created" in plugin
     assert adapter.read_env(tmp_path) == {"GH_CONFIG_DIR": "/x"}
 
-    # re-injecting env must not drop the check
     adapter.inject(tmp_path, {"OTHER": "y"}, SafeWriter())
     plugin = (tmp_path / ".opencode" / "plugins" / "aparta-env.js").read_text()
     assert CHECK_COMMAND in plugin and "OTHER" in plugin

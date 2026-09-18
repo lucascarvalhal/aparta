@@ -114,7 +114,6 @@ def test_discover_groups_by_parent_folder(tmp_path: Path):
     assert by_name["pessoal"].git_email == "eu@gmail.com"
     assert by_name["acme"].repo_count == 1
     assert by_name["acme"].git_email == "eu@acme.com"
-    # most repos first
     assert suggestions[0].name == "pessoal"
 
 
@@ -132,9 +131,9 @@ def test_discover_merges_gitconfig_with_scan(tmp_path: Path):
     )
     assert len(suggestions) == 1
     s = suggestions[0]
-    assert s.source == "gitconfig"  # strongest signal wins
+    assert s.source == "gitconfig"
     assert s.git_email == "fixo@gmail.com"
-    assert s.repo_count == 1  # enriched by the scan
+    assert s.repo_count == 1
 
 
 def test_find_all_repos_has_no_naming_assumptions(tmp_path: Path):

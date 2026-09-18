@@ -29,8 +29,9 @@ CI runs the test suite on Python 3.10 to 3.13; a PR needs it green.
   merge); never overwrite a user's file.
 - Tests use `tmp_path` and `APARTA_CONFIG_DIR`, never the real home.
 - User-facing strings are written in English through the `_()` helper from
-  `aparta/i18n.py`, with a Brazilian Portuguese entry added to the catalog
-  in the same module.
-- Code comments and docstrings are English, short, and only where needed.
+  `aparta/i18n.py`, with a Brazilian Portuguese entry added to
+  `aparta/locales/pt.json` (the English string is the key).
+- No inline comments. A module or function gets at most a one-line English
+  docstring, and only when the name does not already say it.
 - Commits follow conventional commits (`feat:`, `fix:`, `docs:`, `test:` ...),
   in English.

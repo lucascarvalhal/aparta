@@ -34,9 +34,11 @@ Algumas regras que mantêm o aparta confiável para quem usa:
   Nunca sobrescreva um arquivo do usuário, esse é o coração do projeto.
 - Testes usam `tmp_path` e `APARTA_CONFIG_DIR`, nunca a home real de quem roda.
 - Textos visíveis ao usuário nascem em inglês, pelo helper `_()` de
-  `aparta/i18n.py`, e ganham a tradução em português do Brasil no catálogo do
-  mesmo módulo. Capriche na tradução: queremos texto natural, não literal.
-- Comentários de código e docstrings em inglês, curtos e só onde ajudam.
+  `aparta/i18n.py`, e ganham a tradução em português do Brasil em
+  `aparta/locales/pt.json` (a chave é o texto em inglês). Capriche na
+  tradução: queremos texto natural, não literal.
+- Sem comentários no código. Módulo ou função leva no máximo uma docstring de
+  uma linha, em inglês, e só quando o nome não diz tudo sozinho.
 - Commits no padrão conventional commits (`feat:`, `fix:`, `docs:`,
   `test:` ...), em inglês.
 

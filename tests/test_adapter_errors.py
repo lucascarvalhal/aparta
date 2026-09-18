@@ -67,7 +67,6 @@ def test_apply_profile_survives_one_broken_repo(tmp_path, monkeypatch):
         gh_user="someone",
         agents=["claude-code"],
     )
-    # backends run against fakes; only the adapter injection matters here
     monkeypatch.setattr("aparta.apply.BACKENDS", [])
     apply_profile(profile, SafeWriter())
 

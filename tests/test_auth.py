@@ -177,7 +177,7 @@ def test_check_is_cached(monkeypatch):
     auth.cached_check(PROFILE)
     first = len(calls)
     auth.cached_check(PROFILE)
-    assert len(calls) == first  # second call served from cache
+    assert len(calls) == first
     auth.cached_check(PROFILE, force=True)
     assert len(calls) > first
 
@@ -202,8 +202,7 @@ def test_problems_lists_only_what_needs_a_human(monkeypatch):
 
 
 def test_login_skips_providers_whose_credential_is_still_valid(monkeypatch, capsys):
-    """`aparta login <profile>` must not drag the user through browser flows
-    for credentials that are already good."""
+    """A login for a profile must not open the browser for credentials that are still good."""
     monkeypatch.setattr(auth, "check_gcloud", lambda p: auth.AuthStatus("gcloud", auth.OK))
     monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
@@ -275,8 +274,7 @@ ISOLATED = Profile(
 
 
 def test_adc_offer_runs_inside_the_profile_scope(monkeypatch, tmp_path, capsys):
-    """The ADC login must run right here, with the profile's env; telling the
-    user to run it in their own shell would create the GLOBAL ADC instead."""
+    """The ADC login runs with the profile env, or it would create the global ADC."""
     import sys
 
     from rich.console import Console
@@ -301,7 +299,7 @@ def test_adc_offer_runs_inside_the_profile_scope(monkeypatch, tmp_path, capsys):
     auth._ensure_adc(ISOLATED, env, Console())
     assert seen["args"] == ["gcloud", "auth", "application-default", "login", "--quiet"]
     assert seen["config"] == str(profile_dir)
-    assert applied == ["acme"]  # repos re-applied so GOOGLE_APPLICATION_CREDENTIALS lands
+    assert applied == ["acme"]
 
 
 def test_adc_offer_is_a_hint_when_there_is_no_tty(monkeypatch, tmp_path):
@@ -356,8 +354,7 @@ def test_unknown_adc_health_does_not_open_a_browser(monkeypatch, tmp_path):
 
 
 def test_expired_adc_is_a_second_credential_and_gets_renewed(monkeypatch, tmp_path):
-    """The CLI credential can be fresh while the ADC sits expired; a login
-    that only looks at the first and says "valid" lies to Terraform users."""
+    """A fresh CLI credential says nothing about the ADC; both get checked."""
     from rich.console import Console
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
@@ -419,9 +416,7 @@ def _http_error(payload: str):
 
 
 def test_adc_probe_refreshes_like_a_library_and_sees_invalid_rapt(monkeypatch, tmp_path):
-    """gcloud holds a cached reauth proof, so its own probe says "valid"
-    while Terraform and Dataform get invalid_rapt from a plain refresh; the
-    probe must refresh the way the libraries do."""
+    """The ADC probe refreshes like a library, not like gcloud with its cached reauth proof."""
     import urllib.request
 
     _adc_file(tmp_path, monkeypatch, USER_ADC)
@@ -469,8 +464,7 @@ def test_adc_probe_network_failure_never_cries_wolf(monkeypatch, tmp_path):
 
 
 def test_adc_probe_falls_back_to_gcloud_for_service_accounts(monkeypatch, tmp_path):
-    """Service accounts do not sit behind reauth policies; gcloud's own
-    probe is fine for them."""
+    """Service accounts do not sit behind reauth policies; gcloud's own probe is fine for them."""
     _adc_file(tmp_path, monkeypatch, '{"type": "service_account"}')
     monkeypatch.setattr(auth.subprocess, "run", _result(0, stdout="token"))
     assert auth.check_adc(ISOLATED).state == auth.OK
@@ -532,8 +526,7 @@ def test_aws_login_renews_sso_in_the_profile_scope(monkeypatch):
 
 
 def test_aws_static_keys_get_guidance_not_a_browser(monkeypatch):
-    """A browser cannot renew static keys; pointing at aws configure is the
-    only honest move, and it is not a failure."""
+    """Static AWS keys cannot be renewed by a login; pointing at aws configure is not a failure."""
     monkeypatch.setattr(auth, "check_aws", lambda p: auth.AuthStatus("aws", auth.REAUTH, "session expired"))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
     monkeypatch.setattr("aparta.backends.aws.is_sso_profile", lambda name: False)
@@ -568,8 +561,7 @@ def test_account_without_credentials_is_missing(monkeypatch):
 
 
 def test_adc_is_derived_from_the_cli_credential_without_a_browser(monkeypatch, tmp_path):
-    """Right after a CLI login the ADC can reuse that credential; a second
-    browser round for the same account is the thing users complained about."""
+    """Right after a CLI login the ADC reuses that credential instead of a second browser round."""
     from rich.console import Console
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
@@ -586,7 +578,7 @@ def test_adc_is_derived_from_the_cli_credential_without_a_browser(monkeypatch, t
 
     monkeypatch.setattr(auth.subprocess, "run", run)
     assert auth._ensure_adc(ISOLATED, dict(ISOLATED.env()), Console()) is True
-    assert len(calls) == 1  # no interactive fallback
+    assert len(calls) == 1
     args, env, kwargs = calls[0]
     assert args[:4] == ["gcloud", "auth", "login", "ana@acme.com"]
     assert "--update-adc" in args and "--no-launch-browser" in args and "--quiet" in args
@@ -595,8 +587,7 @@ def test_adc_is_derived_from_the_cli_credential_without_a_browser(monkeypatch, t
 
 
 def test_adc_login_never_asks_about_google_application_credentials(monkeypatch, tmp_path):
-    """The profile env pins GOOGLE_APPLICATION_CREDENTIALS; gcloud sees it and
-    stops for a Y/n. Both login flavors must run without that variable."""
+    """The profile env pins GOOGLE_APPLICATION_CREDENTIALS; gcloud sees it and stops for a Y/n."""
     from rich.console import Console
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
@@ -616,14 +607,13 @@ def test_adc_login_never_asks_about_google_application_credentials(monkeypatch, 
     env = dict(ISOLATED.env())
     env["GOOGLE_APPLICATION_CREDENTIALS"] = str(profile_dir / "application_default_credentials.json")
     auth._ensure_adc(ISOLATED, env, Console())
-    assert len(envs) == 2  # reuse attempt, then the browser fallback
+    assert len(envs) == 2
     assert all("GOOGLE_APPLICATION_CREDENTIALS" not in e for e in envs)
     assert all(e["CLOUDSDK_CONFIG"] == str(profile_dir) for e in envs)
 
 
 def test_forcing_the_adc_provider_renews_it_even_when_valid(monkeypatch, tmp_path):
-    """`--provider adc` is the explicit ask; answering "still valid" makes the
-    flag useless, exactly what `--provider gcloud` already avoids."""
+    """Forcing the adc provider renews it even when it is still valid."""
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     profile_dir = ISOLATED.gcloud_config_dir
     profile_dir.mkdir(parents=True)
@@ -637,4 +627,4 @@ def test_forcing_the_adc_provider_renews_it_even_when_valid(monkeypatch, tmp_pat
 
     monkeypatch.setattr(auth.subprocess, "run", run)
     assert auth.login_profile(ISOLATED, provider="adc") is True
-    assert calls and "--update-adc" in calls[0]  # a renewal ran, not a probe
+    assert calls and "--update-adc" in calls[0]

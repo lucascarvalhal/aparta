@@ -1,10 +1,4 @@
-"""AWS backend: named profiles from ~/.aws, selected via AWS_PROFILE.
-
-AWS already stores named profiles natively (~/.aws/config and
-~/.aws/credentials), so this backend never creates anything; it verifies
-the chosen profile exists and the agents get AWS_PROFILE injected. The
-variable is honored by the AWS CLI, every SDK, Terraform and the CDK.
-"""
+"""AWS backend: named profiles from ~/.aws, selected via AWS_PROFILE."""
 
 from __future__ import annotations
 
@@ -40,11 +34,7 @@ def aws_profile_exists(name: str, aws_dir: Path | None = None) -> bool:
 
 
 def is_sso_profile(name: str, aws_dir: Path | None = None) -> bool:
-    """Whether the named profile authenticates through AWS SSO.
-
-    SSO sessions expire and a browser login renews them; static keys do
-    not, so knowing which kind a profile is decides what a login can do.
-    """
+    """Whether the named profile authenticates through AWS SSO."""
     aws_dir = aws_dir or Path.home() / ".aws"
     config = aws_dir / "config"
     if not config.exists():

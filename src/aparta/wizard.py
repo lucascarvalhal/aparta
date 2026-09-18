@@ -1,9 +1,4 @@
-"""Interactive wizard: agents, then start mode, then guided profiles.
-
-Flow: pick AI agents; choose "detect" (disk scan pre-fills every answer) or
-"from scratch" (connect accounts and generate keys along the way); configure
-each profile; optionally adopt stray repos; confirm a single summary.
-"""
+"""Interactive wizard: agents, then start mode, then guided profiles."""
 
 from __future__ import annotations
 
@@ -30,15 +25,12 @@ NEW_GCLOUD_LOGIN = "(connect a new Google account...)"
 NEW_SSH_KEY = "(generate a new SSH key for this profile...)"
 NEW_AWS_PROFILE = "(configure a new AWS profile now...)"
 
-# Providers the wizard can configure; git and SSH are always on.
 PROVIDERS = [
     ("gh", "GitHub CLI"),
     ("gcloud", "Google Cloud"),
     ("aws", "AWS"),
 ]
 
-
-# ----------------------------------------------------------------- discovery
 
 def list_ssh_keys(ssh_dir: Path | None = None) -> list[str]:
     """Private keys in ~/.ssh (files with a matching .pub)."""
@@ -54,11 +46,7 @@ def list_ssh_keys(ssh_dir: Path | None = None) -> list[str]:
 
 
 def list_ssh_host_aliases(config: Path | None = None) -> list[dict[str, str]]:
-    """Host aliases from ~/.ssh/config: [{alias, hostname, identity}].
-
-    Only blocks with a HostName and an alias that differs from it count as
-    real aliases; wildcard entries are skipped.
-    """
+    """Host aliases from ~/.ssh/config: [{alias, hostname, identity}]."""
     config = config or Path.home() / ".ssh" / "config"
     if not config.exists():
         return []
@@ -118,14 +106,8 @@ def list_gcloud_accounts() -> list[str]:
     return [line.strip() for line in r.stdout.splitlines() if line.strip()]
 
 
-# ------------------------------------------------------------ new accounts
-
 def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
-    """Interactive `gh auth login` inside ~/.config/gh-<profile>.
-
-    The new account is born isolated in the profile's config dir; the global
-    gh config is untouched. Returns the logged-in user ('' on failure).
-    """
+    """Interactive `gh auth login` inside ~/.config/gh-<profile>."""
     dst = gh_config_dir(profile_name)
     if dry_run:
         console.print(f"[yellow]--dry-run[/yellow] GH_CONFIG_DIR={dst} gh auth login")
@@ -135,8 +117,8 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
     try:
         from .auth import _flush_stdin
 
-        _flush_stdin()  # stray terminal escapes on stdin abort gh's prompt
-        r = subprocess.run(["gh", "auth", "login"], env=env)  # interactive, inherits TTY
+        _flush_stdin()
+        r = subprocess.run(["gh", "auth", "login"], env=env)
     except FileNotFoundError:
         console.print(_("[red]gh not found in PATH.[/red]"))
         return ""
@@ -154,12 +136,7 @@ def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
 
 
 def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
-    """Interactive `gcloud auth login` inside the profile's named config.
-
-    The configuration is created with --no-activate first and the login runs
-    with CLOUDSDK_ACTIVE_CONFIG_NAME pointing at it, so the globally active
-    account never changes. Returns the logged-in account ('' on failure).
-    """
+    """Interactive `gcloud auth login` inside the profile's named config."""
     if dry_run:
         console.print(
             f"[yellow]--dry-run[/yellow] CLOUDSDK_ACTIVE_CONFIG_NAME={profile_name} gcloud auth login"
@@ -179,7 +156,7 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
                 console.print(_("[red]gcloud configurations create failed:[/red] {error}", error=create.stderr.strip()))
                 return ""
         env = dict(os.environ, CLOUDSDK_ACTIVE_CONFIG_NAME=profile_name)
-        r = subprocess.run(["gcloud", "auth", "login"], env=env)  # interactive
+        r = subprocess.run(["gcloud", "auth", "login"], env=env)
         if r.returncode != 0:
             console.print(_("[yellow]Login cancelled or failed; skipping gcloud.[/yellow]"))
             return ""
@@ -200,8 +177,7 @@ def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
 
 
 def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
-    """Generate ~/.ssh/id_ed25519_<profile> (no passphrase) and show the
-    public key. Returns the private key path ('' on failure/dry-run)."""
+    """Generate ~/.ssh/id_ed25519_<profile> (no passphrase) and show the public key."""
     key = Path.home() / ".ssh" / f"id_ed25519_{profile_name}"
     if dry_run:
         console.print(f"[yellow]--dry-run[/yellow] ssh-keygen -t ed25519 -f {key}")
@@ -265,14 +241,8 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
         console.print(_("[green]gh:[/green] key added to account '{user}'.", user=gh_user))
 
 
-# ------------------------------------------------------------------- wizard
-
 def _confirm(question: str, default: bool = False) -> bool:
-    """Yes/no with localized keys: y/N in English, s/N in Portuguese.
-
-    Typed answer plus Enter; empty keeps the default. Both the localized
-    letter and y/s are accepted regardless of language.
-    """
+    """Yes/no with localized keys: y/N in English, s/N in Portuguese."""
     import questionary
 
     yes = _("y")
@@ -292,11 +262,7 @@ def _choose_from(
     sentinels: tuple[str, ...] = (SKIP,),
     default: str = "",
 ) -> str:
-    """Select over options plus translated sentinel actions; '' when skipped.
-
-    `default` starts selected when among the choices, so Enter confirms it.
-    Sentinels display translated but return their canonical value.
-    """
+    """Select over options plus translated sentinel actions; '' when skipped."""
     import questionary
 
     choices = [questionary.Choice(o, value=o) for o in options]
@@ -309,11 +275,7 @@ def _choose_from(
 
 
 def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
-    """Ask for the remotes SSH alias, listing ~/.ssh/config hosts.
-
-    With an alias, the profile gitconfig rewrites GitHub URLs (https and
-    git@) to git@<alias>:, guaranteeing the right key on any clone.
-    """
+    """Ask for the remotes SSH alias, listing ~/.ssh/config hosts."""
     import questionary
 
     no_alias = _("(do not use, connect directly with the chosen key)")
@@ -477,7 +439,7 @@ def _ask_aws(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> 
             console.print(f"[yellow]--dry-run[/yellow] aws configure --profile {name}")
             return ""
         try:
-            r = subprocess.run(["aws", "configure", "--profile", name])  # interactive
+            r = subprocess.run(["aws", "configure", "--profile", name])
         except FileNotFoundError:
             console.print(_("[red]aws not found in PATH.[/red]"))
             return ""
@@ -591,8 +553,7 @@ def _suggestion_label(s: ContextSuggestion) -> str:
 
 
 def _adopt_loose_repos(all_profiles: list[Profile]) -> None:
-    """Offer repos outside every profile root for adoption (local identity,
-    no folder moves). Mutates all_profiles in place via adopted_repos."""
+    """Offer repos outside every profile root for adoption (local identity, no folder moves)."""
     import questionary
 
     from .discovery import loose_repos
@@ -674,12 +635,7 @@ def _summary(new_profiles: list[Profile]) -> None:
 
 
 def _ask_language() -> bool:
-    """First-run language question; False when the user cancelled.
-
-    Skipped when APARTA_LANG is set or a choice was already saved. The
-    question itself is bilingual on purpose, it runs before any language
-    is known.
-    """
+    """First-run language question; False when the user cancelled."""
     import questionary
 
     from .i18n import saved_language, set_language
@@ -743,7 +699,6 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         )
     )
 
-    # step 1: AI agents (from the registry; new adapters show up on their own)
     agents = questionary.checkbox(
         _("Which AI agents should receive the environment variables?"),
         choices=[
@@ -755,7 +710,6 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
     if agents is None:
         return
 
-    # step 2: providers, choose the clouds/tools or keep the full sweep
     provider_selection = questionary.checkbox(
         _("Which providers do you want to configure? (git and SSH are always on; keep all selected for a full sweep)"),
         choices=[
@@ -768,7 +722,6 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         return
     providers = provider_selection
 
-    # step 3: start mode, detect existing setup or build from scratch
     mode = questionary.select(
         _("How do you want to start?"),
         choices=[
@@ -786,7 +739,6 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
     if mode is None:
         return
 
-    # step 3: discovery, scan the disk and suggest ready-made groups
     profiles = load_profiles()
     new_profiles: list[Profile] = []
 
@@ -841,7 +793,6 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
             if profile is not None:
                 new_profiles.append(profile)
 
-    # manual profiles (the first is mandatory when nothing was detected/selected)
     while True:
         if new_profiles and not _confirm(_("Configure another profile?")):
             break
@@ -862,11 +813,9 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
         console.print(_("[yellow]No profile configured.[/yellow]"))
         return
 
-    # stray repos outside profile roots can be adopted (detect mode only)
     if mode == "scan":
         _adopt_loose_repos(list(profiles.values()) + new_profiles)
 
-    # summary + single confirmation
     _summary(new_profiles)
     action = questionary.select(
         _("How to proceed?"),

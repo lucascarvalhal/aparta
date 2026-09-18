@@ -42,7 +42,6 @@ def test_login_gh_creates_profile_dir_and_returns_user(tmp_path, monkeypatch):
     assert user == "fulano"
     dst = str(tmp_path / ".config" / "gh-novo")
     assert (tmp_path / ".config" / "gh-novo").is_dir()
-    # login and status ran with the profile's GH_CONFIG_DIR (isolated)
     assert all(env == dst for _, env in calls)
 
 
@@ -71,7 +70,7 @@ def test_login_gcloud_uses_named_config(monkeypatch):
     assert wizard.login_new_gcloud_account("novo") == "nova@conta.com"
     assert calls[0][0][:4] == ["gcloud", "config", "configurations", "create"]
     login_call = next(c for c in calls if c[0] == ["gcloud", "auth", "login"])
-    assert login_call[1] == "novo"  # login pinned to the profile's config
+    assert login_call[1] == "novo"
 
 
 def test_generate_ssh_key_dry_run_creates_nothing(tmp_path, monkeypatch):
@@ -114,4 +113,4 @@ def test_apply_gh_with_existing_dir_and_no_global_config(tmp_path, monkeypatch):
 
 def test_apply_gh_with_nothing_yet_warns_without_raising(tmp_path, capsys):
     profile = Profile(name="novo", root="~/novo", git_email="a@b.c", gh_user="fulano")
-    gh.apply_gh(profile, SafeWriter(), home=tmp_path)  # neither global nor dst exists
+    gh.apply_gh(profile, SafeWriter(), home=tmp_path)

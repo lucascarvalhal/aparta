@@ -1,16 +1,4 @@
-"""gcloud backend, with two isolation levels.
-
-Light mode selects a named configuration through CLOUDSDK_ACTIVE_CONFIG_NAME:
-cheap, but credentials and the application default credentials stay global, so
-SDKs and Terraform ignore the profile.
-
-Isolated mode gives the profile its own config directory through
-CLOUDSDK_CONFIG, the same shape the gh backend uses. Credentials, named
-configurations and the ADC file live inside it, so everything that reads
-gcloud state honors the profile. The directory is seeded from the global one
-so it starts already authenticated, copying only the credential and
-configuration files (never the logs and cache, which dominate the size).
-"""
+"""gcloud backend, with two isolation levels."""
 
 from __future__ import annotations
 
@@ -24,19 +12,7 @@ from ..i18n import _
 from ..profiles import Profile
 from . import Note
 
-# The minimum that makes an isolated dir start authenticated. access_tokens.db
-# is a cache gcloud re-mints, and logs/, virtenv/ and cache/ are the bulk of
-# the global dir (over 200MB on a working machine), so none of them are copied.
-#
-# The ADC file is deliberately NOT copied: there is a single global one, from
-# whoever ran `gcloud auth application-default login` last, so seeding it would
-# hand every profile the same identity, which is the leak isolation exists to
-# close. A profile starts without ADC and `aparta login` creates its own.
 SEED_FILES = ("credentials.db",)
-# Named configurations are deliberately not seeded: copying them would put
-# every other profile's account inside this dir, one stray
-# CLOUDSDK_ACTIVE_CONFIG_NAME away from being used. Apply creates the single
-# configuration this profile needs.
 
 
 def gcloud_home(config_root: Path | None = None) -> Path:
@@ -72,12 +48,7 @@ def configuration_exists(name: str, config_dir: Path | None = None) -> bool:
 
 
 def prune_credentials(db_path: Path, keep_account: str) -> bool:
-    """Drop every other account from a copied credentials.db.
-
-    Without this the copy carries every refresh token the machine has, which
-    would make the isolation a convenience, not a boundary. Any failure leaves
-    the database untouched: the profile still works, just less isolated.
-    """
+    """Drop every other account from a copied credentials.db."""
     if not keep_account or not db_path.exists():
         return False
     try:
@@ -96,12 +67,7 @@ def has_adc(profile_dir: Path) -> bool:
 
 
 def prune_configurations(target: Path, keep: str) -> list[str]:
-    """Drop named configurations that do not belong to this profile.
-
-    Dirs seeded by earlier versions carry every configuration the machine had,
-    so the profile's own dir could still name another account. Returns the
-    names removed.
-    """
+    """Drop named configurations that do not belong to this profile."""
     folder = target / "configurations"
     if not folder.is_dir():
         return []
@@ -129,11 +95,7 @@ def activate_configuration(target: Path, name: str) -> None:
 def seed_isolated_dir(
     target: Path, source: Path | None = None, keep_account: str = ""
 ) -> bool:
-    """Copy credentials and configurations into a fresh isolated dir.
-
-    Returns True when something was copied. Existing directories are left
-    alone so a profile never loses credentials it already has.
-    """
+    """Copy credentials and configurations into a fresh isolated dir."""
     if target.exists():
         return False
     source = source or gcloud_home()

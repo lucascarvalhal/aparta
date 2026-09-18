@@ -40,7 +40,7 @@ def test_env_beats_saved_choice(monkeypatch):
 
 def test_set_language_persists(tmp_path, monkeypatch):
     i18n.set_language("pt")
-    i18n._saved_cache = None  # force a re-read from disk
+    i18n._saved_cache = None
     assert i18n.saved_language() == "pt"
     assert i18n.resolve_lang() == "pt"
 
@@ -65,7 +65,6 @@ def test_wizard_language_question_skipped_when_saved(monkeypatch):
     from aparta import wizard
 
     i18n.set_language("en")
-    # would raise if it tried to prompt: no questionary patched
     assert wizard._ask_language() is True
 
 

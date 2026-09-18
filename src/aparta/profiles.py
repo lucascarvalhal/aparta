@@ -44,10 +44,6 @@ def profiles_path() -> Path:
     return config_dir() / "profiles.toml"
 
 
-
-# Every variable aparta may inject. A profile sets a subset of these, so apply
-# has to clear the ones that dropped out (an isolated dir that lost its ADC,
-# a profile that switched gcloud mode) instead of leaving them dangling.
 MANAGED_ENV_KEYS = (
     "GH_CONFIG_DIR",
     "GH_TOKEN",
@@ -94,34 +90,25 @@ MANAGED_ENV_KEYS = (
     "GIT_COMMITTER_EMAIL",
 )
 
-# Git's command-scoped config uses numbered keys whose suffix is not known in
-# advance. Environment construction clears every matching key before creating
-# a workspace overlay.
 MANAGED_ENV_PREFIXES = ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
 
 
 @dataclass
 class Profile:
     name: str
-    root: str  # projects root folder (e.g. ~/personal)
+    root: str
     git_email: str
     git_name: str = ""
-    ssh_key: str = ""  # dedicated SSH key path
-    ssh_alias: str = ""  # SSH host alias for url insteadOf remote rewriting
-    git_host: str = "github.com"  # host whose remote URLs the alias rewrites
-    gh_user: str = ""  # GitHub CLI account
+    ssh_key: str = ""
+    ssh_alias: str = ""
+    git_host: str = "github.com"
+    gh_user: str = ""
     gcloud_account: str = ""
     gcloud_project: str = ""
-    # isolated mode gives the profile its own gcloud config dir, which also
-    # isolates credentials and the application default credentials the SDKs use
     gcloud_isolated: bool = False
-    aws_profile: str = ""  # named profile in ~/.aws/config, selected via AWS_PROFILE
+    aws_profile: str = ""
     agents: list[str] = field(default_factory=lambda: ["claude-code"])
-    # aparta version that last applied this profile; an older or empty value
-    # means a new release may have features this profile is not using yet
     applied_with: str = ""
-    # repos outside root owned by this profile; identity is applied via a
-    # local include in each .git/config, without moving the folder
     adopted_repos: list[str] = field(default_factory=list)
 
     @property
@@ -149,23 +136,10 @@ class Profile:
                 env["GOOGLE_CLOUD_PROJECT"] = self.gcloud_project
                 env["GCLOUD_PROJECT"] = self.gcloud_project
             if self.gcloud_isolated:
-                # the whole gcloud config dir is the profile's, so credentials
-                # and ADC are isolated too, not just the active configuration
                 env["CLOUDSDK_CONFIG"] = str(self.gcloud_config_dir)
-                # pin the configuration by name too: an agent inherits the
-                # shell's environment and cannot unset a stray
-                # CLOUDSDK_ACTIVE_CONFIG_NAME, which would otherwise pick a
-                # different configuration inside this dir
                 env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
-                # gcloud, Python and Java honor CLOUDSDK_CONFIG, but the Node
-                # and Go libraries (so Terraform too) hardcode the global ADC
-                # path; pointing at the file directly is honored by all of them
                 adc = self.gcloud_config_dir / "application_default_credentials.json"
-                # Point at the isolated location even before login creates it.
-                # A missing explicit file fails closed; omitting this variable
-                # lets Google libraries borrow the global ADC instead.
                 env["GOOGLE_APPLICATION_CREDENTIALS"] = str(adc)
-                # each isolated dir would otherwise grow its own log tree
                 env["CLOUDSDK_CORE_DISABLE_FILE_LOGGING"] = "1"
             else:
                 env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
@@ -192,8 +166,6 @@ def save_profiles(
     path: Path | None = None,
 ) -> None:
     path = path or profiles_path()
-    # Omit only empty strings: an explicitly empty list (e.g. agents=[])
-    # must survive the round-trip instead of falling back to the default.
     doc = {
         "profiles": {
             name: {k: v for k, v in asdict(p).items() if k != "name" and v != ""}

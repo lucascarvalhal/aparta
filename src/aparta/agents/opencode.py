@@ -1,10 +1,4 @@
-"""opencode adapter: a shell.env plugin in <repo>/.opencode/plugins/.
-
-opencode has no env field in opencode.json; the supported way to inject
-environment into its shell commands and tool calls is the plugin hook
-"shell.env" (anomalyco/opencode PR #12012). aparta owns the generated
-plugin file and merges variables into it on re-apply.
-"""
+"""opencode adapter: a shell.env plugin in <repo>/.opencode/plugins/."""
 
 from __future__ import annotations
 
@@ -24,11 +18,7 @@ def parse_plugin_env(text: str) -> dict[str, str]:
 
 
 def render_plugin(env: dict[str, str], with_check: bool = False) -> str:
-    """The generated plugin: env for shells, plus an optional credential check.
-
-    opencode has no session.start event, but the plugin body itself runs at
-    bootstrap, and session.created covers new sessions.
-    """
+    """The generated plugin: env for shells, plus an optional credential check."""
     lines = "\n".join(
         f'    output.env["{k}"] = "{v.replace(chr(34), chr(92) + chr(34))}";'
         for k, v in sorted(env.items())
@@ -73,13 +63,12 @@ class OpencodeAdapter(AgentAdapter):
         return repo / ".opencode" / "plugins" / "aparta-env.js"
 
     def detect(self, repo: Path) -> bool:
-        return True  # the plugins dir is created on demand; always applicable
+        return True
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.plugin_path(repo)
         existing = path.read_text() if path.exists() else ""
         current = parse_plugin_env(existing) if existing else {}
-        # keep whatever mode the file is already in
         return writer.write_text(
             path, render_plugin({**current, **env}, with_check=CHECK_COMMAND in existing)
         )

@@ -1,10 +1,4 @@
-"""Update checks and self-update.
-
-The check hits PyPI at most once a day (cached in the config dir), never
-blocks for more than two seconds and can be disabled with APARTA_UPDATES=off.
-The update itself detects how aparta was installed and runs the matching
-upgrade command.
-"""
+"""Update checks and self-update."""
 
 from __future__ import annotations
 
@@ -26,8 +20,6 @@ console = Console()
 CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 PYPI_URL = "https://pypi.org/pypi/aparta/json"
 
-
-# ------------------------------------------------------------- update mode
 
 def update_mode() -> str:
     """'auto', 'manual' (default) or 'off'."""
@@ -52,8 +44,6 @@ def set_update_mode(mode: str) -> None:
 def update_mode_saved() -> bool:
     return (config_dir() / "updates").exists()
 
-
-# ------------------------------------------------------------ version check
 
 def fetch_latest_version(timeout: float = 2.0) -> str:
     try:
@@ -96,8 +86,6 @@ def check_for_update(force: bool = False) -> str:
     return latest if _is_newer(latest, __version__) else ""
 
 
-# -------------------------------------------------------------- self-update
-
 def detect_install_method() -> str:
     """'uv-tool', 'pipx', 'ephemeral' (uvx/npx cache) or 'pip'."""
     location = str(Path(__file__).resolve())
@@ -111,11 +99,7 @@ def detect_install_method() -> str:
 
 
 def installed_version() -> str:
-    """Version of the aparta on PATH, which after an upgrade is the new one.
-
-    The running process still holds the old code, so it cannot report what the
-    upgrade produced; '' when the binary cannot be asked.
-    """
+    """Version of the aparta on PATH, which after an upgrade is the new one."""
     import os
     import re
     import shutil
@@ -138,11 +122,7 @@ def installed_version() -> str:
 
 
 def run_update(target: str = "") -> bool:
-    """Upgrade aparta in place; True when the upgrade command succeeded.
-
-    `target` is the release the caller expects to land, so the outcome can be
-    told apart from an index that has not published it yet.
-    """
+    """Upgrade aparta in place; True when the upgrade command succeeded."""
     method = detect_install_method()
     commands = {
         "uv-tool": ["uv", "tool", "upgrade", "aparta"],
@@ -163,13 +143,9 @@ def run_update(target: str = "") -> bool:
         console.print(_("[red]{cmd} not found in PATH.[/red]", cmd=command[0]))
         return False
     if result.returncode == 0:
-        # the upgrade command succeeds even when it changed nothing, so say
-        # what actually happened instead of claiming an update either way
         now = installed_version()
         if now and now == __version__:
             if target and target != now:
-                # PyPI announces a release through its JSON API before the
-                # index the installers read, so the upgrade finds nothing
                 console.print(_(
                     "[yellow]{target} is announced but not installable yet; PyPI's index "
                     "takes a few minutes to catch up. Try again shortly.[/yellow]",

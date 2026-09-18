@@ -68,7 +68,7 @@ def test_fix_repairs_a_divergent_gcloud_account(tmp_path, monkeypatch, output):
         if "config get account" in joined:
             return subprocess.CompletedProcess(args, 0, state["account"] + "\n", "")
         if "config set account" in joined:
-            state["account"] = args[-1]  # the fix takes effect
+            state["account"] = args[-1]
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(doctor.subprocess, "run", run)
@@ -152,4 +152,4 @@ def test_expired_credential_is_only_reported_never_fixed(tmp_path, monkeypatch, 
     text = output.getvalue()
     assert "Still needs you:" in text
     assert "aparta login x" in text
-    assert not any("auth" in " ".join(c) for c in calls)  # no reauthentication attempt
+    assert not any("auth" in " ".join(c) for c in calls)

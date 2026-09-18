@@ -33,7 +33,7 @@ class ClaudeCodeAdapter(AgentAdapter):
         return repo / ".claude" / "settings.local.json"
 
     def detect(self, repo: Path) -> bool:
-        return True  # applies to any repo
+        return True
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.settings_path(repo)

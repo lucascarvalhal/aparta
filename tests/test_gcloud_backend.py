@@ -36,7 +36,6 @@ def test_apply_gcloud_creates_missing_configuration(monkeypatch):
     commands = [" ".join(a) for a, _ in calls]
     assert any("configurations describe acme" in c for c in commands)
     assert any("configurations create acme --no-activate" in c for c in commands)
-    # account and project set inside the named configuration
     set_calls = [(a, cfg) for a, cfg in calls if "set" in a]
     assert all(cfg == "acme" for _, cfg in set_calls)
     assert len(set_calls) == 2
@@ -64,8 +63,6 @@ def test_apply_gcloud_without_account_is_noop(monkeypatch):
     monkeypatch.setattr(gcloud.subprocess, "run", explode)
     gcloud.apply_gcloud(Profile(name="x", root="~/x", git_email="a@b.c"), SafeWriter())
 
-
-# ---- isolated mode ----
 
 ISOLATED = Profile(
     name="acme",
@@ -100,13 +97,9 @@ def test_seed_copies_credentials_but_never_the_shared_adc(tmp_path):
     assert seed_isolated_dir(target, source) is True
 
     assert (target / "credentials.db").read_text() == "creds"
-    assert not (target / "access_tokens.db").exists()  # cache, gcloud re-mints it
-    # the global ADC belongs to whoever logged in last, so it must not be
-    # handed to a profile: no credentials beats the wrong credentials
+    assert not (target / "access_tokens.db").exists()
     assert not (target / "application_default_credentials.json").exists()
-    # other profiles' configurations must not ride along
     assert not (target / "configurations").exists()
-    # the heavy, disposable parts stay behind
     assert not (target / "logs").exists()
     assert not (target / "cache").exists()
 
@@ -136,7 +129,6 @@ def test_isolated_apply_runs_inside_the_profile_dir(tmp_path, monkeypatch):
 
     target = str(tmp_path / "gcloud-acme")
     assert (tmp_path / "gcloud-acme" / "credentials.db").exists()
-    # every command ran against the profile's own dir, never the global one
     assert calls and all(cfg == target for _args, cfg in calls)
     assert any("set" in a and "account" in a for a, _ in calls)
     assert notes[-1].level == "info"
@@ -175,7 +167,6 @@ def test_seed_prunes_other_accounts_from_the_credential_store(tmp_path):
     with sqlite3.connect(target / "credentials.db") as conn:
         accounts = [row[0] for row in conn.execute("SELECT account_id FROM credentials")]
     assert accounts == ["a@b.c"]
-    # the global store is never touched
     with sqlite3.connect(db) as conn:
         assert len(list(conn.execute("SELECT account_id FROM credentials"))) == 2
 
@@ -185,8 +176,6 @@ def test_isolated_env_points_sdks_at_the_profile_adc(tmp_path, monkeypatch):
     profile = Profile(
         name="acme", root="~/a", git_email="a@b.c", gcloud_account="a@b.c", gcloud_isolated=True
     )
-    # A missing profile ADC must block the global lookup chain, not omit the
-    # selector and silently borrow another client's global credential.
     assert profile.env()["GOOGLE_APPLICATION_CREDENTIALS"] == str(
         tmp_path / "gcloud-acme" / "application_default_credentials.json"
     )

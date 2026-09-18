@@ -47,7 +47,6 @@ def test_claude_adapter_inject_and_validate(tmp_path: Path):
     assert data["env"] == ENV
     ok, msg = adapter.validate(repo, ENV)
     assert ok, msg
-    # backup created
     assert list((repo / ".claude").glob("settings.local.json.bak-aparta-*"))
 
 

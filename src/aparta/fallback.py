@@ -1,16 +1,4 @@
-"""Safe fallback: what a command outside any aparta profile is allowed to be.
-
-Outside a configured folder no profile env is injected, so gcloud falls back to
-its globally active configuration and gh to its globally active account. When
-that global default belongs to a client, every stray terminal, script or AI
-agent silently acts as that client. The safe default is the opposite: outside a
-profile the command should fail loudly ("no active account") instead of
-borrowing someone's identity.
-
-`--secure` makes the global gcloud default a neutral, empty configuration
-(reversibly, remembering the previous one); `--restore` puts the old one back.
-gh is reported but never changed, see note_gh() below.
-"""
+"""Safe fallback: what a command outside any aparta profile is allowed to be."""
 
 from __future__ import annotations
 
@@ -36,12 +24,8 @@ from .profiles import config_dir
 
 console = Console()
 
-# neutral gcloud configuration: exists, has no account and no project, so any
-# gcloud command that needs credentials fails instead of picking an identity
 NEUTRAL_CONFIG = "aparta-none"
 
-# env vars aparta injects per profile; cleared before probing so we always see
-# the global default, not the profile of the folder the user happens to be in
 _PROFILE_ENV = (
     "CLOUDSDK_ACTIVE_CONFIG_NAME",
     "CLOUDSDK_CONFIG",
@@ -55,16 +39,11 @@ def previous_path() -> Path:
     return config_dir() / "fallback-previous"
 
 
-# a parked ADC keeps its bytes next to the original, so --restore is a rename
 ADC_PARKED_SUFFIX = ".aparta-fallback"
 
 
 def global_adc_path() -> Path:
-    """The fixed path every Google library falls back to for the ADC.
-
-    Node, Go and Terraform hardcode it and never look at CLOUDSDK_CONFIG,
-    which is exactly why a stale credential here bites silently.
-    """
+    """The fixed path every Google library falls back to for the ADC."""
     return Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
 
 
@@ -109,7 +88,7 @@ class State:
     gh_installed: bool = True
     gh_user: str = ""
     adc_present: bool = False
-    adc_state: str = ""  # auth.OK / auth.REAUTH / "" when unknown
+    adc_state: str = ""
     adc_parked: bool = False
 
     @property
@@ -198,12 +177,6 @@ def read_previous() -> str:
         return ""
 
 
-# gh keeps the active token in the OS keyring under an unnamed "active" slot
-# and falls back to it whenever hosts.yml has no active user, so clearing that
-# key does not deactivate anything: measured with gh 2.97, `gh auth status`
-# still reports a logged in account. The only lever that works is deleting the
-# keyring entry, which no gh command does non destructively (`gh auth logout`
-# throws the token away). Reversibility comes first, so gh is left alone.
 def note_gh() -> str:
     """Why gh is reported but never touched (see the comment above)."""
     return _(
@@ -347,7 +320,6 @@ def make_secure(writer: SafeWriter, assume_yes: bool = False) -> bool:
         return False
 
     if not state.secure:
-        # remembered before switching, so an interrupted run is still reversible
         writer.write_text(previous_path(), tomli_w.dumps({"gcloud_config": current}))
 
         if not exists:
@@ -380,7 +352,7 @@ def _park_adc(writer: SafeWriter) -> None:
         return
     target = parked_adc_path()
     if target.exists():
-        writer.remove_file(target)  # backed up, never silently clobbered
+        writer.remove_file(target)
     adc.rename(target)
     console.print(
         _("[green]ADC parked:[/green] libraries outside a profile now fail loudly instead of borrowing it.")
@@ -419,7 +391,7 @@ def restore(writer: SafeWriter) -> bool:
     if parked.exists():
         adc = global_adc_path()
         if adc.exists():
-            writer.remove_file(adc)  # a newer ADC appeared meanwhile; keep its backup
+            writer.remove_file(adc)
         parked.rename(adc)
         console.print(_("[green]ADC restored:[/green] the global application credentials are back."))
     return True

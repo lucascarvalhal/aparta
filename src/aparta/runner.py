@@ -1,12 +1,4 @@
-"""Run a command, or print exports, with a profile's environment.
-
-Agents get the profile env through their adapters, but a plain shell or a
-hand-run script inside a profile folder inherits nothing, so people write
-wrapper scripts that re-export the paths by hand and forget the parts that
-matter (the pinned CLOUDSDK_ACTIVE_CONFIG_NAME, the existence check on the
-ADC). `aparta run` and `aparta env` expose the same battle-tested
-Profile.env() instead.
-"""
+"""Run a command, or print exports, with a profile's environment."""
 
 from __future__ import annotations
 
@@ -52,11 +44,7 @@ def gh_token(profile: Profile) -> str:
 
 
 def profile_env(profile: Profile, with_gh_token: bool = False) -> dict[str, str]:
-    """The variables this profile stands for, optionally with GITHUB_TOKEN.
-
-    The token lives in the OS keyring; materializing it into an environment
-    variable exposes it to every child process, so it is strictly opt-in.
-    """
+    """The variables this profile stands for, optionally with GITHUB_TOKEN."""
     env = profile.env()
     if with_gh_token and profile.gh_user:
         token = gh_token(profile)
@@ -115,8 +103,6 @@ def run_in_workspace(
         cached = auth.read_cached_status(profile) or []
         problem = relevant_problem(cached)
         if problem is not None:
-            # Confirm a cached failure synchronously. A manual login outside
-            # aparta must not leave a stale verdict blocking the workspace.
             problem = relevant_problem(auth.cached_check(profile, force=True))
     if problem is not None:
         from rich.console import Console

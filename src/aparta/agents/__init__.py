@@ -1,8 +1,4 @@
-"""Terminal AI agent adapters.
-
-Every module here is imported automatically, so each AgentAdapter subclass
-self-registers. Adding an agent is just adding a file.
-"""
+"""Terminal AI agent adapters."""
 
 from __future__ import annotations
 

@@ -53,7 +53,7 @@ def test_check_profile_git_email_ok_and_divergent(tmp_path, monkeypatch):
 
 def test_check_profile_no_repos_is_inconclusive_not_failure(tmp_path):
     profile = Profile(name="x", root=str(tmp_path / "empty"), git_email="a@b.c")
-    assert doctor.check_profile(profile) is False  # None row counts as not-ok
+    assert doctor.check_profile(profile) is False
 
 
 def test_check_profile_gh_dir_missing_fails(tmp_path, monkeypatch):

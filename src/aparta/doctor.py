@@ -1,11 +1,4 @@
-"""aparta doctor: validate git, gh, gcloud and agents per profile.
-
-Diagnosis and repair are separate on purpose: `_diagnose` only reads and
-returns the rows to render plus the issues it found, and `--fix` feeds those
-issues back into the very same backends `aparta apply` uses. Anything that
-needs a human at a browser (an expired or revoked credential) is never
-touched, only reported with the command that solves it.
-"""
+"""aparta doctor: validate git, gh, gcloud and agents per profile."""
 
 from __future__ import annotations
 
@@ -27,15 +20,14 @@ from .workspaces import Workspace, default_providers, load_workspaces, workspace
 
 console = Console()
 
-# Issue kinds the fixer knows how to act on
 GIT = "git"
 GH_DIR = "gh_dir"
 GCLOUD_DIR = "gcloud_dir"
 GCLOUD_ACCOUNT = "gcloud_account"
 GCLOUD_PROJECT = "gcloud_project"
 ENV = "env"
-HUMAN = "human"  # credential: only a human can fix it
-AWS = "aws"  # named profile missing in ~/.aws
+HUMAN = "human"
+AWS = "aws"
 
 
 @dataclass
@@ -69,7 +61,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
         p for p in (Path(r).expanduser() for r in profile.adopted_repos) if p.exists()
     ]
 
-    # git: e-mail resolved in each repo
     if not repos:
         all_ok &= _row(rows, "git", str(profile.root_path), None, _("no repository found"))
     for repo in repos:
@@ -80,7 +71,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
         if not ok:
             issues.append(Issue(GIT, repo.name, repo))
 
-    # gh: auth status under the profile's GH_CONFIG_DIR
     if profile.gh_user:
         gh_dir = profile.gh_config_dir
         if not gh_dir.exists():
@@ -93,10 +83,7 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
             detail = _("logged in as {user}", user=profile.gh_user) if ok else (output.strip().splitlines() or [_("failed")])[-1]
             all_ok &= _row(rows, "gh", gh_dir.name, ok, detail)
 
-    # gcloud: account/project of the profile's configuration
     if profile.gcloud_account or profile.gcloud_project:
-        # probe with exactly what the agents get, so doctor cannot pass while
-        # a stray variable in this shell makes the real thing pick another one
         env = {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
         if profile.gcloud_isolated:
             if not profile.gcloud_config_dir.exists():
@@ -126,7 +113,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
     if profile.gcloud_isolated and profile.gcloud_config_dir.exists():
         from .backends.gcloud import has_adc
 
-        # not an error: no ADC is safer than the wrong ADC
         if not has_adc(profile.gcloud_config_dir):
             _row(
                 rows,
@@ -136,7 +122,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
                 _("none yet; `aparta login {name}` offers to create them", name=profile.name),
             )
 
-    # aws: the named profile must exist in ~/.aws
     if profile.aws_profile:
         from .backends.aws import aws_profile_exists
 
@@ -146,7 +131,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
         if not ok:
             issues.append(Issue(AWS, profile.aws_profile))
 
-    # credentials: valid, needing a human, or simply unknown
     from .auth import OK as AUTH_OK, UNKNOWN as AUTH_UNKNOWN, checks_enabled, cached_check
 
     if checks_enabled():
@@ -154,7 +138,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
             if status.state == AUTH_OK:
                 all_ok &= _row(rows, status.provider, _("credential"), True, _("valid"))
             elif status.state == AUTH_UNKNOWN:
-                # a network hiccup is not a broken credential
                 _row(rows, status.provider, _("credential"), None, status.detail)
             else:
                 all_ok &= _row(
@@ -166,7 +149,6 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
                 )
                 issues.append(Issue(HUMAN, status.provider))
 
-    # agents: each repo is validated against its exact workspace providers
     saved_workspaces = load_workspaces()
     ownership_profiles = load_profiles()
     ownership_profiles.setdefault(profile.name, profile)
@@ -233,11 +215,7 @@ def fix_profile(
     verbose: bool = False,
     was_ok: bool = False,
 ) -> bool:
-    """Repair the deterministic issues; return whether the profile ends healthy.
-
-    Credentials are deliberately out of scope: reauthentication needs a human,
-    so those issues are only reported with the command that solves them.
-    """
+    """Repair the deterministic issues; return whether the profile ends healthy."""
     from .fsutil import SafeWriter
 
     kinds = {issue.kind for issue in issues}
@@ -290,7 +268,6 @@ def fix_profile(
             _report_manual(profile, manual)
         return was_ok
 
-    # the verdict has to come from the real state, not from what we intended
     _rows, all_ok, remaining = _diagnose(profile)
     manual = [issue for issue in remaining if issue.kind in (HUMAN, AWS)]
     still_broken = [issue for issue in remaining if issue.kind not in (HUMAN, AWS)]
@@ -334,7 +311,6 @@ def _reinject_env(profile: Profile, repos: list[Path], writer) -> int:
             )
         if workspace.profile == profile.name:
             apply_workspace_agents(profile, workspace, writer)
-    # env and the startup hook usually share a file: count files, not writes
     return len(set(writer.changes[before:]))
 
 

@@ -18,8 +18,8 @@ def _make_repo(path: Path) -> Path:
 
 
 def test_loose_repos_skips_profile_covered_ones(tmp_path: Path):
-    _make_repo(tmp_path / "projects" / "acme" / "api")  # covered
-    solto = _make_repo(tmp_path / "projects" / "avulso")  # stray
+    _make_repo(tmp_path / "projects" / "acme" / "api")
+    solto = _make_repo(tmp_path / "projects" / "avulso")
     result = loose_repos(
         [tmp_path / "projects" / "acme"], scan_roots=[str(tmp_path / "projects")]
     )
@@ -48,7 +48,6 @@ def test_apply_adopted_adds_local_include(tmp_path: Path):
         text=True,
     )
     assert include in r.stdout.splitlines()
-    # e-mail inherited from the profile's gitconfig
     r = subprocess.run(
         ["git", "-C", str(repo), "config", "user.email"], capture_output=True, text=True
     )
@@ -83,4 +82,4 @@ def test_apply_adopted_dry_run_writes_nothing(tmp_path: Path):
 def test_apply_adopted_warns_on_non_git_dir(tmp_path: Path):
     (tmp_path / "nao-repo").mkdir()
     p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(tmp_path / "nao-repo")])
-    apply_adopted_git(p, SafeWriter(), home=tmp_path)  # must not raise
+    apply_adopted_git(p, SafeWriter(), home=tmp_path)

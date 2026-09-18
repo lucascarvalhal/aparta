@@ -1,8 +1,4 @@
-"""GitHub CLI backend: parallel config directory ~/.config/gh-<profile>.
-
-Tokens live in the OS keyring, so copying ~/.config/gh and switching the
-active user inside the copy (via GH_CONFIG_DIR) needs no re-login.
-"""
+"""GitHub CLI backend: parallel config directory ~/.config/gh-<profile>."""
 
 from __future__ import annotations
 
@@ -26,8 +22,6 @@ def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> 
     src = home / ".config" / "gh"
     dst = gh_config_dir(profile.name, home / ".config")
 
-    # an existing dst (e.g. wizard logged in straight into the profile dir)
-    # needs no copy; the global config is only used to clone a session
     if not dst.exists() and not src.exists():
         notes.append(Note("warn", _("[yellow]warning:[/yellow] ~/.config/gh does not exist, run `gh auth login` first.")))
         return notes

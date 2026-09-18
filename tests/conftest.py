@@ -1,7 +1,4 @@
-"""Deterministic test environment: canonical English, no update checks, and
-none of the variables the aparta shell hook exports into a developer's
-terminal (a GIT_CONFIG_* include from the real workspace would override every
-temporary gitconfig the tests build)."""
+"""Deterministic test environment: English, no update checks, no shell-hook variables."""
 
 import os
 

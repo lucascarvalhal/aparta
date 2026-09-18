@@ -1,8 +1,4 @@
-"""Gemini CLI adapter: variables in <repo>/.gemini/.env (native mechanism).
-
-Gemini CLI loads .env files automatically, checking .gemini/.env before the
-project's own .env, so this location never clashes with application config.
-"""
+"""Gemini CLI adapter: variables in <repo>/.gemini/.env (native mechanism)."""
 
 from __future__ import annotations
 
@@ -25,7 +21,7 @@ class GeminiAdapter(AgentAdapter):
         return repo / ".gemini" / ".env"
 
     def detect(self, repo: Path) -> bool:
-        return True  # .gemini/ is created on demand; always applicable
+        return True
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.env_path(repo)

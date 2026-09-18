@@ -1,8 +1,4 @@
-"""Application layer: remove a profile and undo what it applied.
-
-Everything file-based goes through SafeWriter (backups, dry-run); external
-tools (git local config, gcloud) honor dry-run by printing the command.
-"""
+"""Application layer: remove a profile and undo what it applied."""
 
 from __future__ import annotations
 
@@ -23,8 +19,7 @@ console = Console()
 
 
 def remove_profile(profile: Profile, writer: SafeWriter, home: Path | None = None) -> None:
-    """Undo the profile's footprint: agent env, adopted includes, gitconfig,
-    includeIf, gh config dir and the gcloud configuration."""
+    """Undo everything the profile applied: agent env, git includes, gh dir and gcloud config."""
     home = home or Path.home()
     console.print(_("[bold]Removing profile '{name}'[/bold]", name=profile.name) + "\n")
 

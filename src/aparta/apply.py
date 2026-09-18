@@ -1,9 +1,4 @@
-"""Application layer: apply a profile across backends and agent adapters.
-
-Lives between the UI layers (cli, wizard) and the backends so neither UI
-imports the other. Output is one compact line per area; SafeWriter in
-verbose mode adds the per-file detail and dry-run diffs.
-"""
+"""Application layer: apply a profile across backends and agent adapters."""
 
 from __future__ import annotations
 
@@ -81,11 +76,7 @@ def apply_workspace_agents(
 def _nested_profile_roots(
     profile: Profile, siblings: dict[str, Profile] | None = None
 ) -> list[Path]:
-    """Roots of sibling profiles nested inside this profile's root.
-
-    `siblings` allows callers holding unsaved profiles (wizard dry-run) to
-    pass them in; otherwise the saved profiles are loaded.
-    """
+    """Roots of sibling profiles nested inside this profile's root."""
     root = profile.root_path
     return [
         p.root_path
@@ -95,11 +86,7 @@ def _nested_profile_roots(
 
 
 def profile_repos(profile: Profile, siblings: dict[str, Profile] | None = None) -> list[Path]:
-    """The profile's repos: root scan minus nested sibling profiles, plus adopted.
-
-    A repo under a more specific profile's root belongs to that profile, so
-    a broad profile (e.g. ~/projects) never overwrites a nested one's env.
-    """
+    """The profile's repos: root scan minus nested sibling profiles, plus adopted."""
     nested = _nested_profile_roots(profile, siblings)
     repos = [
         r
@@ -166,8 +153,6 @@ def apply_profile(
             try:
                 if env:
                     adapter.inject(repo, env, writer)
-                # A variable this workspace no longer sets must go, or it can
-                # retain another provider from the shared profile.
                 stale = [
                     key
                     for key in MANAGED_ENV_KEYS
@@ -178,11 +163,9 @@ def apply_profile(
                 if env:
                     adapter.install_check(repo, writer)
             except ValueError as exc:
-                # one repo with a broken config file must not stop the apply
                 console.print(
                     _("[yellow]warning:[/yellow] {adapter} in {repo}: {error}; skipping.", adapter=adapter.name, repo=repo.name, error=exc)
                 )
-    # env and the startup hook can land in the same file: count files, not writes
     touched = len(set(writer.changes[before:]))
     if repos:
         console.print(

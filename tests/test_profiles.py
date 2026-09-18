@@ -28,7 +28,7 @@ def test_profiles_roundtrip(tmp_path: Path):
     p = loaded["pessoal"]
     assert p.git_email == "eu@example.com"
     assert p.agents == ["claude-code", "direnv"]
-    assert loaded["trabalho"].agents == ["claude-code"]  # default
+    assert loaded["trabalho"].agents == ["claude-code"]
 
 
 def test_profile_env():
@@ -83,6 +83,4 @@ def test_isolated_gcloud_uses_its_own_config_dir(monkeypatch, tmp_path):
     )
     env = isolated.env()
     assert env["CLOUDSDK_CONFIG"] == str(tmp_path / "gcloud-acme")
-    # the isolated dir replaces the named-configuration selector
-    # pinned by name so a stray value in the shell cannot pick another one
     assert env["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "acme"

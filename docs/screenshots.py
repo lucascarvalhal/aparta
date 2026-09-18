@@ -1,8 +1,4 @@
-"""Regenerate the README screenshots in both languages with demo data.
-
-Run from the repo root: uv run python docs/screenshots.py
-Strings come from the real i18n catalog, so the images track the product.
-"""
+"""Regenerate the README screenshots in both languages with demo data."""
 
 from __future__ import annotations
 
@@ -23,7 +19,6 @@ def render(lang: str, suffix: str) -> None:
     def record() -> Console:
         return Console(record=True, width=100, force_terminal=True)
 
-    # ---- scan ----
     c = record()
     c.print(_("[dim]Scanning {where} and ~/.gitconfig (read-only)...[/dim]", where=_("your home")))
     t = Table(title=_("Detected project groups"))
@@ -41,7 +36,6 @@ def render(lang: str, suffix: str) -> None:
     c.print(_("Use [bold]aparta init[/bold] to turn them into profiles."))
     c.save_svg(str(DOCS / f"scan{suffix}.svg"), title="aparta scan")
 
-    # ---- wizard ----
     c = record()
     c.print(Panel(_("Welcome to [bold]aparta[/bold]! Let's isolate your development accounts per project folder."), border_style="cyan"))
     c.print(f"{_('Which AI agents should receive the environment variables?')}  [cyan]Claude Code, Gemini CLI[/cyan]")
@@ -71,7 +65,6 @@ def render(lang: str, suffix: str) -> None:
     c.print(f"{_('AWS profile for this profile:')}  [cyan]acme[/cyan]")
     c.save_svg(str(DOCS / f"wizard{suffix}.svg"), title="aparta wizard")
 
-    # ---- summary ----
     c = record()
     t = Table(title=_("Summary: what aparta is going to do"), show_lines=True)
     t.add_column(_("Profile"), style="bold")
@@ -105,7 +98,6 @@ def render(lang: str, suffix: str) -> None:
     c.print(Panel(_("Every write to an existing file creates a backup (.bak-aparta-<timestamp>) and merges, nothing is overwritten. Use --dry-run to only see the diff."), title=_("Safety"), border_style="dim"))
     c.save_svg(str(DOCS / f"summary{suffix}.svg"), title="aparta summary")
 
-    # ---- doctor ----
     c = record()
     t = Table(title=_("doctor: profile '{name}'", name="acme"), show_lines=False)
     t.add_column(_("Area"), style="bold")

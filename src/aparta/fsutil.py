@@ -33,11 +33,7 @@ def backup_path(path: Path) -> Path:
 
 @dataclass
 class SafeWriter:
-    """Writes files with automatic backups and --dry-run support.
-
-    Existing files are copied to <file>.bak-aparta-<timestamp> before any
-    change. In dry-run mode nothing is touched; only the diff is shown.
-    """
+    """Writes files with automatic backups and --dry-run support."""
 
     dry_run: bool = False
     verbose: bool = False

@@ -1,10 +1,4 @@
-"""Antigravity adapter (Google's agent-first IDE, a VS Code fork).
-
-Injects into "terminal.integrated.env.{osx,linux}" in .vscode/settings.json,
-which the integrated terminal (and agent-run commands) honors. If agent
-commands do not inherit these variables in your build, combine with the
-`direnv` adapter as a fallback.
-"""
+"""Antigravity adapter (Google's agent-first IDE, a VS Code fork)."""
 
 from __future__ import annotations
 
@@ -46,7 +40,7 @@ class AntigravityAdapter(AgentAdapter):
         return repo / ".vscode" / "settings.json"
 
     def detect(self, repo: Path) -> bool:
-        return True  # workspace settings apply to any repo
+        return True
 
     def inject(self, repo: Path, env: dict[str, str], writer: SafeWriter) -> bool:
         path = self.settings_path(repo)

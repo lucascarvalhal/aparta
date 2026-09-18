@@ -83,7 +83,6 @@ def test_run_layers_the_profile_env_over_the_current_one(tmp_path, monkeypatch):
     assert seen["command"] == ["terraform", "apply"]
     assert seen["env"]["UNRELATED"] == "stays"
     assert seen["env"]["CLOUDSDK_CONFIG"] == str(profile.gcloud_config_dir)
-    # the pinned name an inherited shell variable cannot override
     assert seen["env"]["CLOUDSDK_ACTIVE_CONFIG_NAME"] == "work"
 
 
@@ -173,7 +172,6 @@ def test_export_lines_are_shell_safe():
     lines = runner.export_lines({"A": "plain", "B": "with space and 'quote'"})
     assert "export A=plain" in lines
     assert "export B=" in lines and "with space" in lines
-    # eval must reproduce the exact value
     import subprocess as sp
 
     out = sp.run(

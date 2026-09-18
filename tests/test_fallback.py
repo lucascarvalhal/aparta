@@ -46,9 +46,6 @@ def _recorder(calls, listing=CONFIGS, gh_out=GH_JSON, rc=0):
     return run
 
 
-# ---- reading the current state ----
-
-
 def test_state_reports_the_global_identity_of_each_tool(monkeypatch):
     monkeypatch.setattr(fallback.subprocess, "run", _recorder([]))
     state = fallback.read_state()
@@ -92,9 +89,6 @@ def test_missing_binaries_degrade_gracefully(monkeypatch):
     assert fallback.make_secure(SafeWriter(), assume_yes=True) is False
 
 
-# ---- securing ----
-
-
 def test_secure_creates_the_neutral_config_and_activates_it(monkeypatch):
     calls = []
     monkeypatch.setattr(fallback.subprocess, "run", _recorder(calls))
@@ -102,7 +96,6 @@ def test_secure_creates_the_neutral_config_and_activates_it(monkeypatch):
     commands = [cmd for cmd, _env in calls]
     assert any(f"{CREATE} {fallback.NEUTRAL_CONFIG} --no-activate" in c for c in commands)
     assert any(f"{ACTIVATE} {fallback.NEUTRAL_CONFIG}" in c for c in commands)
-    # no existing configuration is touched
     assert not any("client" in c or "delete" in c for c in commands)
 
 
@@ -137,16 +130,12 @@ def test_secure_is_idempotent(monkeypatch):
     monkeypatch.setattr(fallback.subprocess, "run", _recorder(calls, listing=NEUTRAL))
     assert fallback.make_secure(SafeWriter(), assume_yes=True) is True
     assert not any(ACTIVATE in cmd for cmd, _env in calls)
-    # the memory of a real previous configuration is not overwritten
     assert not fallback.previous_path().exists()
 
 
 def test_secure_reports_a_failing_gcloud(monkeypatch):
     monkeypatch.setattr(fallback.subprocess, "run", _recorder([], rc=1))
     assert fallback.make_secure(SafeWriter(), assume_yes=True) is False
-
-
-# ---- dry run ----
 
 
 def test_dry_run_runs_no_command_and_writes_nothing(monkeypatch):
@@ -166,9 +155,6 @@ def test_dry_run_restore_activates_nothing(monkeypatch):
     assert fallback.restore(SafeWriter(dry_run=True)) is True
     assert not any(ACTIVATE in cmd for cmd, _env in calls)
     assert fallback.read_previous() == "client"
-
-
-# ---- restoring ----
 
 
 def test_restore_reactivates_the_saved_configuration(monkeypatch):
@@ -194,9 +180,6 @@ def test_restore_keeps_the_saved_state_when_gcloud_fails(monkeypatch):
     monkeypatch.setattr(fallback.subprocess, "run", _recorder([], rc=1))
     assert fallback.restore(SafeWriter()) is False
     assert fallback.read_previous() == "client"
-
-
-# ---- the global ADC, the credential libraries fall back to ----
 
 
 def test_state_probes_the_global_adc_like_a_library(monkeypatch, fake_global_adc):

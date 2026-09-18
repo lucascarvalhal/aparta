@@ -1,8 +1,4 @@
-"""Agent adapter interface: detect, inject, validate.
-
-Any concrete AgentAdapter subclass with a `name` registers itself; adding
-an agent is just dropping a module in this package.
-"""
+"""Agent adapter interface: detect, inject, validate."""
 
 from __future__ import annotations
 
@@ -14,18 +10,12 @@ from ..fsutil import SafeWriter
 
 REGISTRY: dict[str, type["AgentAdapter"]] = {}
 
-# What every startup hook runs: cached, silent while credentials are healthy.
 CHECK_COMMAND = "aparta check --quiet"
-# Gemini's hook contract forbids anything but JSON on stdout
 CHECK_JSON_COMMAND = "aparta check --quiet --json"
 
 
 def merge_env_lines(existing_text: str, env: dict[str, str], template: str) -> str:
-    """Update or append one line per variable, preserving the rest.
-
-    `template` formats a line from (key, value), e.g. '{k}="{v}"' or
-    'export {k}="{v}"'. Double quotes in values are escaped.
-    """
+    """Update or append one line per variable, preserving the rest."""
     lines = existing_text.splitlines()
     out = list(lines)
     for key, value in env.items():
@@ -93,12 +83,7 @@ class AgentAdapter(ABC):
         return False
 
     def install_check(self, repo: Path, writer: SafeWriter) -> bool:
-        """Make the agent run `aparta check --quiet` when a session starts.
-
-        Each agent exposes a different mechanism (hooks, plugins, tasks) and
-        some expose none, in which case the direnv adapter covers the shell.
-        Returns True when something was written.
-        """
+        """Make the agent run `aparta check --quiet` when a session starts."""
         return False
 
     def uninstall_check(self, repo: Path, writer: SafeWriter) -> bool:
@@ -106,8 +91,5 @@ class AgentAdapter(ABC):
         return False
 
     def read_env(self, repo: Path) -> dict[str, str]:
-        """Env this agent's config already defines for the repo.
-
-        Used by discovery to detect previous setups; {} when unknown.
-        """
+        """Env this agent's config already defines for the repo."""
         return {}
