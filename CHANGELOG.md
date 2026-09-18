@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-17
+
 ### Changed
 
 - The shell prompt segment now says `reauth needed` (or `reautenticar` in
@@ -28,8 +30,27 @@ adheres to [Semantic Versioning](https://semver.org/).
   asked because the profile environment pins GOOGLE_APPLICATION_CREDENTIALS
   at the very file it was about to write; the login now runs without that
   variable, and CLOUDSDK_CONFIG alone keeps the file inside the profile.
+- `aparta remove` now strips every aparta-managed key from the agent
+  configurations, including the workspace Git include, and deletes the
+  profile's isolated gcloud directory instead of leaving credentials.db
+  behind.
+- The GitHub CLI directory is resolved through XDG_CONFIG_HOME on apply and
+  remove, the same path the injected environment points at.
+- gcloud backend commands run with a scrubbed environment, so a CLOUDSDK
+  selector inherited from the shell cannot redirect them to another profile.
+- Credential error classification checks the organization policy expiry
+  before the generic revoked marker and no longer matches the bare
+  substring "sso" inside ordinary words.
+- Parking and restoring the global ADC go through SafeWriter, with a backup.
+- A credential cache written by another aparta version no longer breaks
+  every command at startup.
 - The test suite scrubs the variables the aparta zsh hook exports, so it
   passes from inside a registered workspace.
+
+### Removed
+
+- Planning notes and the agent policy file no longer ship in the repository,
+  and every test fixture uses fictional companies and people.
 
 ## [0.8.1] - 2026-09-02
 
@@ -378,7 +399,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/lucascarvalhal/aparta/compare/v0.6.8...v0.7.0
