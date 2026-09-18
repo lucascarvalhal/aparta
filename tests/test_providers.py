@@ -9,7 +9,7 @@ def test_provider_aliases_are_canonical():
     """Persisting aliases would make provider filtering depend on CLI spelling."""
     assert canonical_provider("gh") == "github"
     assert canonical_provider("google") == "gcloud"
-    assert canonical_provider("BitBucket") == "bitbucket"
+    assert canonical_provider("Google-Cloud") == "gcloud"
 
 
 def test_workspace_env_excludes_unselected_profile_providers(tmp_path, monkeypatch):

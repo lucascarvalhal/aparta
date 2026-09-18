@@ -5,7 +5,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from aparta.backends.git import apply_adopted_git, context_gitconfig_path
+import os
+
+from aparta.backends.git import reconcile_workspace_git
 from aparta.discovery import loose_repos
 from aparta.fsutil import SafeWriter
 from aparta.profiles import Profile, load_profiles, save_profiles
@@ -34,52 +36,24 @@ def test_adopted_repos_roundtrip_in_toml(tmp_path: Path):
     assert loaded["x"].adopted_repos == ["~/projects/avulso"]
 
 
-def test_apply_adopted_adds_local_include(tmp_path: Path):
-    repo = _make_repo(tmp_path / "avulso")
-    p = Profile(name="acme", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
-    (tmp_path / ".gitconfig-acme").write_text("[user]\n\temail = a@b.c\n")
+def test_adopted_repo_gets_the_profile_identity(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "cfg"))
+    home = tmp_path / "home"
+    home.mkdir()
+    repo = _make_repo(tmp_path / "elsewhere" / "avulso")
+    p = Profile(name="acme", root=str(home / "acme"), git_email="a@b.c", adopted_repos=[str(repo)])
 
-    apply_adopted_git(p, SafeWriter(), home=tmp_path)
+    reconcile_workspace_git({p.name: p}, {}, SafeWriter(), home=home)
 
-    include = str(context_gitconfig_path(p, tmp_path))
+    query_env = {**os.environ, "GIT_CONFIG_GLOBAL": str(home / ".gitconfig")}
     r = subprocess.run(
-        ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
-        capture_output=True,
-        text=True,
-    )
-    assert include in r.stdout.splitlines()
-    r = subprocess.run(
-        ["git", "-C", str(repo), "config", "user.email"], capture_output=True, text=True
+        ["git", "-C", str(repo), "config", "user.email"], env=query_env, capture_output=True, text=True
     )
     assert r.stdout.strip() == "a@b.c"
 
 
-def test_apply_adopted_is_idempotent(tmp_path: Path):
-    repo = _make_repo(tmp_path / "avulso")
-    p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
-    apply_adopted_git(p, SafeWriter(), home=tmp_path)
-    apply_adopted_git(p, SafeWriter(), home=tmp_path)
-    r = subprocess.run(
-        ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
-        capture_output=True,
-        text=True,
-    )
-    assert len(r.stdout.splitlines()) == 1
+def test_missing_adopted_repo_is_skipped(tmp_path: Path):
+    from aparta.workspaces import profile_repos
 
-
-def test_apply_adopted_dry_run_writes_nothing(tmp_path: Path):
-    repo = _make_repo(tmp_path / "avulso")
-    p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
-    apply_adopted_git(p, SafeWriter(dry_run=True), home=tmp_path)
-    r = subprocess.run(
-        ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
-        capture_output=True,
-        text=True,
-    )
-    assert r.stdout.strip() == ""
-
-
-def test_apply_adopted_warns_on_non_git_dir(tmp_path: Path):
-    (tmp_path / "nao-repo").mkdir()
-    p = Profile(name="x", root="~/x", git_email="a@b.c", adopted_repos=[str(tmp_path / "nao-repo")])
-    apply_adopted_git(p, SafeWriter(), home=tmp_path)
+    p = Profile(name="x", root=str(tmp_path / "x"), git_email="a@b.c", adopted_repos=[str(tmp_path / "gone")])
+    assert profile_repos(p, {p.name: p}) == []

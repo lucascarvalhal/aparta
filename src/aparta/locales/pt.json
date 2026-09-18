@@ -205,7 +205,6 @@
   "Repair what is deterministic and safe; credentials still need `aparta login`.": "Conserta o que é determinístico e seguro; credencial ainda precisa de `aparta login`.",
   "[green]doctor --fix: nothing to repair.[/green]": "[green]doctor --fix: não há nada para consertar.[/green]",
   "[bold]doctor --fix: repairing profile '{name}'[/bold]": "[bold]doctor --fix: consertando o perfil '{name}'[/bold]",
-  "git: includeIf and ~/.gitconfig-{name} reapplied": "git: includeIf e ~/.gitconfig-{name} reaplicados",
   "gh: config dir reapplied": "gh: config dir reaplicado",
   "gcloud: account and project reasserted": "gcloud: conta e projeto reafirmados",
   "agents: env reinjected into {n} config file(s)": "agentes: env reinjetado em {n} arquivo(s) de config",
@@ -333,5 +332,6 @@
   "moved:": "movido:",
   "{file} missing": "{file} ausente",
   "{file} is invalid": "{file} inválido",
-  "logged in as {user}, expected {expected}": "logado como {user}, esperado {expected}"
+  "logged in as {user}, expected {expected}": "logado como {user}, esperado {expected}",
+  "git: workspace identities reapplied": "git: identidades dos workspaces reaplicadas"
 }

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable
 
 from rich.console import Console
@@ -12,19 +11,16 @@ from .backends import Note
 from .backends.aws import apply_aws
 from .backends.gcloud import apply_gcloud
 from .backends.gh import apply_gh
-from .backends.git import apply_git
-from .discovery import find_repos
 from .fsutil import SafeWriter
 from .i18n import _
 from . import __version__
 from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles, save_profiles
 from .providers import workspace_env
-from .workspaces import Workspace, load_workspaces, workspace_for_path
+from .workspaces import Workspace, load_workspaces, nested_profile_roots, profile_repos, workspace_for_path
 
 console = Console()
 
-BACKENDS: list[tuple[str, Callable[[Profile, SafeWriter], "list[Note]"]]] = [
-    ("git", apply_git),
+BACKENDS: list[tuple[str, Callable[[Profile, SafeWriter], list[Note]]]] = [
     ("gh", apply_gh),
     ("gcloud", apply_gcloud),
     ("aws", apply_aws),
@@ -71,29 +67,6 @@ def apply_workspace_agents(
     return len(set(writer.changes[before:]))
 
 
-def _nested_profile_roots(
-    profile: Profile, siblings: dict[str, Profile] | None = None
-) -> list[Path]:
-    """Roots of sibling profiles nested inside this profile's root."""
-    root = profile.root_path
-    return [
-        p.root_path
-        for p in (siblings or load_profiles()).values()
-        if p.name != profile.name and p.root_path != root and root in p.root_path.parents
-    ]
-
-
-def profile_repos(profile: Profile, siblings: dict[str, Profile] | None = None) -> list[Path]:
-    """The profile's repos: root scan minus nested sibling profiles, plus adopted."""
-    nested = _nested_profile_roots(profile, siblings)
-    repos = [
-        r
-        for r in find_repos(profile.root_path)
-        if not any(r == n or n in r.parents for n in nested)
-    ]
-    return repos + [Path(r).expanduser() for r in profile.adopted_repos]
-
-
 def apply_profile(
     profile: Profile,
     writer: SafeWriter,
@@ -102,7 +75,9 @@ def apply_profile(
     """Apply every backend, then inject env into the profile's repos."""
     console.print(_("[bold]Applying profile '{name}'[/bold] (root: {root})", name=profile.name, root=profile.root_path))
 
-    nested = _nested_profile_roots(profile, siblings)
+    ownership_profiles = siblings or load_profiles()
+    ownership_profiles.setdefault(profile.name, profile)
+    nested = nested_profile_roots(profile, ownership_profiles)
     if nested:
         console.print(
             _(
@@ -111,17 +86,11 @@ def apply_profile(
             )
         )
 
-    ownership_profiles = siblings or load_profiles()
-    ownership_profiles.setdefault(profile.name, profile)
     saved_workspaces = load_workspaces()
 
     for label, backend in BACKENDS:
         before = len(writer.changes)
-        notes = (
-            backend(profile, writer, register_root=False)
-            if label == "git"
-            else backend(profile, writer)
-        )
+        notes = backend(profile, writer)
         for note in notes:
             if note.level != "info" or writer.verbose:
                 console.print(note.text)
@@ -135,7 +104,7 @@ def apply_profile(
     default_env = profile.env()
     if not default_env:
         console.print(_("[dim]Profile has no gh/gcloud: no env to inject into agents.[/dim]"))
-    repos = profile_repos(profile, siblings)
+    repos = profile_repos(profile, ownership_profiles)
     if not repos:
         console.print(_("[yellow]No git repository found in {root}.[/yellow]", root=profile.root_path))
     before = len(writer.changes)

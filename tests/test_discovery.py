@@ -8,11 +8,11 @@ from pathlib import Path
 from aparta.discovery import (
     ContextSuggestion,
     discover,
-    find_repos,
     parse_includeifs,
     read_agent_env,
     suggestions_from_gitconfig,
 )
+from aparta.workspaces import find_repos
 
 GITCONFIG = """\
 [user]

@@ -73,7 +73,7 @@ def test_explicit_worktree_record_beats_broad_profile_root(tmp_path):
         name="acme-api",
         path=str(repo),
         profile="acme",
-        providers=["git", "bitbucket"],
+        providers=["git", "ssh"],
     )
 
     resolved = workspace_for_path(

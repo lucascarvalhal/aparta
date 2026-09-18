@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 from aparta.agents.claude_code import ClaudeCodeAdapter
-from aparta.backends.git import apply_git
+import subprocess
+
+from aparta.backends.git import reconcile_workspace_git
 from aparta.fsutil import SafeWriter
 from aparta.profiles import Profile
 
@@ -13,14 +15,18 @@ def snapshot(root: Path) -> dict[str, str]:
     return {str(p): p.read_text() for p in root.rglob("*") if p.is_file()}
 
 
-def test_dry_run_apply_git_touches_nothing(tmp_path: Path):
-    home = tmp_path
+def test_dry_run_reconcile_touches_nothing(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "cfg"))
+    home = tmp_path / "home"
+    repo = home / "pessoal" / "app"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
     (home / ".gitconfig").write_text("[user]\n\temail = global@example.com\n")
     before = snapshot(home)
 
-    profile = Profile(name="pessoal", root=str(tmp_path / "pessoal"), git_email="eu@x.com")
+    profile = Profile(name="pessoal", root=str(home / "pessoal"), git_email="eu@x.com")
     writer = SafeWriter(dry_run=True)
-    apply_git(profile, writer, home=home)
+    reconcile_workspace_git({profile.name: profile}, {}, writer, home=home)
 
     assert snapshot(home) == before
     assert writer.changes

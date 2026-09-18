@@ -405,9 +405,8 @@ def add(
         workspaces,
         writer,
     )
-    from .backends.git import apply_git, reconcile_workspace_git
+    from .backends.git import reconcile_workspace_git
 
-    apply_git(profile, writer, register_root=False)
     reconcile_workspace_git(profiles, workspaces, writer)
     from .apply import apply_workspace_agents
 

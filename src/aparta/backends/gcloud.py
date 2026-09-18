@@ -15,10 +15,8 @@ from . import Note
 SEED_FILES = ("credentials.db",)
 
 
-def gcloud_home(config_root: Path | None = None) -> Path:
+def gcloud_home() -> Path:
     """The global gcloud config dir, honoring CLOUDSDK_CONFIG."""
-    if config_root is not None:
-        return config_root
     override = os.environ.get("CLOUDSDK_CONFIG")
     if override:
         return Path(override).expanduser()
@@ -41,9 +39,9 @@ def _run(
     return subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
 
 
-def configuration_exists(name: str, config_dir: Path | None = None) -> bool:
+def configuration_exists(name: str) -> bool:
     """Whether the named gcloud configuration already exists (locale-safe)."""
-    r = _run(["gcloud", "config", "configurations", "describe", name], config_dir=config_dir)
+    r = _run(["gcloud", "config", "configurations", "describe", name])
     return r.returncode == 0
 
 
@@ -95,38 +93,29 @@ def activate_configuration(target: Path, name: str) -> None:
 def seed_isolated_dir(
     target: Path, source: Path | None = None, keep_account: str = ""
 ) -> bool:
-    """Copy credentials and configurations into a fresh isolated dir."""
+    """Create the isolated dir, seeded from the global credentials; True when created."""
     if target.exists():
         return False
     source = source or gcloud_home()
     target.mkdir(parents=True, mode=0o700, exist_ok=True)
-    copied = False
-    if source.exists():
-        for name in SEED_FILES:
-            origin = source / name
-            if origin.exists():
-                destination = target / name
-                shutil.copy2(origin, destination)
-                if destination.suffix in (".db", ".json"):
-                    destination.chmod(0o600)
-                copied = True
+    for name in SEED_FILES:
+        origin = source / name
+        if origin.exists():
+            destination = target / name
+            shutil.copy2(origin, destination)
+            destination.chmod(0o600)
     prune_credentials(target / "credentials.db", keep_account)
-    return copied
+    return True
 
 
 def apply_gcloud(profile: Profile, writer: SafeWriter) -> list[Note]:
-    notes: list[Note] = []
     if not (profile.gcloud_account or profile.gcloud_project):
-        return notes
-
-    return (
-        _apply_isolated(profile, writer, notes)
-        if profile.gcloud_isolated
-        else _apply_named(profile, writer, notes)
-    )
+        return []
+    return _apply_isolated(profile, writer) if profile.gcloud_isolated else _apply_named(profile, writer)
 
 
-def _apply_named(profile: Profile, writer: SafeWriter, notes: list[Note]) -> list[Note]:
+def _apply_named(profile: Profile, writer: SafeWriter) -> list[Note]:
+    notes: list[Note] = []
     name = profile.name
     cmds: list[tuple[list[str], str | None]] = [
         (["gcloud", "config", "configurations", "create", name, "--no-activate"], None)
@@ -143,7 +132,7 @@ def _apply_named(profile: Profile, writer: SafeWriter, notes: list[Note]) -> lis
         return notes
 
     if not configuration_exists(name):
-        create = _run(*cmds[0])
+        create = _run(cmds[0][0])
         if create.returncode != 0:
             notes.append(Note("error", _("[red]gcloud configurations create failed:[/red] {error}", error=create.stderr.strip())))
             return notes
@@ -155,7 +144,8 @@ def _apply_named(profile: Profile, writer: SafeWriter, notes: list[Note]) -> lis
     return notes
 
 
-def _apply_isolated(profile: Profile, writer: SafeWriter, notes: list[Note]) -> list[Note]:
+def _apply_isolated(profile: Profile, writer: SafeWriter) -> list[Note]:
+    notes: list[Note] = []
     target = profile.gcloud_config_dir
     cmds = []
     if profile.gcloud_account:

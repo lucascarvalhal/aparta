@@ -11,33 +11,9 @@ from pathlib import Path
 
 from .fsutil import tilde
 from .config import config_home, gh_config_dir as gh_config_path
-
-IGNORED_DIRS = {
-    "node_modules",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "dist",
-    "build",
-    "target",
-    "vendor",
-    "Pods",
-    "DerivedData",
-    "site-packages",
-}
-
-SYSTEM_DIRS = {
-    "Library",
-    "Applications",
-    "Movies",
-    "Music",
-    "Pictures",
-    "Public",
-    "AppData",
-}
+from .workspaces import find_repos
 
 DEFAULT_SCAN_DEPTH = 4
-
 
 @dataclass
 class ContextSuggestion:
@@ -115,39 +91,6 @@ def suggestions_from_gitconfig(gitconfig: Path | None = None) -> list[ContextSug
             )
         )
     return suggestions
-
-
-def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
-    """git repos under root, depth-limited, skipping non-project directories."""
-    repos: list[Path] = []
-    if not root.exists():
-        return repos
-    if (root / ".git").exists():
-        return [root]
-
-    def walk(d: Path, depth: int) -> None:
-        if depth > max_depth:
-            return
-        try:
-            children = sorted(
-                p
-                for p in d.iterdir()
-                if p.is_dir()
-                and not p.is_symlink()
-                and not p.name.startswith(".")
-                and p.name not in IGNORED_DIRS
-                and p.name not in SYSTEM_DIRS
-            )
-        except PermissionError:
-            return
-        for child in children:
-            if (child / ".git").exists():
-                repos.append(child)
-            else:
-                walk(child, depth + 1)
-
-    walk(root, 1)
-    return repos
 
 
 def find_all_repos(

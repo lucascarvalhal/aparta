@@ -4,12 +4,39 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .config import config_dir, load_table, save_table
 from .fsutil import SafeWriter
 from .profiles import Profile
+
+IGNORED_DIRS = {
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "dist",
+    "build",
+    "target",
+    "vendor",
+    "Pods",
+    "DerivedData",
+    "site-packages",
+}
+
+SYSTEM_DIRS = {
+    "Library",
+    "Applications",
+    "Movies",
+    "Music",
+    "Pictures",
+    "Public",
+    "AppData",
+}
+
+DEFAULT_SCAN_DEPTH = 4
 
 
 class WorkspaceResolutionError(ValueError):
@@ -58,18 +85,23 @@ def save_workspaces(
     save_table(path or workspaces_path(), "workspaces", rows, writer)
 
 
-def git_workspace_root(path: Path) -> Path | None:
-    """Return Git's exact top-level for a directory, including linked worktrees."""
-    candidate = path.expanduser()
-    if candidate.is_file():
-        candidate = candidate.parent
+def git_env() -> dict[str, str]:
+    """The caller's environment without any redirection of which repository git sees."""
     env = dict(os.environ)
     for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR"):
         env.pop(key, None)
+    return env
+
+
+def git_workspace_root(path: Path) -> Path | None:
+    """Return Git's exact top-level for a directory, including linked worktrees."""
+    candidate = path.expanduser()
+    if not candidate.exists():
+        return None
     try:
         result = subprocess.run(
             ["git", "-C", str(candidate), "rev-parse", "--show-toplevel"],
-            env=env,
+            env=git_env(),
             capture_output=True,
             text=True,
             timeout=10,
@@ -79,6 +111,57 @@ def git_workspace_root(path: Path) -> Path | None:
     if result.returncode != 0 or not result.stdout.strip():
         return None
     return Path(result.stdout.strip()).expanduser().resolve()
+
+
+def find_repos(root: Path, max_depth: int = 3) -> list[Path]:
+    """git repos under root, depth-limited, skipping non-project directories."""
+    repos: list[Path] = []
+    if not root.exists():
+        return repos
+    if (root / ".git").exists():
+        return [root]
+
+    def walk(d: Path, depth: int) -> None:
+        if depth > max_depth:
+            return
+        try:
+            children = sorted(
+                p
+                for p in d.iterdir()
+                if p.is_dir()
+                and not p.is_symlink()
+                and not p.name.startswith(".")
+                and p.name not in IGNORED_DIRS
+                and p.name not in SYSTEM_DIRS
+            )
+        except PermissionError:
+            return
+        for child in children:
+            if (child / ".git").exists():
+                repos.append(child)
+            else:
+                walk(child, depth + 1)
+
+    walk(root, 1)
+    return repos
+
+
+def nested_profile_roots(profile: Profile, profiles: Mapping[str, Profile]) -> list[Path]:
+    """Roots of other profiles that live inside this profile's root."""
+    root = profile.root_path
+    return [
+        other.root_path
+        for other in profiles.values()
+        if other.name != profile.name and other.root_path != root and root in other.root_path.parents
+    ]
+
+
+def profile_repos(profile: Profile, profiles: Mapping[str, Profile]) -> list[Path]:
+    """The profile's checkouts: its root scan minus nested profiles, plus adopted repos that exist."""
+    nested = nested_profile_roots(profile, profiles)
+    repos = [r for r in find_repos(profile.root_path) if not any(r == n or n in r.parents for n in nested)]
+    adopted = (Path(raw).expanduser() for raw in profile.adopted_repos)
+    return repos + [repo for repo in adopted if repo.exists()]
 
 
 def profile_for_path(path: Path, profiles: dict[str, Profile]) -> Profile | None:
@@ -122,26 +205,28 @@ def implicit_workspace(root: Path, profile: Profile) -> Workspace:
     )
 
 
-def _implicit_workspaces_named(
-    name: str,
-    profiles: dict[str, Profile],
-) -> list[Workspace]:
-    """Find legacy profile-owned repos by basename before first materialization."""
-    from .discovery import find_repos
-
-    matches: dict[Path, Workspace] = {}
+def implicit_workspaces(profiles: Mapping[str, Profile]) -> dict[Path, Workspace]:
+    """Every checkout the profiles own, keyed by exact git root, the deepest owner winning."""
+    found: dict[Path, Workspace] = {}
     for profile in profiles.values():
-        repos = find_repos(profile.root_path) + [
-            Path(raw).expanduser() for raw in profile.adopted_repos
-        ]
-        for repo in repos:
+        for repo in profile_repos(profile, profiles):
             root = git_workspace_root(repo)
-            if root is None or root.name != name:
-                continue
-            owner = profile_for_path(root, profiles)
-            if owner is not None:
-                matches[root] = implicit_workspace(root, owner)
-    return list(matches.values())
+            owner = profile_for_path(root, profiles) if root is not None else None
+            if root is not None and owner is not None:
+                found[root] = implicit_workspace(root, owner)
+    return found
+
+
+def known_workspaces(
+    profiles: Mapping[str, Profile], workspaces: Mapping[str, Workspace]
+) -> dict[Path, Workspace]:
+    """Implicit checkouts with the explicit records laid over them."""
+    candidates = implicit_workspaces(profiles)
+    for workspace in workspaces.values():
+        root = git_workspace_root(workspace.root_path)
+        if root is not None and workspace.profile in profiles:
+            candidates[root] = Workspace(workspace.name, str(root), workspace.profile, list(workspace.providers))
+    return candidates
 
 
 def workspace_for_path(
@@ -192,7 +277,7 @@ def resolve_workspace(
         names = ", ".join(sorted(workspace.name for workspace in by_basename))
         raise WorkspaceResolutionError(f"workspace selector is ambiguous: {names}")
 
-    implicit_matches = _implicit_workspaces_named(selector, profiles)
+    implicit_matches = [w for root, w in implicit_workspaces(profiles).items() if root.name == selector]
     if len(implicit_matches) == 1:
         return implicit_matches[0]
     if len(implicit_matches) > 1:

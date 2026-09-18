@@ -15,8 +15,6 @@ KNOWN_PROVIDERS = {
     "git",
     "ssh",
     "github",
-    "gitlab",
-    "bitbucket",
     "gcloud",
     "adc",
     "aws",

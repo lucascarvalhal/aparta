@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import os
 import shlex
 import subprocess
@@ -46,14 +48,9 @@ def export_lines(env: dict[str, str]) -> str:
 
 def run_in_profile(profile: Profile, command: list[str], with_gh_token: bool = False) -> int:
     """Execute with every provider configured by an explicitly chosen profile."""
-    from .workspaces import Workspace, default_providers
+    from .workspaces import implicit_workspace
 
-    workspace = Workspace(
-        name=profile.name,
-        path=str(profile.root_path),
-        profile=profile.name,
-        providers=default_providers(profile),
-    )
+    workspace = implicit_workspace(Path.cwd(), profile)
     return run_in_workspace(profile, workspace, command, with_gh_token)
 
 

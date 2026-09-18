@@ -77,7 +77,7 @@ def test_apply_profile_survives_one_broken_repo(tmp_path, monkeypatch):
 def test_profile_repos_skips_nested_profile_roots(tmp_path, monkeypatch):
     """A broad profile must not claim repos owned by a nested profile."""
     monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "cfg"))
-    from aparta.apply import profile_repos
+    from aparta.workspaces import profile_repos
     from aparta.fsutil import SafeWriter
     from aparta.profiles import save_profiles
 
@@ -91,6 +91,6 @@ def test_profile_repos_skips_nested_profile_roots(tmp_path, monkeypatch):
     nested = Profile(name="acme", root=str(nested_root), git_email="x@acme.com")
     save_profiles({"projects": broad, "acme": nested}, SafeWriter())
 
-    repos = profile_repos(broad)
-    assert [r.name for r in repos] == ["loose"]
-    assert profile_repos(nested) == [nested_root / "api"]
+    profiles = {"projects": broad, "acme": nested}
+    assert [r.name for r in profile_repos(broad, profiles)] == ["loose"]
+    assert profile_repos(nested, profiles) == [nested_root / "api"]

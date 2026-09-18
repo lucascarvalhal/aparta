@@ -42,6 +42,7 @@ def configured(tmp_path, monkeypatch):
         git_email="dev@acme.com",
         gcloud_account="dev@acme.com",
         gcloud_isolated=True,
+        aws_profile="acme",
     )
     save_profiles({profile.name: profile}, SafeWriter())
     return repo, profile
@@ -52,14 +53,14 @@ def test_add_one_argument_targets_the_current_worktree(configured, monkeypatch):
     repo, _profile = configured
     monkeypatch.chdir(repo)
 
-    result = runner.invoke(app, ["add", "bitbucket"])
+    result = runner.invoke(app, ["add", "aws"])
 
     assert result.exit_code == 0, result.output
     saved = load_workspaces()
     assert len(saved) == 1
     workspace = next(iter(saved.values()))
     assert workspace.root_path == repo.resolve()
-    assert "bitbucket" in workspace.providers
+    assert "aws" in workspace.providers
 
 
 def test_add_materializes_legacy_workspace_without_inheriting_optional_providers(
@@ -69,11 +70,11 @@ def test_add_materializes_legacy_workspace_without_inheriting_optional_providers
     repo, _profile = configured
     monkeypatch.chdir(repo)
 
-    result = runner.invoke(app, ["add", "bitbucket"])
+    result = runner.invoke(app, ["add", "aws"])
 
     assert result.exit_code == 0, result.output
     workspace = next(iter(load_workspaces().values()))
-    assert workspace.providers == ["git", "bitbucket"]
+    assert workspace.providers == ["git", "aws"]
 
 
 def test_add_git_materializes_a_git_only_legacy_workspace(configured, monkeypatch):
@@ -99,10 +100,10 @@ def test_add_two_arguments_targets_a_named_workspace(configured, tmp_path):
     workspace = Workspace("acme-api", str(repo), profile.name, ["git"])
     save_workspaces({workspace.name: workspace}, SafeWriter())
 
-    result = runner.invoke(app, ["add", "acme-api", "bitbucket"])
+    result = runner.invoke(app, ["add", "acme-api", "aws"])
 
     assert result.exit_code == 0, result.output
-    assert load_workspaces()[workspace.name].providers == ["git", "bitbucket"]
+    assert load_workspaces()[workspace.name].providers == ["git", "aws"]
 
 
 def test_add_two_arguments_finds_an_unmaterialized_repo_by_name(
@@ -112,12 +113,12 @@ def test_add_two_arguments_finds_an_unmaterialized_repo_by_name(
     repo, _profile = configured
     monkeypatch.chdir(tmp_path)
 
-    result = runner.invoke(app, ["add", repo.name, "bitbucket"])
+    result = runner.invoke(app, ["add", repo.name, "aws"])
 
     assert result.exit_code == 0, result.output
     workspace = next(iter(load_workspaces().values()))
     assert workspace.root_path == repo.resolve()
-    assert "bitbucket" in workspace.providers
+    assert "aws" in workspace.providers
 
 
 def test_add_is_idempotent(configured, monkeypatch):
@@ -125,12 +126,12 @@ def test_add_is_idempotent(configured, monkeypatch):
     repo, _profile = configured
     monkeypatch.chdir(repo)
 
-    first = runner.invoke(app, ["add", "bitbucket"])
-    second = runner.invoke(app, ["add", "bitbucket"])
+    first = runner.invoke(app, ["add", "aws"])
+    second = runner.invoke(app, ["add", "aws"])
 
     assert first.exit_code == second.exit_code == 0
     workspace = next(iter(load_workspaces().values()))
-    assert workspace.providers.count("bitbucket") == 1
+    assert workspace.providers.count("aws") == 1
     assert "already" in second.output.lower()
 
 

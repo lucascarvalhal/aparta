@@ -12,11 +12,10 @@ from rich.table import Table
 
 from .agents import get_adapters
 from .i18n import _
-from .discovery import find_repos
 from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles
 from .providers import workspace_env
 from .profiles import clean_environment
-from .workspaces import Workspace, default_providers, load_workspaces, workspace_for_path
+from .workspaces import implicit_workspace, load_workspaces, profile_repos, workspace_for_path
 
 console = Console()
 
@@ -57,9 +56,9 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
     rows: list[tuple[str, str, bool | None, str]] = []
     issues: list[Issue] = []
     all_ok = True
-    repos = find_repos(profile.root_path) + [
-        p for p in (Path(r).expanduser() for r in profile.adopted_repos) if p.exists()
-    ]
+    all_profiles = load_profiles()
+    all_profiles.setdefault(profile.name, profile)
+    repos = profile_repos(profile, all_profiles)
 
     if not repos:
         all_ok &= _row(rows, "git", str(profile.root_path), None, _("no repository found"))
@@ -150,18 +149,11 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
                 issues.append(Issue(HUMAN, status.provider))
 
     saved_workspaces = load_workspaces()
-    ownership_profiles = load_profiles()
-    ownership_profiles.setdefault(profile.name, profile)
     for adapter in get_adapters(profile.agents):
         for repo in repos:
-            workspace = workspace_for_path(repo, ownership_profiles, saved_workspaces)
+            workspace = workspace_for_path(repo, all_profiles, saved_workspaces)
             if workspace is None:
-                workspace = Workspace(
-                    repo.name,
-                    str(repo.resolve()),
-                    profile.name,
-                    default_providers(profile),
-                )
+                workspace = implicit_workspace(repo.resolve(), profile)
             expected_env = (
                 workspace_env(workspace, profile)
                 if workspace.profile == profile.name
@@ -232,13 +224,12 @@ def fix_profile(
     done: list[str] = []
 
     if GIT in kinds:
-        from .backends.git import apply_git, reconcile_workspace_git
+        from .backends.git import reconcile_workspace_git
 
-        _print_notes(apply_git(profile, writer, register_root=False), verbose)
         profiles = load_profiles()
         profiles.setdefault(profile.name, profile)
         reconcile_workspace_git(profiles, load_workspaces(), writer)
-        done.append(_("git: includeIf and ~/.gitconfig-{name} reapplied", name=profile.name))
+        done.append(_("git: workspace identities reapplied"))
 
     if GH_DIR in kinds:
         from .backends.gh import apply_gh
@@ -301,12 +292,7 @@ def _reinject_env(profile: Profile, repos: list[Path], writer) -> int:
     for repo in repos:
         workspace = workspace_for_path(repo, profiles, saved_workspaces)
         if workspace is None:
-            workspace = Workspace(
-                repo.name,
-                str(repo.resolve()),
-                profile.name,
-                default_providers(profile),
-            )
+            workspace = implicit_workspace(repo.resolve(), profile)
         if workspace.profile == profile.name:
             apply_workspace_agents(profile, workspace, writer)
     return len(set(writer.changes[before:]))
