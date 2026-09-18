@@ -179,9 +179,11 @@ def test_startup_warning_is_scoped_to_the_profile_owning_the_folder(tmp_path, mo
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     here = tmp_path / "personal" / "app"
     here.mkdir(parents=True)
+    from aparta import __version__
+
     profiles = {
-        "personal": Profile(name="personal", root=str(tmp_path / "personal"), git_email="a@b.c"),
-        "client": Profile(name="client", root=str(tmp_path / "client"), git_email="x@y.z"),
+        "personal": Profile(name="personal", root=str(tmp_path / "personal"), git_email="a@b.c", applied_with=__version__),
+        "client": Profile(name="client", root=str(tmp_path / "client"), git_email="x@y.z", applied_with=__version__),
     }
     save_profiles(profiles, SafeWriter())
     monkeypatch.setattr(
@@ -193,3 +195,32 @@ def test_startup_warning_is_scoped_to_the_profile_owning_the_folder(tmp_path, mo
 
     assert "profile 'personal'" in result.output
     assert "profile 'client'" not in result.output
+
+
+def test_profiles_applied_by_an_older_version_are_reapplied_at_startup(tmp_path, monkeypatch):
+    """The new behaviour lives in applied files, so a version change must reapply without being asked."""
+    from typer.testing import CliRunner
+
+    from aparta import auth
+    from aparta.cli import app
+    from aparta.fsutil import SafeWriter
+    from aparta.profiles import Profile, load_profiles, save_profiles
+
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "cfg"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
+    monkeypatch.setattr("aparta.apply.BACKENDS", [])
+    (tmp_path / "personal").mkdir()
+    save_profiles(
+        {"personal": Profile(name="personal", root=str(tmp_path / "personal"), git_email="a@b.c", applied_with="0.4.0")},
+        SafeWriter(),
+    )
+
+    result = CliRunner().invoke(app, ["list"])
+
+    assert result.exit_code == 0, result.output
+    assert "updating 1 profile(s)" in result.output
+    from aparta import __version__
+
+    assert load_profiles()["personal"].applied_with == __version__

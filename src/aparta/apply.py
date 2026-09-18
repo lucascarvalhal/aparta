@@ -169,3 +169,18 @@ def stale_profiles() -> list[str]:
         for name, profile in load_profiles().items()
         if profile.applied_with != __version__
     ]
+
+
+def reapply_stale_profiles() -> list[str]:
+    """Bring every profile applied by an older version up to this one; returns their names."""
+    profiles = load_profiles()
+    stale = [name for name in stale_profiles() if name in profiles]
+    if not stale:
+        return []
+    console.print(
+        _("[bold]aparta {version}[/bold]: updating {n} profile(s) to the new version (backups kept).", version=__version__, n=len(stale))
+    )
+    writer = SafeWriter()
+    for name in stale:
+        apply_profile(profiles[name], writer, siblings=profiles)
+    return stale

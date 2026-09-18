@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-18
+
+### Changed
+
+- Profiles applied by an older version are reapplied automatically. Right
+  after `aparta update` (manual or automatic) the newly installed binary
+  runs `aparta apply --all`, and any interactive command that finds a stale
+  profile reapplies it on the spot, backups kept. The "run aparta apply"
+  warning is gone because there is nothing left for the user to remember.
+- `aparta apply --all` applies every profile.
+
 ## [0.9.1] - 2026-09-18
 
 ### Fixed
@@ -451,7 +462,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/lucascarvalhal/aparta/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/lucascarvalhal/aparta/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/lucascarvalhal/aparta/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...v0.8.2

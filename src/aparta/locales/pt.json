@@ -77,8 +77,6 @@
   "[green]gcloud:[/green] '{account}' is still valid; skipping the browser login": "[green]gcloud:[/green] '{account}' continua válida; não precisa abrir o navegador",
   "[green]gh:[/green] '{user}' is still valid; use `aparta login {name} --provider gh` to force a new login": "[green]gh:[/green] a credencial de '{user}' continua válida; para forçar um novo login, rode `aparta login {name} --provider gh`",
   "none yet; `aparta login {name}` offers to create them": "ainda não existe; o `aparta login {name}` oferece criar",
-  "[dim]Run `aparta apply <profile>` to bring your profiles to the new behaviour.[/dim]": "[dim]Rode `aparta apply <perfil>` para trazer seus perfis para o comportamento novo.[/dim]",
-  "[yellow]These profiles were set up by an older aparta and may miss new behaviour: {names}. Run [bold]aparta apply <profile>[/bold] to bring them up to date.[/yellow]": "[yellow]Estes perfis foram configurados por uma versão anterior do aparta e podem estar sem os recursos novos: {names}. Rode [bold]aparta apply <perfil>[/bold] para atualizá-los.[/yellow]",
   "Emit a JSON hook payload instead of text (for Gemini CLI).": "Emite um payload JSON de hook em vez de texto (para o Gemini CLI).",
   "{provider} in '{name}': {detail}": "{provider} em '{name}': {detail}",
   "  run `aparta login {name}`": "  rode `aparta login {name}`",
@@ -161,8 +159,6 @@
   "Updating {current} -> {latest}...": "Atualizando {current} -> {latest}...",
   "You run aparta through uvx/npx, so every run already resolves the latest release; there is nothing to update in place.": "Você roda o aparta via uvx/npx, então cada execução já resolve a versão mais recente; não há o que atualizar localmente.",
   "Updating with: {cmd}": "Atualizando com: {cmd}",
-  "[green]aparta updated. The new version applies on the next run.[/green]": "[green]aparta atualizado. A nova versão vale a partir da próxima execução.[/green]",
-  "[green]aparta updated to {version}. It applies on the next run.[/green]": "[green]aparta atualizado para a {version}. Vale a partir da próxima execução.[/green]",
   "[yellow]{target} is announced but not installable yet; PyPI's index takes a few minutes to catch up. Try again shortly.[/yellow]": "[yellow]A {target} já foi anunciada, mas ainda não dá para instalar; o índice do PyPI leva alguns minutos para acompanhar. Tente de novo daqui a pouco.[/yellow]",
   "[red]The update command failed; try it manually.[/red]": "[red]O comando de atualização falhou; tente manualmente.[/red]",
   "[dim]aparta {latest} is out, updating automatically...[/dim]": "[dim]Saiu o aparta {latest}, atualizando automaticamente...[/dim]",
@@ -330,5 +326,12 @@
   "[red]gcloud configurations {verb} failed:[/red] {error}": "[red]gcloud configurations {verb} falhou:[/red] {error}",
   " (project {project})": " (projeto {project})",
   "[green]gcloud:[/green] dropped foreign configurations: {names}": "[green]gcloud:[/green] configurações de outros perfis removidas: {names}",
-  "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]": "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]"
+  "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]": "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]",
+  "[bold]aparta {version}[/bold]: updating {n} profile(s) to the new version (backups kept).": "[bold]aparta {version}[/bold]: atualizando {n} perfil(is) para a versão nova (backups mantidos).",
+  "[green]aparta updated to {version}.[/green]": "[green]aparta atualizado para {version}.[/green]",
+  "[green]aparta updated.[/green]": "[green]aparta atualizado.[/green]",
+  "[yellow]Could not reapply the profiles; run `aparta apply --all`.[/yellow]": "[yellow]Não consegui reaplicar os perfis; rode `aparta apply --all`.[/yellow]",
+  "[yellow]Could not reapply the profiles ({error}); run `aparta apply --all`.[/yellow]": "[yellow]Não consegui reaplicar os perfis ({error}); rode `aparta apply --all`.[/yellow]",
+  "Apply every profile.": "Aplica todos os perfis.",
+  "[red]Name a profile or pass --all.[/red]": "[red]Informe um perfil ou use --all.[/red]"
 }

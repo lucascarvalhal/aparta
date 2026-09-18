@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+import subprocess
+
 from aparta import updates
 
 
@@ -141,6 +143,25 @@ def test_update_says_so_when_nothing_changed(monkeypatch, capsys):
     )
     assert updates.run_update() is True
     assert "already on the latest version" in capsys.readouterr().out
+
+
+def test_update_reapplies_the_profiles_with_the_new_binary(monkeypatch, tmp_path):
+    """The running process is still the old code; the fresh binary must do the apply."""
+    from aparta.fsutil import SafeWriter
+    from aparta.profiles import Profile, save_profiles
+
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "cfg"))
+    save_profiles({"x": Profile(name="x", root="~/x", git_email="a@b.c")}, SafeWriter())
+    monkeypatch.setattr(updates, "detect_install_method", lambda: "uv-tool")
+    monkeypatch.setattr(updates, "installed_version", lambda: "99.0.0")
+    monkeypatch.setattr(updates.shutil, "which", lambda name: "/usr/local/bin/aparta")
+    calls = []
+    monkeypatch.setattr(
+        updates.subprocess, "run", lambda args, **kw: calls.append(list(args)) or subprocess.CompletedProcess(args, 0)
+    )
+
+    assert updates.run_update("99.0.0") is True
+    assert ["/usr/local/bin/aparta", "apply", "--all"] in calls
 
 
 def test_update_reports_the_new_version(monkeypatch, capsys):

@@ -94,7 +94,8 @@ def main(
 
         notify_or_autoupdate()
         _warn_about_credentials()
-        _warn_about_stale_profiles()
+        if ctx.invoked_subcommand != "apply":
+            _reapply_stale_profiles()
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
             _run_wizard(dry_run, verbose)
@@ -102,21 +103,14 @@ def main(
             _run_menu(dry_run, verbose)
 
 
-def _warn_about_stale_profiles() -> None:
-    """A new release can bring behaviour that only lands on the next apply."""
-    from .apply import stale_profiles
+def _reapply_stale_profiles() -> None:
+    """A new version's behaviour lives in the applied files, so stale profiles are reapplied on sight."""
+    from .apply import reapply_stale_profiles
 
     try:
-        names = stale_profiles()
-        if names:
-            console.print(
-                _(
-                    "[yellow]These profiles were set up by an older aparta and may miss new behaviour: {names}. Run [bold]aparta apply <profile>[/bold] to bring them up to date.[/yellow]",
-                    names=", ".join(names),
-                )
-            )
-    except (OSError, ValueError):
-        pass
+        reapply_stale_profiles()
+    except (OSError, ValueError) as exc:
+        console.print(_("[yellow]Could not reapply the profiles ({error}); run `aparta apply --all`.[/yellow]", error=exc))
 
 
 def _warn_about_credentials() -> None:
@@ -192,11 +186,17 @@ def init(ctx: typer.Context) -> None:
 @app.command(help=_("Re-apply a profile: gitconfigs, gh, gcloud and agent env in the repos."))
 def apply(
     ctx: typer.Context,
-    profile_name: str = typer.Argument(..., metavar="profile", help=_("Name of the profile to apply.")),
+    profile_name: str = typer.Argument("", metavar="profile", help=_("Name of the profile to apply.")),
+    all_profiles: bool = typer.Option(False, "--all", help=_("Apply every profile.")),
 ) -> None:
-    """Apply a profile: gitconfigs, gh config dir, gcloud config and repo env."""
-    profile = _profile_or_fail(load_profiles(), profile_name)
-    apply_profile(profile, _writer(ctx))
+    profiles = load_profiles()
+    if all_profiles:
+        for profile in profiles.values():
+            apply_profile(profile, _writer(ctx), siblings=profiles)
+        return
+    if not profile_name:
+        _fail(_("[red]Name a profile or pass --all.[/red]"), code=2)
+    apply_profile(_profile_or_fail(profiles, profile_name), _writer(ctx), siblings=profiles)
 
 
 @app.command(help=_("Check the real state: e-mail per repo, gh auth, gcloud config, agent env."))

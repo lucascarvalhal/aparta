@@ -8,6 +8,17 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.9.2] - 2026-09-18
+
+### Mudado
+
+- Perfis aplicados por uma versão anterior são reaplicados sozinhos. Logo
+  depois do `aparta update` (manual ou automático) o binário recém-instalado
+  roda `aparta apply --all`, e qualquer comando interativo que encontre um
+  perfil desatualizado reaplica na hora, com backups. O aviso "rode aparta
+  apply" sumiu porque não sobrou nada para o usuário lembrar.
+- `aparta apply --all` aplica todos os perfis.
+
 ## [0.9.1] - 2026-09-18
 
 ### Corrigido
@@ -464,7 +475,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.9.1...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/lucascarvalhal/aparta/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/lucascarvalhal/aparta/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/lucascarvalhal/aparta/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...v0.8.2

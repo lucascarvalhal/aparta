@@ -140,20 +140,24 @@ def run_update(target: str = "") -> bool:
             console.print(_("[green]You are already on the latest version ({current}).[/green]", current=now))
             return True
         if now:
-            console.print(_("[green]aparta updated to {version}. It applies on the next run.[/green]", version=now))
+            console.print(_("[green]aparta updated to {version}.[/green]", version=now))
         else:
-            console.print(_("[green]aparta updated. The new version applies on the next run.[/green]"))
-        try:
-
-            if load_profiles():
-                console.print(
-                    _("[dim]Run `aparta apply <profile>` to bring your profiles to the new behaviour.[/dim]")
-                )
-        except Exception:
-            pass
+            console.print(_("[green]aparta updated.[/green]"))
+        _reapply_with_new_binary()
         return True
     console.print(_("[red]The update command failed; try it manually.[/red]"))
     return False
+
+
+def _reapply_with_new_binary() -> None:
+    """The running process still has the old code; the freshly installed binary applies the profiles."""
+    binary = shutil.which("aparta")
+    if not binary or not load_profiles():
+        return
+    try:
+        subprocess.run([binary, "apply", "--all"], timeout=600, env={**os.environ, "APARTA_UPDATES": "off"})
+    except (OSError, subprocess.SubprocessError):
+        console.print(_("[yellow]Could not reapply the profiles; run `aparta apply --all`.[/yellow]"))
 
 
 def notify_or_autoupdate() -> None:
