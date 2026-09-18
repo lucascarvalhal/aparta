@@ -8,6 +8,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+## [0.9.0] - 2026-09-18
+
 ### Mudado
 
 - O `aparta apply` não escreve mais o `~/.gitconfig-<perfil>` nem um
@@ -452,7 +454,8 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   direnv.
 - SafeWriter: backups com timestamp, merges, diffs em dry-run.
 
-[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.8.2...HEAD
+[Não lançado]: https://github.com/lucascarvalhal/aparta/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/lucascarvalhal/aparta/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/lucascarvalhal/aparta/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lucascarvalhal/aparta/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lucascarvalhal/aparta/compare/v0.7.0...v0.8.0
