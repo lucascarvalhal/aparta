@@ -94,7 +94,7 @@ def test_seed_copies_credentials_but_never_the_shared_adc(tmp_path):
 
     source = _fake_global_gcloud(tmp_path)
     target = tmp_path / "gcloud-acme"
-    assert seed_isolated_dir(target, source) is True
+    assert seed_isolated_dir(target, SafeWriter(), source) is True
 
     assert (target / "credentials.db").read_text() == "creds"
     assert not (target / "access_tokens.db").exists()
@@ -111,7 +111,7 @@ def test_seed_never_touches_an_existing_dir(tmp_path):
     target = tmp_path / "gcloud-acme"
     target.mkdir()
     (target / "credentials.db").write_text("mine")
-    assert seed_isolated_dir(target, source) is False
+    assert seed_isolated_dir(target, SafeWriter(), source) is False
     assert (target / "credentials.db").read_text() == "mine"
 
 
@@ -162,7 +162,7 @@ def test_seed_prunes_other_accounts_from_the_credential_store(tmp_path):
         )
 
     target = tmp_path / "gcloud-acme"
-    seed_isolated_dir(target, source, keep_account="a@b.c")
+    seed_isolated_dir(target, SafeWriter(), source, keep_account="a@b.c")
 
     with sqlite3.connect(target / "credentials.db") as conn:
         accounts = [row[0] for row in conn.execute("SELECT account_id FROM credentials")]
@@ -205,16 +205,16 @@ def test_prune_configurations_keeps_only_the_profile_one(tmp_path):
     for name in ("default", "acme", "other"):
         (folder / f"config_{name}").write_text("[core]\n")
 
-    assert sorted(prune_configurations(tmp_path, "acme")) == ["default", "other"]
-    assert [p.name for p in folder.iterdir()] == ["config_acme"]
+    assert sorted(prune_configurations(tmp_path, "acme", SafeWriter())) == ["default", "other"]
+    assert [p.name for p in folder.iterdir() if ".bak-aparta-" not in p.name] == ["config_acme"]
 
-    activate_configuration(tmp_path, "acme")
+    activate_configuration(tmp_path, "acme", SafeWriter())
     assert (tmp_path / "active_config").read_text() == "acme"
 
 
 def test_activate_configuration_creates_a_missing_one(tmp_path):
     from aparta.backends.gcloud import activate_configuration
 
-    activate_configuration(tmp_path, "acme")
+    activate_configuration(tmp_path, "acme", SafeWriter())
     assert (tmp_path / "configurations" / "config_acme").exists()
     assert (tmp_path / "active_config").read_text() == "acme"

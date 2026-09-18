@@ -64,39 +64,36 @@ def has_adc(profile_dir: Path) -> bool:
     return (profile_dir / "application_default_credentials.json").exists()
 
 
-def prune_configurations(target: Path, keep: str) -> list[str]:
+def prune_configurations(target: Path, keep: str, writer: SafeWriter) -> list[str]:
     """Drop named configurations that do not belong to this profile."""
     folder = target / "configurations"
     if not folder.is_dir():
         return []
     removed = []
     for item in sorted(folder.glob("config_*")):
-        if item.name == f"config_{keep}":
-            continue
-        try:
-            item.unlink()
-        except OSError:
-            continue
-        removed.append(item.name[len("config_"):])
+        if item.name != f"config_{keep}" and writer.remove_file(item):
+            removed.append(item.name[len("config_"):])
     return removed
 
 
-def activate_configuration(target: Path, name: str) -> None:
+def activate_configuration(target: Path, name: str, writer: SafeWriter) -> None:
     """Point the isolated dir at its own configuration, creating it if needed."""
     config_file = target / "configurations" / f"config_{name}"
     if not config_file.exists():
-        config_file.parent.mkdir(parents=True, exist_ok=True)
-        config_file.write_text("[core]\n")
-    (target / "active_config").write_text(name)
+        writer.write_text(config_file, "[core]\n")
+    writer.write_text(target / "active_config", name)
 
 
 def seed_isolated_dir(
-    target: Path, source: Path | None = None, keep_account: str = ""
+    target: Path, writer: SafeWriter, source: Path | None = None, keep_account: str = ""
 ) -> bool:
-    """Create the isolated dir, seeded from the global credentials; True when created."""
+    """Create the isolated dir, seeded from the global credentials; True when created (or would be)."""
     if target.exists():
         return False
     source = source or gcloud_home()
+    if writer.dry_run:
+        writer.changes.append(f"[dry-run] seed {target} from {source}")
+        return True
     target.mkdir(parents=True, mode=0o700, exist_ok=True)
     for name in SEED_FILES:
         origin = source / name
@@ -104,6 +101,7 @@ def seed_isolated_dir(
             destination = target / name
             shutil.copy2(origin, destination)
             destination.chmod(0o600)
+            writer.changes.append(str(destination))
     prune_credentials(target / "credentials.db", keep_account)
     return True
 
@@ -160,12 +158,12 @@ def _apply_isolated(profile: Profile, writer: SafeWriter) -> list[Note]:
             notes.append(Note("info", f"[yellow]--dry-run[/yellow] CLOUDSDK_CONFIG={target} {' '.join(args)}"))
         return notes
 
-    if seed_isolated_dir(target, keep_account=profile.gcloud_account):
+    if seed_isolated_dir(target, writer, keep_account=profile.gcloud_account):
         notes.append(Note("info", _("[green]created:[/green] {dst}", dst=target)))
-    dropped = prune_configurations(target, profile.name)
+    dropped = prune_configurations(target, profile.name, writer)
     if dropped:
         notes.append(Note("info", _("[green]gcloud:[/green] dropped foreign configurations: {names}", names=", ".join(dropped))))
-    activate_configuration(target, profile.name)
+    activate_configuration(target, profile.name, writer)
     for args in cmds:
         r = _run(args, config_name=profile.name, config_dir=target)
         if r.returncode != 0:
