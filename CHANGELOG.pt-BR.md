@@ -8,6 +8,14 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Corrigido
+
+- A identidade de Git injetada em um agente agora é condicional ao diretório
+  git do próprio workspace. Um agente aberto em um repositório que roda git
+  dentro de outro não leva mais o e-mail e a chave do primeiro junto; o outro
+  repositório resolve a própria vinculação. Rode `aparta apply <perfil>` para
+  atualizar a configuração injetada.
+
 ## [0.9.0] - 2026-09-18
 
 ### Mudado

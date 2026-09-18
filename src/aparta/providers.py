@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .profiles import Profile
-from .workspaces import Workspace
+from .workspaces import Workspace, git_output
 
 
 PROVIDER_ALIASES = {
@@ -71,10 +71,12 @@ def workspace_env(workspace: Workspace, profile: Profile) -> dict[str, str]:
     configured = profile.provider_env()
     env: dict[str, str] = {}
     if selected.intersection({"git", "ssh"}):
+        gitdir = git_output("rev-parse", "--absolute-git-dir", repo=workspace.root_path)
+        key = f"includeIf.gitdir:{gitdir}.path" if gitdir else "include.path"
         env.update(
             {
                 "GIT_CONFIG_COUNT": "1",
-                "GIT_CONFIG_KEY_0": "include.path",
+                "GIT_CONFIG_KEY_0": key,
                 "GIT_CONFIG_VALUE_0": str(workspace.gitconfig_path),
             }
         )

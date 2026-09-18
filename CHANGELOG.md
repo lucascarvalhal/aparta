@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The Git identity injected into an agent is now conditional on the
+  workspace's own git directory. An agent launched in one repository that
+  runs git inside another no longer carries the first repository's e-mail
+  and key along; the other repository resolves its own binding. Run
+  `aparta apply <profile>` to refresh the injected configuration.
+
 ## [0.9.0] - 2026-09-18
 
 ### Changed

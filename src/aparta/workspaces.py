@@ -107,7 +107,7 @@ def git_output(*args: str, repo: Path | None = None, timeout: int = 30) -> str |
         result = subprocess.run(command, env=git_env(), capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return None
-    return result.stdout.strip() if result.returncode == 0 else None
+    return (result.stdout or "").strip() if result.returncode == 0 else None
 
 
 def git_workspace_root(path: Path) -> Path | None:
