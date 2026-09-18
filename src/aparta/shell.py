@@ -43,7 +43,7 @@ def activation_lines(
     current_env: Mapping[str, str] | None = None,
 ) -> str:
     """Render one atomic shell transition that first removes stale identity."""
-    current_env = current_env or os.environ
+    current_env = os.environ if current_env is None else current_env
     lines = ["unset " + " ".join(_keys_to_unset(current_env))]
     if workspace is None or profile is None:
         return "\n".join(lines)

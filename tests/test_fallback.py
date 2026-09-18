@@ -237,3 +237,15 @@ def test_secure_parks_the_adc_even_when_the_config_is_already_neutral(
     assert fallback.make_secure(SafeWriter(), assume_yes=True) is True
     assert not fake_global_adc.exists()
     assert fallback.parked_adc_path().exists()
+
+
+def test_move_file_backs_up_the_destination(tmp_path):
+    src = tmp_path / "a"
+    dst = tmp_path / "b"
+    src.write_text("new")
+    dst.write_text("old")
+    writer = SafeWriter()
+    assert writer.move_file(src, dst) is True
+    assert dst.read_text() == "new" and not src.exists()
+    assert [p.read_text() for p in tmp_path.glob("b.bak-aparta-*")] == ["old"]
+    assert writer.changes == [f"{src} -> {dst}"]

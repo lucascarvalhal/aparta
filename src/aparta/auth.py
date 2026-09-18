@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .i18n import _
 from .profiles import Profile, config_dir
-from .runner import clean_environment
+from .profiles import clean_environment
 
 OK = "ok"
 REAUTH = "reauth"
@@ -29,7 +29,7 @@ _NO_ACCOUNT = (
     "not logged in",
     "no active account",
 )
-_SSO = ("x-github-sso", "saml enforcement", "sso")
+_SSO = ("x-github-sso", "saml enforcement", "sso authorization", "sso session", "single sign-on")
 
 
 @dataclass
@@ -53,12 +53,12 @@ def _classify(stderr: str) -> tuple[str, str]:
     lowered = stderr.lower()
     if any(marker in lowered for marker in _NO_ACCOUNT):
         return MISSING, _("no credential stored for this profile")
+    if any(marker in lowered for marker in _REAUTH_NEEDED):
+        return REAUTH, _("session expired by your organization's policy")
     if any(marker in lowered for marker in _SSO):
         return REAUTH, _("the organization requires SSO authorization again")
     if any(marker in lowered for marker in _REVOKED):
         return REAUTH, _("credential revoked or expired")
-    if any(marker in lowered for marker in _REAUTH_NEEDED):
-        return REAUTH, _("session expired by your organization's policy")
     return UNKNOWN, stderr.strip().splitlines()[-1] if stderr.strip() else ""
 
 
@@ -124,8 +124,6 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
         except Exception:
             err = {}
         text = " ".join(str(v) for v in err.values())
-        if "invalid_rapt" in text.lower():
-            return AuthStatus("ADC", REAUTH, _("session expired by your organization's policy"))
         state, detail = _classify(text)
         if state == UNKNOWN:
             return AuthStatus("ADC", UNKNOWN, detail or str(e))
@@ -266,6 +264,10 @@ def read_cached_status(profile: Profile) -> list[AuthStatus] | None:
     entry = _read_cache().get(profile.name)
     if not isinstance(entry, dict) or "statuses" not in entry:
         return None
+    return _statuses_from(entry)
+
+
+def _statuses_from(entry: dict) -> list[AuthStatus] | None:
     try:
         return [AuthStatus(**status) for status in entry.get("statuses", [])]
     except (TypeError, ValueError):
@@ -277,8 +279,9 @@ def cached_check(profile: Profile, force: bool = False) -> list[AuthStatus]:
     cache = _read_cache()
     entry = cache.get(profile.name, {})
     fresh = time.time() - entry.get("checked_at", 0) < CACHE_TTL_SECONDS
-    if not force and fresh:
-        return [AuthStatus(**s) for s in entry.get("statuses", [])]
+    cached = _statuses_from(entry) if not force and fresh else None
+    if cached is not None:
+        return cached
     statuses = check_profile(profile)
     cache[profile.name] = {
         "checked_at": time.time(),

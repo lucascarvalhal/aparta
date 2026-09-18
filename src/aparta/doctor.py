@@ -15,7 +15,7 @@ from .i18n import _
 from .discovery import find_repos
 from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles
 from .providers import workspace_env
-from .runner import clean_environment
+from .profiles import clean_environment
 from .workspaces import Workspace, default_providers, load_workspaces, workspace_for_path
 
 console = Console()

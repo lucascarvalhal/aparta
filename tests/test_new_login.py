@@ -97,6 +97,7 @@ def test_generate_ssh_key_reuses_existing(tmp_path, monkeypatch):
 
 def test_apply_gh_with_existing_dir_and_no_global_config(tmp_path, monkeypatch):
     """Wizard login creates gh-<profile>; apply must not require ~/.config/gh."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     dst = tmp_path / ".config" / "gh-novo"
     dst.mkdir(parents=True)
     switches = []
@@ -107,10 +108,11 @@ def test_apply_gh_with_existing_dir_and_no_global_config(tmp_path, monkeypatch):
         or subprocess.CompletedProcess(args, 0, stdout="", stderr=""),
     )
     profile = Profile(name="novo", root="~/novo", git_email="a@b.c", gh_user="fulano")
-    gh.apply_gh(profile, SafeWriter(), home=tmp_path)
+    gh.apply_gh(profile, SafeWriter())
     assert switches == [["gh", "auth", "switch", "--user", "fulano"]]
 
 
-def test_apply_gh_with_nothing_yet_warns_without_raising(tmp_path, capsys):
+def test_apply_gh_with_nothing_yet_warns_without_raising(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     profile = Profile(name="novo", root="~/novo", git_email="a@b.c", gh_user="fulano")
-    gh.apply_gh(profile, SafeWriter(), home=tmp_path)
+    gh.apply_gh(profile, SafeWriter())

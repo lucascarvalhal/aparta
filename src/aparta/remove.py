@@ -13,7 +13,7 @@ from .backends.git import context_gitconfig_path, gitdir_pattern, remove_include
 from .discovery import find_repos
 from .fsutil import SafeWriter
 from .i18n import _
-from .profiles import Profile, gh_config_dir, load_profiles
+from .profiles import Profile, is_managed_env_key, load_profiles
 
 console = Console()
 
@@ -23,13 +23,13 @@ def remove_profile(profile: Profile, writer: SafeWriter, home: Path | None = Non
     home = home or Path.home()
     console.print(_("[bold]Removing profile '{name}'[/bold]", name=profile.name) + "\n")
 
-    keys = list(profile.env().keys())
     repos = find_repos(profile.root_path) + [
         Path(r).expanduser() for r in profile.adopted_repos
     ]
     for repo in repos:
         for adapter in get_adapters(profile.agents):
             try:
+                keys = [key for key in adapter.read_env(repo) if is_managed_env_key(key)]
                 if keys:
                     adapter.remove_env(repo, keys, writer)
                 adapter.uninstall_check(repo, writer)
@@ -100,9 +100,11 @@ def remove_profile(profile: Profile, writer: SafeWriter, home: Path | None = Non
             writer.write_text(gitconfig, cleaned)
     writer.remove_file(context_gitconfig_path(profile, home))
 
-    writer.remove_dir(gh_config_dir(profile.name, home / ".config"))
+    writer.remove_dir(profile.gh_config_dir)
 
-    if profile.gcloud_account or profile.gcloud_project:
+    if profile.gcloud_isolated:
+        writer.remove_dir(profile.gcloud_config_dir)
+    elif profile.gcloud_account or profile.gcloud_project:
         if writer.dry_run:
             console.print(
                 f"[yellow]--dry-run[/yellow] gcloud config configurations delete "

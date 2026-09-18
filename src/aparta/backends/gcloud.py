@@ -9,7 +9,7 @@ from pathlib import Path
 
 from ..fsutil import SafeWriter
 from ..i18n import _
-from ..profiles import Profile
+from ..profiles import Profile, clean_environment
 from . import Note
 
 SEED_FILES = ("credentials.db",)
@@ -32,12 +32,12 @@ def _run(
     config_name: str | None = None,
     config_dir: Path | None = None,
 ) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
+    overlay: dict[str, str] = {}
     if config_dir is not None:
-        env["CLOUDSDK_CONFIG"] = str(config_dir)
-        env.pop("CLOUDSDK_ACTIVE_CONFIG_NAME", None)
+        overlay["CLOUDSDK_CONFIG"] = str(config_dir)
     if config_name:
-        env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = config_name
+        overlay["CLOUDSDK_ACTIVE_CONFIG_NAME"] = config_name
+    env = clean_environment(os.environ, overlay)
     return subprocess.run(args, env=env, capture_output=True, text=True, timeout=30)
 
 

@@ -350,10 +350,7 @@ def _park_adc(writer: SafeWriter) -> None:
     adc = global_adc_path()
     if not adc.exists():
         return
-    target = parked_adc_path()
-    if target.exists():
-        writer.remove_file(target)
-    adc.rename(target)
+    writer.move_file(adc, parked_adc_path())
     console.print(
         _("[green]ADC parked:[/green] libraries outside a profile now fail loudly instead of borrowing it.")
     )
@@ -389,10 +386,7 @@ def restore(writer: SafeWriter) -> bool:
         writer.remove_file(previous_path())
         console.print(_("[green]Restored:[/green] '{name}' is the global default again.", name=previous))
     if parked.exists():
-        adc = global_adc_path()
-        if adc.exists():
-            writer.remove_file(adc)
-        parked.rename(adc)
+        writer.move_file(parked, global_adc_path())
         console.print(_("[green]ADC restored:[/green] the global application credentials are back."))
     return True
 

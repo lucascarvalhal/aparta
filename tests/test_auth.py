@@ -628,3 +628,23 @@ def test_forcing_the_adc_provider_renews_it_even_when_valid(monkeypatch, tmp_pat
     monkeypatch.setattr(auth.subprocess, "run", run)
     assert auth.login_profile(ISOLATED, provider="adc") is True
     assert calls and "--update-adc" in calls[0]
+
+
+def test_classify_does_not_mistake_ordinary_words_for_sso():
+    state, _detail = auth._classify("error: the processor rejected the request")
+    assert state == auth.UNKNOWN
+
+
+def test_classify_reports_the_policy_expiry_over_the_generic_invalid_grant():
+    state, detail = auth._classify("invalid_grant: reauth related error (invalid_rapt)")
+    assert state == auth.REAUTH
+    assert "policy" in detail
+
+
+def test_cached_check_survives_a_cache_written_by_another_version(monkeypatch, tmp_path):
+    import time
+
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path))
+    auth._write_cache({PROFILE.name: {"checked_at": time.time(), "statuses": [{"bogus": 1}]}})
+    monkeypatch.setattr(auth, "check_profile", lambda p: [auth.AuthStatus("gcloud", auth.OK)])
+    assert [s.state for s in auth.cached_check(PROFILE)] == [auth.OK]

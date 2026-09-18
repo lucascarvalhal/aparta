@@ -5,26 +5,12 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
-from collections.abc import Mapping
 
 from .i18n import _
-from .profiles import MANAGED_ENV_KEYS, MANAGED_ENV_PREFIXES, Profile
+from .profiles import Profile, clean_environment
 from .workspaces import Workspace
 
 TOKEN_TIMEOUT = 20
-
-
-def is_managed_env_key(key: str) -> bool:
-    return key in MANAGED_ENV_KEYS or key.startswith(MANAGED_ENV_PREFIXES)
-
-
-def clean_environment(
-    base: Mapping[str, str], overlay: Mapping[str, str]
-) -> dict[str, str]:
-    """Replace Aparta-owned selectors instead of layering across clients."""
-    clean = {key: value for key, value in base.items() if not is_managed_env_key(key)}
-    clean.update(overlay)
-    return clean
 
 
 def gh_token(profile: Profile) -> str:

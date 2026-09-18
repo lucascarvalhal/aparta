@@ -5,22 +5,20 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from pathlib import Path
 
 from ..i18n import _
 from . import Note
 
 from ..fsutil import SafeWriter
-from ..profiles import Profile, gh_config_dir
+from ..profiles import Profile, config_home
 
 
-def apply_gh(profile: Profile, writer: SafeWriter, home: Path | None = None) -> list[Note]:
+def apply_gh(profile: Profile, writer: SafeWriter) -> list[Note]:
     notes: list[Note] = []
     if not profile.gh_user:
         return notes
-    home = home or Path.home()
-    src = home / ".config" / "gh"
-    dst = gh_config_dir(profile.name, home / ".config")
+    src = config_home() / "gh"
+    dst = profile.gh_config_dir
 
     if not dst.exists() and not src.exists():
         notes.append(Note("warn", _("[yellow]warning:[/yellow] ~/.config/gh does not exist, run `gh auth login` first.")))

@@ -80,8 +80,9 @@ def test_backends_return_notes_instead_of_printing(tmp_path, monkeypatch):
     from aparta.fsutil import SafeWriter
     from aparta.profiles import Profile
 
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     profile = Profile(name="x", root="~/x", git_email="a@b.c", gh_user="u")
-    notes = apply_gh(profile, SafeWriter(), home=tmp_path)
+    notes = apply_gh(profile, SafeWriter())
     assert len(notes) == 1
     assert isinstance(notes[0], Note)
     assert notes[0].level == "warn"

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..i18n import _
 from ..fsutil import SafeWriter
-from .base import CHECK_COMMAND, AgentAdapter
+from .base import CHECK_COMMAND, AgentAdapter, missing_keys
 
 _PLATFORM_KEYS = (
     "terminal.integrated.env.osx",
@@ -132,8 +132,10 @@ class AntigravityAdapter(AgentAdapter):
         except json.JSONDecodeError:
             return False, _(".vscode/settings.json is invalid")
         for key in _PLATFORM_KEYS:
-            current = data.get(key, {})
-            missing = [k for k, v in env.items() if current.get(k) != v]
+            current = data.get(key)
+            if not isinstance(current, dict):
+                current = {}
+            missing = missing_keys(current, env)
             if missing:
                 return False, _("{key} mismatch: {keys}", key=key, keys=", ".join(missing))
         return True, _("env ok")

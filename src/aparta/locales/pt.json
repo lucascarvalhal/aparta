@@ -342,5 +342,6 @@
   "Cancel": "Cancelar",
   "[yellow]Cancelled; nothing was saved.[/yellow]": "[yellow]Cancelado; nada foi salvo.[/yellow]",
   "[green]Profiles saved to {path}.[/green]": "[green]Perfis salvos em {path}.[/green]",
-  "Whenever you want to apply: [bold]aparta apply {name}[/bold]": "Quando quiser aplicar, é só rodar: [bold]aparta apply {name}[/bold]"
+  "Whenever you want to apply: [bold]aparta apply {name}[/bold]": "Quando quiser aplicar, é só rodar: [bold]aparta apply {name}[/bold]",
+  "moved:": "movido:"
 }

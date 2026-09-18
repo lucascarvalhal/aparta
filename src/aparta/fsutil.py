@@ -84,6 +84,27 @@ class SafeWriter:
             console.print(f"[red]{_('removed:')}[/red] {label}")
         return True
 
+    def move_file(self, src: Path, dst: Path) -> bool:
+        """Move a file, backing up whatever the destination held. True if moved."""
+        if not src.exists():
+            return False
+        label = f"{src} -> {dst}"
+        if self.dry_run:
+            if self.verbose:
+                console.print(f"[yellow]--dry-run[/yellow] mv {label}")
+            self.changes.append(f"[dry-run] mv {label}")
+            return True
+        if dst.exists():
+            bak = backup_path(dst)
+            shutil.copy2(dst, bak)
+            if self.verbose:
+                console.print(f"[dim]{_('backup:')} {bak}[/dim]")
+        src.replace(dst)
+        self.changes.append(label)
+        if self.verbose:
+            console.print(f"[green]{_('moved:')}[/green] {label}")
+        return True
+
     def remove_dir(self, path: Path, label: str | None = None) -> bool:
         """Remove a directory by renaming it to a backup. True if removed."""
         label = label or str(path)

@@ -109,3 +109,33 @@ def test_remove_profile_end_to_end(tmp_path: Path, monkeypatch):
     assert not gh_dir.exists()
     env = json.loads((repo / ".claude" / "settings.local.json").read_text())["env"]
     assert "GH_CONFIG_DIR" not in env
+
+
+def test_remove_strips_workspace_keys_and_the_isolated_gcloud_dir(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
+    monkeypatch.setenv("APARTA_CONFIG_DIR", str(tmp_path / "aparta"))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    repo = tmp_path / "work" / "app"
+    repo.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    profile = Profile(
+        name="acme",
+        root=str(tmp_path / "work"),
+        git_email="a@b.c",
+        gcloud_account="a@b.c",
+        gcloud_isolated=True,
+        agents=["claude-code"],
+    )
+    ClaudeCodeAdapter().inject(
+        repo,
+        {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "include.path", "GIT_CONFIG_VALUE_0": "/x", "OTHER": "keep"},
+        SafeWriter(),
+    )
+    profile.gcloud_config_dir.mkdir(parents=True)
+    (profile.gcloud_config_dir / "credentials.db").write_text("")
+
+    remove_profile(profile, SafeWriter(), home=tmp_path)
+
+    env = json.loads((repo / ".claude" / "settings.local.json").read_text())["env"]
+    assert env == {"OTHER": "keep"}
+    assert not profile.gcloud_config_dir.exists()

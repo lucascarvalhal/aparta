@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import os
 import sys
 from dataclasses import asdict, dataclass, field
@@ -91,6 +93,17 @@ MANAGED_ENV_KEYS = (
 )
 
 MANAGED_ENV_PREFIXES = ("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")
+
+
+def is_managed_env_key(key: str) -> bool:
+    return key in MANAGED_ENV_KEYS or key.startswith(MANAGED_ENV_PREFIXES)
+
+
+def clean_environment(base: Mapping[str, str], overlay: Mapping[str, str]) -> dict[str, str]:
+    """Replace every aparta-owned selector instead of layering across clients."""
+    clean = {key: value for key, value in base.items() if not is_managed_env_key(key)}
+    clean.update(overlay)
+    return clean
 
 
 @dataclass
