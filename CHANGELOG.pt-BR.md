@@ -8,6 +8,41 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Mudado
+
+- O `aparta apply` não escreve mais o `~/.gitconfig-<perfil>` nem um
+  includeIf amplo para a raiz do perfil. Desde a 0.8.0 cada checkout é
+  amarrado pelo próprio gitconfig de workspace, então o arquivo antigo era
+  escrito e depois ignorado; o `aparta remove` continua limpando ele em
+  instalações antigas.
+- O `aparta doctor` e o `aparta remove` pulam repositórios que pertencem a um
+  perfil aninhado dentro de outro, a mesma regra que o `aparta apply` já
+  usava. Um perfil pai não acusa mais os repositórios do perfil aninhado.
+- A sondagem da credencial do GitHub confirma que o token é do usuário
+  esperado; uma pasta logada em outra conta aparece como precisando de login.
+- `APARTA_AUTH_CHECK=off` agora silencia toda leitura de credencial, inclusive
+  no `aparta status` e no `aparta check`.
+- Adapters que ficam sem nenhuma variável do aparta removem o arquivo em vez
+  de deixar um vazio para trás.
+
+### Removido
+
+- `gitlab` e `bitbucket` não são mais aceitos pelo `aparta add`; eles
+  registravam um provedor que não mudava nada.
+
+### Interno
+
+- Os adapters de agentes compartilham um único algoritmo de merge, validação,
+  remoção e hook em cima de uma estratégia de formato de arquivo cada; um
+  agente novo são poucas linhas.
+- Sondagens de credencial e logins interativos viraram tabelas no `auth.py`;
+  caminhos e persistência ficam no `config.py`; prompts compartilhados no
+  `prompts.py`; enumeração de repositórios no `workspaces.py`.
+- Os helpers de subprocesso do wizard foram para os backends (`ssh.py` é
+  novo), e o diagnóstico do doctor é uma função por área.
+- Um teste passa a falhar quando uma string passada ao `_()` não tem entrada
+  no catálogo.
+
 ## [0.8.2] - 2026-09-17
 
 ### Mudado

@@ -8,6 +8,40 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `aparta apply` no longer writes `~/.gitconfig-<profile>` or a broad
+  includeIf for the profile root. Every checkout has been bound through its
+  own workspace gitconfig since 0.8.0, so the old file was written and then
+  ignored; `aparta remove` still cleans it up on older installs.
+- `aparta doctor` and `aparta remove` skip repositories that belong to a
+  profile nested inside another, the same rule `aparta apply` already used.
+  A parent profile no longer reports the nested profile's repositories as
+  wrong.
+- The GitHub credential probe confirms the token belongs to the expected
+  user; a config dir logged into another account is reported as needing a
+  login.
+- `APARTA_AUTH_CHECK=off` now silences every credential read, including
+  `aparta status` and `aparta check`.
+- Adapters that end up with no aparta variables remove their file instead of
+  leaving an empty one behind.
+
+### Removed
+
+- `gitlab` and `bitbucket` are no longer accepted by `aparta add`; they
+  recorded a provider that changed nothing.
+
+### Internal
+
+- Agent adapters share one merge, validate, remove and hook algorithm on top
+  of a file format strategy each; adding an agent is a few lines.
+- Credential probes and interactive logins are table driven in `auth.py`;
+  profile paths and persistence live in `config.py`; shared prompts in
+  `prompts.py`; repository enumeration in `workspaces.py`.
+- The wizard's subprocess helpers moved to the backends (`ssh.py` is new),
+  and doctor's diagnosis is one function per area.
+- A test now fails when a string passed to `_()` has no catalog entry.
+
 ## [0.8.2] - 2026-09-17
 
 ### Changed
