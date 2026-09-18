@@ -91,3 +91,27 @@ def test_every_source_string_has_a_translation():
                 if node.args[0].value not in i18n.catalog("pt"):
                     missing.add(node.args[0].value)
     assert not missing, sorted(missing)
+
+
+def test_every_catalog_entry_is_used_by_the_source():
+    import ast
+    from pathlib import Path
+
+    used = set()
+    for path in Path("src/aparta").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            is_call = isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_"
+            if is_call and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                used.add(node.args[0].value)
+    from aparta import prompts, wizard
+
+    translated_dynamically = {
+        prompts.SKIP,
+        wizard.NEW_GH_LOGIN,
+        wizard.NEW_GCLOUD_LOGIN,
+        wizard.NEW_SSH_KEY,
+        wizard.NEW_AWS_PROFILE,
+        "y",
+    }
+    orphans = set(i18n.catalog("pt")) - used - translated_dynamically
+    assert not orphans, sorted(orphans)

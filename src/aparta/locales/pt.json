@@ -124,8 +124,6 @@
   "Profile to use (default: the one owning the current folder).": "Perfil a usar (padrão: o dono da pasta atual).",
   "Profile to print (default: the one owning the current folder).": "Perfil a imprimir (padrão: o dono da pasta atual).",
   "Also export GITHUB_TOKEN from the profile's gh (opt-in: it exposes the token to child processes).": "Também exporta GITHUB_TOKEN a partir do gh do perfil (opcional de propósito: expõe o token aos processos filhos).",
-  "Run a command with the profile's environment, exactly as the agents get it.": "Roda um comando com o ambiente do perfil, exatamente como os agentes recebem.",
-  "Print export lines for scripts: eval \"$(aparta env)\".": "Imprime as linhas de export para scripts: eval \"$(aparta env)\".",
   "[red]Nothing to run.[/red] Usage: aparta run -- <command> [args...]": "[red]Nada para rodar.[/red] Uso: aparta run -- <comando> [args...]",
   "[red]{provider} credential for workspace '{workspace}' requires login: {detail}.[/red] Run [bold]aparta login[/bold] in that workspace.": "[red]A credencial {provider} do workspace '{workspace}' exige login: {detail}.[/red] Rode [bold]aparta login[/bold] nesse workspace.",
   "[red]This folder belongs to no profile.[/red] Use --profile <name> or run from a configured folder.": "[red]Esta pasta não pertence a nenhum perfil.[/red] Use --profile <nome> ou rode de uma pasta configurada.",
@@ -331,5 +329,6 @@
   "copied:": "copiado:",
   "[red]gcloud configurations {verb} failed:[/red] {error}": "[red]gcloud configurations {verb} falhou:[/red] {error}",
   " (project {project})": " (projeto {project})",
-  "[green]gcloud:[/green] dropped foreign configurations: {names}": "[green]gcloud:[/green] configurações de outros perfis removidas: {names}"
+  "[green]gcloud:[/green] dropped foreign configurations: {names}": "[green]gcloud:[/green] configurações de outros perfis removidas: {names}",
+  "[yellow]Could not upload ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]": "[yellow]Não consegui enviar ({error}).[/yellow]\n[dim]Manual: gh ssh-key add {key}.pub --title {name} (o token precisa do escopo admin:public_key, gh auth refresh -s admin:public_key)[/dim]"
 }
