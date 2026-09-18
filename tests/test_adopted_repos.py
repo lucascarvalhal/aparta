@@ -18,10 +18,10 @@ def _make_repo(path: Path) -> Path:
 
 
 def test_loose_repos_skips_profile_covered_ones(tmp_path: Path):
-    _make_repo(tmp_path / "projects" / "eneva" / "api")  # covered
+    _make_repo(tmp_path / "projects" / "acme" / "api")  # covered
     solto = _make_repo(tmp_path / "projects" / "avulso")  # stray
     result = loose_repos(
-        [tmp_path / "projects" / "eneva"], scan_roots=[str(tmp_path / "projects")]
+        [tmp_path / "projects" / "acme"], scan_roots=[str(tmp_path / "projects")]
     )
     assert result == [solto]
 
@@ -36,8 +36,8 @@ def test_adopted_repos_roundtrip_in_toml(tmp_path: Path):
 
 def test_apply_adopted_adds_local_include(tmp_path: Path):
     repo = _make_repo(tmp_path / "avulso")
-    p = Profile(name="eneva", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
-    (tmp_path / ".gitconfig-eneva").write_text("[user]\n\temail = a@b.c\n")
+    p = Profile(name="acme", root="~/x", git_email="a@b.c", adopted_repos=[str(repo)])
+    (tmp_path / ".gitconfig-acme").write_text("[user]\n\temail = a@b.c\n")
 
     apply_adopted_git(p, SafeWriter(), home=tmp_path)
 

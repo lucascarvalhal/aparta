@@ -12,9 +12,9 @@ Host github.com-pessoal
     HostName github.com
     IdentityFile ~/.ssh/github_pessoal
 
-Host github.com-eneva
+Host github.com-acme
     HostName github.com
-    IdentityFile ~/.ssh/id_ed25519_eneva
+    IdentityFile ~/.ssh/id_ed25519_acme
 
 Host meu-servidor
     HostName 10.0.0.5
@@ -32,7 +32,7 @@ def test_list_ssh_host_aliases(tmp_path: Path):
     aliases = list_ssh_host_aliases(config)
     assert [a["alias"] for a in aliases] == [
         "github.com-pessoal",
-        "github.com-eneva",
+        "github.com-acme",
         "meu-servidor",
     ]
     assert aliases[0]["hostname"] == "github.com"
@@ -66,12 +66,12 @@ def test_list_ssh_keys_missing_dir(tmp_path: Path):
 def test_parse_gh_accounts_multiple():
     output = """
 github.com
-  ✓ Logged in to github.com account lucas-pessoal (keyring)
+  ✓ Logged in to github.com account ana-personal (keyring)
   - Active account: true
-  ✓ Logged in to github.com account lucas-trabalho (keyring)
+  ✓ Logged in to github.com account ana-work (keyring)
   - Active account: false
 """
-    assert parse_gh_accounts(output) == ["lucas-pessoal", "lucas-trabalho"]
+    assert parse_gh_accounts(output) == ["ana-personal", "ana-work"]
 
 
 def test_parse_gh_accounts_empty():

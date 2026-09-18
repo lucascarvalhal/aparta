@@ -19,8 +19,8 @@ GITCONFIG = """\
     email = default@example.com
 [includeIf "gitdir:~/pessoal/"]
     path = ~/.gitconfig-pessoal
-[includeIf "gitdir:~/projects/effektra/"]
-    path = .gitconfig-effektra
+[includeIf "gitdir:~/projects/globex/"]
+    path = .gitconfig-globex
 [core]
     editor = vim
 """
@@ -40,7 +40,7 @@ def test_parse_includeifs():
     pairs = parse_includeifs(GITCONFIG)
     assert pairs == [
         ("~/pessoal/", "~/.gitconfig-pessoal"),
-        ("~/projects/effektra/", ".gitconfig-effektra"),
+        ("~/projects/globex/", ".gitconfig-globex"),
     ]
 
 
@@ -166,13 +166,13 @@ def test_suggestion_dataclass_defaults():
 
 def test_suggestions_from_gitconfig_extracts_ssh_key(tmp_path: Path):
     gitconfig = tmp_path / ".gitconfig"
-    gitconfig.write_text('[includeIf "gitdir:~/eneva/"]\n    path = .gitconfig-eneva\n')
-    (tmp_path / ".gitconfig-eneva").write_text(
-        "[user]\n    email = a@eneva.com\n"
-        "[core]\n    sshCommand = ssh -i ~/.ssh/id_ed25519_eneva -o IdentitiesOnly=yes\n"
+    gitconfig.write_text('[includeIf "gitdir:~/acme/"]\n    path = .gitconfig-acme\n')
+    (tmp_path / ".gitconfig-acme").write_text(
+        "[user]\n    email = a@acme.com\n"
+        "[core]\n    sshCommand = ssh -i ~/.ssh/id_ed25519_acme -o IdentitiesOnly=yes\n"
     )
     s = suggestions_from_gitconfig(gitconfig)[0]
-    assert s.ssh_key == "~/.ssh/id_ed25519_eneva"
+    assert s.ssh_key == "~/.ssh/id_ed25519_acme"
 
 
 def test_suggestions_from_gitconfig_extracts_ssh_alias(tmp_path: Path):
@@ -203,14 +203,14 @@ def test_gcloud_config_values(tmp_path: Path):
     from aparta.discovery import gcloud_account_from_config, gcloud_config_values
 
     (tmp_path / "configurations").mkdir(parents=True)
-    (tmp_path / "configurations" / "config_eneva").write_text(
-        "[core]\naccount = lucas@sysmanager.com.br\nproject = data-lake\n"
+    (tmp_path / "configurations" / "config_acme").write_text(
+        "[core]\naccount = ana@initrode.com\nproject = data-lake\n"
     )
-    assert gcloud_config_values("eneva", tmp_path) == (
-        "lucas@sysmanager.com.br",
+    assert gcloud_config_values("acme", tmp_path) == (
+        "ana@initrode.com",
         "data-lake",
     )
-    assert gcloud_account_from_config("eneva", tmp_path) == "lucas@sysmanager.com.br"
+    assert gcloud_account_from_config("acme", tmp_path) == "ana@initrode.com"
     assert gcloud_config_values("nada", tmp_path) == ("", "")
 
 
@@ -221,7 +221,7 @@ def test_discover_enriches_accounts_by_naming_convention(tmp_path: Path):
     config_root = tmp_path / ".config"
     gh_dir = config_root / "gh-pessoal"
     gh_dir.mkdir(parents=True)
-    (gh_dir / "hosts.yml").write_text("github.com:\n    user: lucascarvalhal\n")
+    (gh_dir / "hosts.yml").write_text("github.com:\n    user: ana-dev\n")
     (config_root / "gcloud" / "configurations").mkdir(parents=True)
     (config_root / "gcloud" / "configurations" / "config_pessoal").write_text(
         "[core]\naccount = eu@gmail.com\n"
@@ -232,5 +232,5 @@ def test_discover_enriches_accounts_by_naming_convention(tmp_path: Path):
         gitconfig=tmp_path / "sem-gitconfig",
         config_root=config_root,
     )[0]
-    assert s.gh_user == "lucascarvalhal"
+    assert s.gh_user == "ana-dev"
     assert s.gcloud_account == "eu@gmail.com"

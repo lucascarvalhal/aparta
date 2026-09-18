@@ -51,9 +51,9 @@ def test_merge_preserves_other_includeifs():
 
 
 def test_render_context_gitconfig_contents():
-    text = render_context_gitconfig(make_profile(git_name="Lucas"))
+    text = render_context_gitconfig(make_profile(git_name="Ana"))
     assert "email = eu@example.com" in text
-    assert "name = Lucas" in text
+    assert "name = Ana" in text
     assert "sshCommand = ssh -i ~/.ssh/id_ed25519_pessoal -o IdentitiesOnly=yes" in text
     assert '[url "git@github-pessoal:"]' in text
     assert "insteadOf = https://github.com/" in text
@@ -120,8 +120,8 @@ def test_linked_worktrees_resolve_distinct_git_and_ssh_profiles(tmp_path, monkey
         "\tinsteadOf = https://github.com/\n"
     )
 
-    main = tmp_path / "whirlpool" / "trade"
-    linked = tmp_path / "eneva" / "trade-pr"
+    main = tmp_path / "initech" / "trade"
+    linked = tmp_path / "acme" / "trade-pr"
     main.mkdir(parents=True)
     subprocess.run(["git", "init", "-q", str(main)], check=True)
     subprocess.run(
@@ -142,42 +142,42 @@ def test_linked_worktrees_resolve_distinct_git_and_ssh_profiles(tmp_path, monkey
         check=True,
     )
     subprocess.run(
-        ["git", "-C", str(main), "worktree", "add", "-q", "-b", "eneva-pr", str(linked)],
+        ["git", "-C", str(main), "worktree", "add", "-q", "-b", "acme-pr", str(linked)],
         check=True,
     )
 
-    whirlpool = Profile(
-        "whirlpool",
+    initech = Profile(
+        "initech",
         str(main.parent),
-        "dev@whirlpool.com",
-        ssh_key="/keys/whirlpool",
-        ssh_alias="github-whirlpool",
+        "dev@initech.com",
+        ssh_key="/keys/initech",
+        ssh_alias="github-initech",
     )
-    eneva = Profile(
-        "eneva",
+    acme = Profile(
+        "acme",
         str(linked.parent),
-        "dev@eneva.com",
-        ssh_key="/keys/eneva",
-        ssh_alias="github-eneva",
+        "dev@acme.com",
+        ssh_key="/keys/acme",
+        ssh_alias="github-acme",
     )
     workspaces = {
-        "whirlpool-trade": Workspace(
-            "whirlpool-trade", str(main), whirlpool.name, ["git", "ssh"]
+        "initech-trade": Workspace(
+            "initech-trade", str(main), initech.name, ["git", "ssh"]
         ),
-        "eneva-trade": Workspace(
-            "eneva-trade", str(linked), eneva.name, ["git", "ssh"]
+        "acme-trade": Workspace(
+            "acme-trade", str(linked), acme.name, ["git", "ssh"]
         ),
     }
 
     reconcile_workspace_git(
-        {whirlpool.name: whirlpool, eneva.name: eneva},
+        {initech.name: initech, acme.name: acme},
         workspaces,
         SafeWriter(),
         home=home,
     )
     reconciled_once = (home / ".gitconfig").read_text()
     reconcile_workspace_git(
-        {whirlpool.name: whirlpool, eneva.name: eneva},
+        {initech.name: initech, acme.name: acme},
         workspaces,
         SafeWriter(),
         home=home,
@@ -191,36 +191,36 @@ def test_linked_worktrees_resolve_distinct_git_and_ssh_profiles(tmp_path, monkey
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.strip() == "dev@whirlpool.com"
+    ).stdout.strip() == "dev@initech.com"
     assert subprocess.run(
         ["git", "-C", str(linked), "config", "user.email"],
         env=query_env,
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.strip() == "dev@eneva.com"
-    assert "/keys/whirlpool" in subprocess.run(
+    ).stdout.strip() == "dev@acme.com"
+    assert "/keys/initech" in subprocess.run(
         ["git", "-C", str(main), "config", "core.sshCommand"],
         env=query_env,
         capture_output=True,
         text=True,
         check=True,
     ).stdout
-    assert "/keys/eneva" in subprocess.run(
+    assert "/keys/acme" in subprocess.run(
         ["git", "-C", str(linked), "config", "core.sshCommand"],
         env=query_env,
         capture_output=True,
         text=True,
         check=True,
     ).stdout
-    assert "github-whirlpool" in subprocess.run(
+    assert "github-initech" in subprocess.run(
         ["git", "-C", str(main), "ls-remote", "--get-url", "https://github.com/org/repo"],
         env=query_env,
         capture_output=True,
         text=True,
         check=True,
     ).stdout
-    assert "github-eneva" in subprocess.run(
+    assert "github-acme" in subprocess.run(
         ["git", "-C", str(linked), "ls-remote", "--get-url", "https://github.com/org/repo"],
         env=query_env,
         capture_output=True,

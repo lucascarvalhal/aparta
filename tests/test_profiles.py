@@ -14,7 +14,7 @@ def test_profiles_roundtrip(tmp_path: Path):
             root="~/pessoal",
             git_email="eu@example.com",
             ssh_key="~/.ssh/id_ed25519_pessoal",
-            gh_user="lucas-pessoal",
+            gh_user="ana-personal",
             gcloud_account="eu@gmail.com",
             gcloud_project="meu-projeto",
             agents=["claude-code", "direnv"],

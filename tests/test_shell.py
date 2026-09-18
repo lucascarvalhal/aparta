@@ -19,13 +19,13 @@ from aparta.workspaces import Workspace
 
 def _context(tmp_path):
     profile = Profile(
-        name="eneva",
+        name="acme",
         root=str(tmp_path),
-        git_email="dev@eneva.com",
-        gcloud_account="dev@eneva.com",
+        git_email="dev@acme.com",
+        gcloud_account="dev@acme.com",
         gcloud_isolated=True,
     )
-    workspace = Workspace("eneva-api", str(tmp_path), profile.name, ["gcloud", "adc"])
+    workspace = Workspace("acme-api", str(tmp_path), profile.name, ["gcloud", "adc"])
     return workspace, profile
 
 
@@ -33,8 +33,8 @@ def test_activation_clears_foreign_selectors_before_exporting_workspace(tmp_path
     """Appending exports without unsets is the cross-client leak being fixed."""
     workspace, profile = _context(tmp_path)
     inherited = {
-        "GH_CONFIG_DIR": "/effektra/gh",
-        "AWS_PROFILE": "effektra",
+        "GH_CONFIG_DIR": "/globex/gh",
+        "AWS_PROFILE": "globex",
         "GIT_CONFIG_KEY_0": "user.email",
     }
     script = activation_lines(
@@ -57,13 +57,13 @@ def test_activation_clears_foreign_selectors_before_exporting_workspace(tmp_path
 
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
-        f"unset:unset:unset:eneva:eneva-api:{profile.gcloud_config_dir}"
+        f"unset:unset:unset:acme:acme-api:{profile.gcloud_config_dir}"
     )
 
 
 def test_unregistered_folder_deactivates_every_aparta_value():
     """Leaving a workspace must not carry its identity into the next folder."""
-    inherited = {"GH_CONFIG_DIR": "/eneva/gh", "APARTA_WORKSPACE": "eneva"}
+    inherited = {"GH_CONFIG_DIR": "/acme/gh", "APARTA_WORKSPACE": "acme"}
     script = activation_lines(
         None,
         None,
@@ -109,9 +109,9 @@ def test_zsh_hook_clears_the_previous_workspace_when_resolution_fails(tmp_path):
         env={
             **os.environ,
             "PATH": str(tmp_path),
-            "GH_CONFIG_DIR": "/whirlpool/gh",
-            "AWS_PROFILE": "whirlpool",
-            "APARTA_WORKSPACE": "whirlpool",
+            "GH_CONFIG_DIR": "/initech/gh",
+            "AWS_PROFILE": "initech",
+            "APARTA_WORKSPACE": "initech",
         },
         capture_output=True,
         text=True,

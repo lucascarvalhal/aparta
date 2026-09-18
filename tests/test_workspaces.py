@@ -30,9 +30,9 @@ def test_workspace_roundtrip_preserves_exact_path_and_providers(tmp_path):
     """Dropping provider fields while saving would erase workspace isolation."""
     path = tmp_path / "workspaces.toml"
     workspace = Workspace(
-        name="eneva-api",
-        path=str(tmp_path / "eneva-api"),
-        profile="eneva",
+        name="acme-api",
+        path=str(tmp_path / "acme-api"),
+        profile="acme",
         providers=["git", "gcloud"],
     )
 
@@ -61,18 +61,18 @@ def test_git_workspace_root_ignores_inherited_repository_redirection(tmp_path, m
 
 def test_explicit_worktree_record_beats_broad_profile_root(tmp_path):
     """Falling back to a broad root would lose the worktree-specific providers."""
-    repo = _git_init(tmp_path / "clients" / "eneva" / "api")
+    repo = _git_init(tmp_path / "clients" / "acme" / "api")
     nested = repo / "src"
     nested.mkdir()
     profile = Profile(
-        name="eneva",
-        root=str(tmp_path / "clients" / "eneva"),
-        git_email="dev@eneva.com",
+        name="acme",
+        root=str(tmp_path / "clients" / "acme"),
+        git_email="dev@acme.com",
     )
     explicit = Workspace(
-        name="eneva-api",
+        name="acme-api",
         path=str(repo),
-        profile="eneva",
+        profile="acme",
         providers=["git", "bitbucket"],
     )
 
@@ -87,12 +87,12 @@ def test_explicit_worktree_record_beats_broad_profile_root(tmp_path):
 
 def test_profile_owned_repository_has_backward_compatible_implicit_workspace(tmp_path):
     """Existing profile installations must activate before explicit migration."""
-    repo = _git_init(tmp_path / "clients" / "whirlpool" / "trade")
+    repo = _git_init(tmp_path / "clients" / "initech" / "trade")
     profile = Profile(
-        name="whirlpool",
-        root=str(tmp_path / "clients" / "whirlpool"),
-        git_email="dev@whirlpool.com",
-        gcloud_account="dev@whirlpool.com",
+        name="initech",
+        root=str(tmp_path / "clients" / "initech"),
+        git_email="dev@initech.com",
+        gcloud_account="dev@initech.com",
         gcloud_isolated=True,
     )
 
@@ -100,7 +100,7 @@ def test_profile_owned_repository_has_backward_compatible_implicit_workspace(tmp
 
     assert resolved is not None
     assert resolved.path == str(repo.resolve())
-    assert resolved.profile == "whirlpool"
+    assert resolved.profile == "initech"
     assert {"git", "gcloud", "adc"}.issubset(resolved.providers)
 
 

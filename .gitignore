@@ -56,3 +56,6 @@ Desktop.ini
 
 # aparta's own safety backups (if ever created inside the repo)
 *.bak-aparta-*
+
+# Planning documents live outside the public repository
+docs/superpowers/

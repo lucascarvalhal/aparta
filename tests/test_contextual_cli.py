@@ -35,12 +35,12 @@ def configured(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", lambda: home)
-    repo = _git_init(tmp_path / "clients" / "eneva" / "api")
+    repo = _git_init(tmp_path / "clients" / "acme" / "api")
     profile = Profile(
-        name="eneva",
-        root=str(tmp_path / "clients" / "eneva"),
-        git_email="dev@eneva.com",
-        gcloud_account="dev@eneva.com",
+        name="acme",
+        root=str(tmp_path / "clients" / "acme"),
+        git_email="dev@acme.com",
+        gcloud_account="dev@acme.com",
         gcloud_isolated=True,
     )
     save_profiles({profile.name: profile}, SafeWriter())
@@ -96,10 +96,10 @@ def test_add_git_materializes_a_git_only_legacy_workspace(configured, monkeypatc
 def test_add_two_arguments_targets_a_named_workspace(configured, tmp_path):
     """Explicit targeting must work without changing the caller's directory."""
     repo, profile = configured
-    workspace = Workspace("eneva-api", str(repo), profile.name, ["git"])
+    workspace = Workspace("acme-api", str(repo), profile.name, ["git"])
     save_workspaces({workspace.name: workspace}, SafeWriter())
 
-    result = runner.invoke(app, ["add", "eneva-api", "bitbucket"])
+    result = runner.invoke(app, ["add", "acme-api", "bitbucket"])
 
     assert result.exit_code == 0, result.output
     assert load_workspaces()[workspace.name].providers == ["git", "bitbucket"]
@@ -139,13 +139,13 @@ def test_add_immediately_reconciles_agent_environment(configured):
     import json
 
     repo, profile = configured
-    profile.gh_user = "eneva-gh"
+    profile.gh_user = "acme-gh"
     profile.agents = ["claude-code"]
     save_profiles({profile.name: profile}, SafeWriter())
-    workspace = Workspace("eneva-api", str(repo), profile.name, ["git"])
+    workspace = Workspace("acme-api", str(repo), profile.name, ["git"])
     save_workspaces({workspace.name: workspace}, SafeWriter())
 
-    result = runner.invoke(app, ["add", "eneva-api", "github"])
+    result = runner.invoke(app, ["add", "acme-api", "github"])
 
     assert result.exit_code == 0, result.output
     settings = json.loads((repo / ".claude" / "settings.local.json").read_text())
@@ -196,7 +196,7 @@ def test_login_keeps_explicit_profile_form(configured, monkeypatch):
         lambda selected, provider="", enabled_providers=None: seen.setdefault("name", selected.name) == selected.name,
     )
 
-    result = runner.invoke(app, ["login", "eneva"])
+    result = runner.invoke(app, ["login", "acme"])
 
     assert result.exit_code == 0, result.output
     assert seen["name"] == profile.name
@@ -218,7 +218,7 @@ def test_status_shows_known_expiry_inside_warning_window(configured, monkeypatch
 
     assert result.exit_code == 0, result.output
     assert "api" in result.output
-    assert "eneva" in result.output
+    assert "acme" in result.output
     assert "20m" in result.output
 
 
@@ -309,7 +309,7 @@ def test_env_activate_emits_unsets_and_current_workspace_exports(configured, mon
     """The shell hook needs one eval-safe transition, not additive exports."""
     repo, profile = configured
     monkeypatch.chdir(repo)
-    monkeypatch.setenv("GH_CONFIG_DIR", "/effektra/gh")
+    monkeypatch.setenv("GH_CONFIG_DIR", "/globex/gh")
 
     result = runner.invoke(app, ["env", "--activate"])
 
@@ -323,9 +323,9 @@ def test_env_activate_emits_unsets_and_current_workspace_exports(configured, mon
 def test_run_uses_only_the_current_worktree_providers(configured, monkeypatch):
     """A shared profile's extra providers must not leak into a restricted worktree."""
     repo, profile = configured
-    profile.gh_user = "eneva-gh"
+    profile.gh_user = "acme-gh"
     save_profiles({profile.name: profile}, SafeWriter())
-    workspace = Workspace("eneva-api", str(repo), profile.name, ["gcloud"])
+    workspace = Workspace("acme-api", str(repo), profile.name, ["gcloud"])
     save_workspaces({workspace.name: workspace}, SafeWriter())
     monkeypatch.chdir(repo)
     output = repo / "received-env.json"

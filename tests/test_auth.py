@@ -55,7 +55,7 @@ def test_probe_disables_prompts_so_it_never_hangs(monkeypatch):
 def test_gcloud_probe_clears_foreign_credential_override(monkeypatch):
     """A credential-file override takes precedence over the selected gcloud account."""
     seen = {}
-    monkeypatch.setenv("CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE", "/effektra/key.json")
+    monkeypatch.setenv("CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE", "/globex/key.json")
 
     def run(args, env=None, **kwargs):
         seen["env"] = env
@@ -127,7 +127,7 @@ def test_github_sso_is_recognized(monkeypatch):
 def test_github_probe_clears_inherited_token_before_selecting_config(monkeypatch):
     """GH_TOKEN overrides GH_CONFIG_DIR and could silently select another client."""
     seen = {}
-    monkeypatch.setenv("GH_TOKEN", "effektra-token")
+    monkeypatch.setenv("GH_TOKEN", "globex-token")
 
     def run(args, env=None, **kwargs):
         seen["env"] = env
@@ -145,7 +145,7 @@ def test_aws_probe_clears_static_env_keys_before_selecting_named_profile(monkeyp
         name="acme", root="~/acme", git_email="a@b.c", aws_profile="acme"
     )
     seen = {}
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "EFFEKTRA")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "GLOBEX")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
 
     def run(args, env=None, **kwargs):

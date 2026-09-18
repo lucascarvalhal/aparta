@@ -4,6 +4,7 @@
 set -euo pipefail
 
 DEMO=/tmp/aparta-demo-home
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 rm -rf "$DEMO"
 mkdir -p "$DEMO"
 
@@ -27,9 +28,9 @@ printf 'fake key for demo\n' > "$DEMO/.ssh/id_ed25519_personal"
 printf 'ssh-ed25519 AAAA fake\n' > "$DEMO/.ssh/id_ed25519_personal.pub"
 
 mkdir -p "$DEMO/bin"
-cat > "$DEMO/bin/aparta" << 'WRAP'
+cat > "$DEMO/bin/aparta" << WRAP
 #!/bin/bash
-exec uv run --project /Users/lucascarvalhal/pessoal/aparta aparta "$@"
+exec uv run --project "$REPO" aparta "\$@"
 WRAP
 chmod +x "$DEMO/bin/aparta"
 

@@ -92,19 +92,19 @@ def test_aws_sso_expiry_matches_the_profiles_session_cache(tmp_path):
     from datetime import datetime, timezone
 
     (tmp_path / "config").write_text(
-        "[profile eneva]\n"
-        "sso_session = eneva-session\n"
+        "[profile acme]\n"
+        "sso_session = acme-session\n"
         "region = us-east-1\n"
         "\n"
-        "[sso-session eneva-session]\n"
-        "sso_start_url = https://eneva.awsapps.com/start\n"
+        "[sso-session acme-session]\n"
+        "sso_start_url = https://acme.awsapps.com/start\n"
     )
     cache = tmp_path / "sso" / "cache"
     cache.mkdir(parents=True)
-    (cache / "eneva.json").write_text(
+    (cache / "acme.json").write_text(
         json.dumps(
             {
-                "startUrl": "https://eneva.awsapps.com/start",
+                "startUrl": "https://acme.awsapps.com/start",
                 "expiresAt": "2026-09-02T18:45:00Z",
             }
         )
@@ -119,4 +119,4 @@ def test_aws_sso_expiry_matches_the_profiles_session_cache(tmp_path):
     )
 
     expected = datetime(2026, 9, 2, 18, 45, tzinfo=timezone.utc).timestamp()
-    assert aws_sso_expiry("eneva", tmp_path) == expected
+    assert aws_sso_expiry("acme", tmp_path) == expected

@@ -98,15 +98,15 @@ def test_run_drops_managed_selectors_inherited_from_another_client(tmp_path, mon
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
-    monkeypatch.setenv("GH_CONFIG_DIR", "/effektra/gh")
-    monkeypatch.setenv("GH_TOKEN", "effektra-secret")
-    monkeypatch.setenv("GH_ENTERPRISE_TOKEN", "effektra-enterprise-secret")
-    monkeypatch.setenv("GH_HOST", "github.effektra.example")
-    monkeypatch.setenv("AWS_PROFILE", "effektra")
-    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/effektra/adc.json")
-    monkeypatch.setenv("CLOUDSDK_AUTH_ACCESS_TOKEN", "effektra-access-token")
-    monkeypatch.setenv("CLOUDSDK_CORE_ACCOUNT", "admin@effektra.com")
-    monkeypatch.setenv("CLOUDSDK_CORE_PROJECT", "effektra-prod")
+    monkeypatch.setenv("GH_CONFIG_DIR", "/globex/gh")
+    monkeypatch.setenv("GH_TOKEN", "globex-secret")
+    monkeypatch.setenv("GH_ENTERPRISE_TOKEN", "globex-enterprise-secret")
+    monkeypatch.setenv("GH_HOST", "github.globex.example")
+    monkeypatch.setenv("AWS_PROFILE", "globex")
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", "/globex/adc.json")
+    monkeypatch.setenv("CLOUDSDK_AUTH_ACCESS_TOKEN", "globex-access-token")
+    monkeypatch.setenv("CLOUDSDK_CORE_ACCOUNT", "admin@globex.com")
+    monkeypatch.setenv("CLOUDSDK_CORE_PROJECT", "globex-prod")
 
     assert runner.run_in_profile(profile, ["terraform", "plan"]) == 0
 
@@ -191,8 +191,8 @@ def test_missing_command_returns_127(tmp_path):
 def test_workspace_run_blocks_a_cached_expired_selected_provider(tmp_path, monkeypatch):
     profile = _profiles(tmp_path)["work"]
     workspace = Workspace(
-        name="whirlpool",
-        path=str(tmp_path / "whirlpool"),
+        name="initech",
+        path=str(tmp_path / "initech"),
         profile="work",
         providers=["gcloud", "adc"],
     )
@@ -220,8 +220,8 @@ def test_workspace_run_blocks_a_cached_expired_selected_provider(tmp_path, monke
 def test_workspace_run_blocks_a_selected_adc_before_login(tmp_path, monkeypatch):
     profile = _profiles(tmp_path)["work"]
     workspace = Workspace(
-        name="whirlpool",
-        path=str(tmp_path / "whirlpool"),
+        name="initech",
+        path=str(tmp_path / "initech"),
         profile="work",
         providers=["gcloud", "adc"],
     )
