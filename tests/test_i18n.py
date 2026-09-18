@@ -67,3 +67,14 @@ def test_wizard_language_question_skipped_when_saved(monkeypatch):
     i18n.set_language("en")
     # would raise if it tried to prompt: no questionary patched
     assert wizard._ask_language() is True
+
+
+def test_every_catalog_entry_keeps_its_placeholders():
+    import re
+
+    for key, value in i18n.catalog("pt").items():
+        assert set(re.findall(r"{(\w+)}", key)) == set(re.findall(r"{(\w+)}", value)), key
+
+
+def test_unknown_language_has_an_empty_catalog():
+    assert i18n.catalog("klingon") == {}
