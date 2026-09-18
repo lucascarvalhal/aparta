@@ -19,6 +19,7 @@ from rich.table import Table
 from .fsutil import SafeWriter
 from .i18n import _
 from . import prompts
+from .auth import AuthState, _refresh_adc_like_a_library
 from .config import config_dir
 
 console = Console()
@@ -87,7 +88,7 @@ class State:
     gh_installed: bool = True
     gh_user: str = ""
     adc_present: bool = False
-    adc_state: str = ""
+    adc_state: AuthState | None = None
     adc_parked: bool = False
 
     @property
@@ -145,16 +146,14 @@ def _read_gh() -> tuple[bool, str]:
     return True, ""
 
 
-def _read_adc() -> tuple[bool, str, bool]:
+def _read_adc() -> tuple[bool, AuthState | None, bool]:
     """Existence and library-style health of the global ADC."""
-    from .auth import _refresh_adc_like_a_library
-
     path = global_adc_path()
     parked = parked_adc_path().exists()
     if not path.exists():
-        return False, "", parked
+        return False, None, parked
     status = _refresh_adc_like_a_library(path)
-    return True, status.state if status else "", parked
+    return True, status.state if status else None, parked
 
 
 def read_state() -> State:
@@ -207,12 +206,10 @@ def show_state(state: State | None = None) -> State:
                 identity += _(" (project {project})", project=active.project)
             table.add_row("gcloud", identity, _("configuration '{name}'", name=active.name))
 
-    from .auth import OK as AUTH_OK, REAUTH as AUTH_REAUTH
-
     if state.adc_present:
-        if state.adc_state == AUTH_OK:
+        if state.adc_state is AuthState.OK:
             adc_identity = _("valid credential; any library without a profile env uses it")
-        elif state.adc_state == AUTH_REAUTH:
+        elif state.adc_state is AuthState.REAUTH:
             adc_identity = _("expired credential")
         else:
             adc_identity = _("credential of unknown health")

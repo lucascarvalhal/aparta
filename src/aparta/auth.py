@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 from rich.console import Console
@@ -24,16 +25,27 @@ from .config import read_json, write_json
 from .profiles import Profile, clean_environment
 from .providers import canonical_provider, canonical_providers, provider_label
 
-OK = "ok"
-REAUTH = "reauth"
-MISSING = "missing"
-UNKNOWN = "unknown"
+class AuthState(str, Enum):
+    OK = "ok"
+    REAUTH = "reauth"
+    MISSING = "missing"
+    UNKNOWN = "unknown"
+
+    @property
+    def needs_human(self) -> bool:
+        return self in (AuthState.REAUTH, AuthState.MISSING)
+
+
+OK = AuthState.OK
+REAUTH = AuthState.REAUTH
+MISSING = AuthState.MISSING
+UNKNOWN = AuthState.UNKNOWN
 
 CACHE_TTL_SECONDS = 10 * 60
 PROBE_TIMEOUT = 20
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 
-Rule = tuple[tuple[str, ...], str, Callable[[], str]]
+Rule = tuple[tuple[str, ...], AuthState, Callable[[], str]]
 
 _RULES: tuple[Rule, ...] = (
     (
@@ -79,14 +91,17 @@ _AWS_RULES: tuple[Rule, ...] = (
 @dataclass
 class AuthStatus:
     provider: str
-    state: str
+    state: AuthState
     detail: str = ""
     expires_at: float | None = None
     renewable: bool = False
 
+    def __post_init__(self) -> None:
+        self.state = AuthState(self.state)
+
     @property
     def needs_human(self) -> bool:
-        return self.state in (REAUTH, MISSING)
+        return self.state.needs_human
 
     @property
     def label(self) -> str:
@@ -97,7 +112,7 @@ def checks_enabled() -> bool:
     return os.environ.get("APARTA_AUTH_CHECK", "").lower() != "off"
 
 
-def _classify(stderr: str, rules: tuple[Rule, ...] = _RULES) -> tuple[str, str]:
+def _classify(stderr: str, rules: tuple[Rule, ...] = _RULES) -> tuple[AuthState, str]:
     lowered = stderr.lower()
     for markers, state, detail in rules:
         if any(marker in lowered for marker in markers):
@@ -285,7 +300,7 @@ def cached_check(profile: Profile, force: bool = False) -> list[AuthStatus]:
     statuses = check_profile(profile)
     cache[profile.name] = {
         "checked_at": time.time(),
-        "statuses": [s.__dict__ for s in statuses],
+        "statuses": [{**s.__dict__, "state": s.state.value} for s in statuses],
     }
     _write_cache(cache)
     return statuses

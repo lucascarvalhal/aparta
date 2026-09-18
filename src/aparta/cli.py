@@ -473,7 +473,7 @@ def status(
         console.print(_("Credential is renewable automatically."))
     for item in statuses:
         detail = f": {item.detail}" if item.detail else ""
-        console.print(f"{item.label}: {item.state}{detail}")
+        console.print(f"{item.label}: {item.state.value}{detail}")
 
 
 def _resolve_profile(profile_name: str):
