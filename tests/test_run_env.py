@@ -8,7 +8,7 @@ import pytest
 
 from aparta import auth, runner
 from aparta.profiles import Profile
-from aparta.workspaces import Workspace
+from aparta.workspaces import Workspace, profile_for_path
 
 
 @pytest.fixture(autouse=True)
@@ -50,21 +50,21 @@ def test_profile_for_path_picks_the_deepest_root(tmp_path):
     profiles = _profiles(tmp_path)
     inside = tmp_path / "projects" / "work" / "special" / "repo"
     inside.mkdir(parents=True)
-    assert runner.profile_for_path(inside, profiles).name == "inner"
+    assert profile_for_path(inside, profiles).name == "inner"
     outer = tmp_path / "projects" / "work" / "other"
     outer.mkdir()
-    assert runner.profile_for_path(outer, profiles).name == "work"
+    assert profile_for_path(outer, profiles).name == "work"
 
 
 def test_profile_for_path_covers_adopted_repos(tmp_path):
     profiles = _profiles(tmp_path)
     adopted = tmp_path / "elsewhere" / "stray-repo" / "src"
     adopted.mkdir(parents=True)
-    assert runner.profile_for_path(adopted, profiles).name == "personal"
+    assert profile_for_path(adopted, profiles).name == "personal"
 
 
 def test_profile_for_path_outside_everything_is_none(tmp_path):
-    assert runner.profile_for_path(tmp_path / "nowhere", _profiles(tmp_path)) is None
+    assert profile_for_path(tmp_path / "nowhere", _profiles(tmp_path)) is None
 
 
 def test_run_layers_the_profile_env_over_the_current_one(tmp_path, monkeypatch):

@@ -17,7 +17,7 @@ from collections.abc import Mapping
 
 from .i18n import _
 from .profiles import MANAGED_ENV_KEYS, MANAGED_ENV_PREFIXES, Profile
-from .workspaces import Workspace, profile_for_path
+from .workspaces import Workspace
 
 TOKEN_TIMEOUT = 20
 

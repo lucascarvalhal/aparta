@@ -200,7 +200,7 @@ def test_gh_user_from_config_dir(tmp_path: Path):
 
 
 def test_gcloud_config_values(tmp_path: Path):
-    from aparta.discovery import gcloud_account_from_config, gcloud_config_values
+    from aparta.discovery import gcloud_config_values
 
     (tmp_path / "configurations").mkdir(parents=True)
     (tmp_path / "configurations" / "config_acme").write_text(
@@ -210,7 +210,6 @@ def test_gcloud_config_values(tmp_path: Path):
         "ana@initrode.com",
         "data-lake",
     )
-    assert gcloud_account_from_config("acme", tmp_path) == "ana@initrode.com"
     assert gcloud_config_values("nada", tmp_path) == ("", "")
 
 

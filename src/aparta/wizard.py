@@ -231,8 +231,6 @@ def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
 
 def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
     """Offer to upload the freshly created public key via `gh ssh-key add`."""
-    import questionary
-
     if not _confirm(
         _("Upload this key to the GitHub account '{user}' now? (gh ssh-key add)", user=gh_user),
         default=True,

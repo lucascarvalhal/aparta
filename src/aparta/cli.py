@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -337,7 +339,6 @@ def add(
     values: list[str] = typer.Argument(..., help=_("[workspace] provider to enable.")),
 ) -> None:
     """Enable a provider in the current or explicitly named workspace."""
-    from pathlib import Path
 
     from .providers import ProviderError, canonical_provider, validate_provider
     from .workspaces import (
@@ -427,7 +428,6 @@ def add(
 
 def _login_target(selector: str):
     """Resolve a direct profile or an exact workspace for authentication."""
-    from pathlib import Path
 
     from .workspaces import load_workspaces, resolve_workspace
 
@@ -476,7 +476,6 @@ def status(
     """Show the current workspace, provider health, and known expiry warning."""
     import math
     import time
-    from pathlib import Path
 
     from .auth import AuthStatus, MISSING, OK, cached_check, read_cached_status
     from .providers import canonical_providers, status_provider_name
@@ -561,7 +560,6 @@ def status(
 
 def _resolve_profile(profile_name: str):
     """The named profile, or the one owning the current folder."""
-    from pathlib import Path
 
     from .runner import profile_for_path
 
@@ -584,7 +582,6 @@ def _resolve_profile(profile_name: str):
 
 def _resolve_workspace_context(selector: str = ""):
     """Return the exact workspace and owning profile for a CLI command."""
-    from pathlib import Path
 
     from .workspaces import load_workspaces, resolve_workspace
 
@@ -644,7 +641,6 @@ def env(
     ),
 ) -> None:
     """Print export lines for scripts: eval "$(aparta env)"."""
-    from pathlib import Path
 
     from .runner import export_lines, gh_token, profile_env
 

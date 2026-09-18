@@ -265,11 +265,6 @@ def gcloud_config_values(name: str, gcloud_dir: Path | None = None) -> tuple[str
     return (account.group(1) if account else ""), (project.group(1) if project else "")
 
 
-def gcloud_account_from_config(name: str, gcloud_dir: Path | None = None) -> str:
-    """Account of a named gcloud configuration."""
-    return gcloud_config_values(name, gcloud_dir)[0]
-
-
 def _enrich_accounts(
     s: ContextSuggestion, config_root: Path | None = None, aws_dir: Path | None = None
 ) -> None:
