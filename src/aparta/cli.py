@@ -519,7 +519,9 @@ def status(
     unknown = bool(expected_auth - known) or any(
         item.state != OK and not item.needs_human for item in statuses
     )
-    state = "blocked" if blocked else "unknown" if unknown else "ok"
+    # the prompt tells the human what to do, in their language: a credential
+    # that needs them says so, instead of a bare "blocked"
+    state = _("reauth needed") if blocked else _("unknown") if unknown else "ok"
 
     now = time.time()
     warning_seconds = _expiry_warning_minutes() * 60

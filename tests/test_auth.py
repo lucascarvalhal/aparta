@@ -299,7 +299,7 @@ def test_adc_offer_runs_inside_the_profile_scope(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(auth.subprocess, "run", run)
     env = dict(ISOLATED.env())
     auth._ensure_adc(ISOLATED, env, Console())
-    assert seen["args"] == ["gcloud", "auth", "application-default", "login"]
+    assert seen["args"] == ["gcloud", "auth", "application-default", "login", "--quiet"]
     assert seen["config"] == str(profile_dir)
     assert applied == ["acme"]  # repos re-applied so GOOGLE_APPLICATION_CREDENTIALS lands
 
@@ -376,7 +376,7 @@ def test_expired_adc_is_a_second_credential_and_gets_renewed(monkeypatch, tmp_pa
 
     monkeypatch.setattr(auth.subprocess, "run", run)
     assert auth._ensure_adc(ISOLATED, dict(ISOLATED.env()), Console()) is True
-    assert seen["args"] == ["gcloud", "auth", "application-default", "login"]
+    assert seen["args"] == ["gcloud", "auth", "application-default", "login", "--quiet"]
     assert seen["config"] == str(profile_dir)
 
 
@@ -565,3 +565,57 @@ def test_account_without_credentials_is_missing(monkeypatch):
         _result(1, stderr="ERROR: Your current active account [x@y.com] does not have any valid credentials"),
     )
     assert auth.check_gcloud(PROFILE).state == auth.MISSING
+
+
+def test_adc_is_derived_from_the_cli_credential_without_a_browser(monkeypatch, tmp_path):
+    """Right after a CLI login the ADC can reuse that credential; a second
+    browser round for the same account is the thing users complained about."""
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    profile_dir = ISOLATED.gcloud_config_dir
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "application_default_credentials.json").write_text("{}")
+    probes = iter([auth.AuthStatus("ADC", auth.REAUTH, "session expired"), auth.AuthStatus("ADC", auth.OK)])
+    monkeypatch.setattr(auth, "check_adc", lambda p: next(probes))
+    calls = []
+
+    def run(args, env=None, **kwargs):
+        calls.append((args, env, kwargs))
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    assert auth._ensure_adc(ISOLATED, dict(ISOLATED.env()), Console()) is True
+    assert len(calls) == 1  # no interactive fallback
+    args, env, kwargs = calls[0]
+    assert args[:5] == ["gcloud", "auth", "application-default", "login", "ana@acme.com"]
+    assert "--no-launch-browser" in args and "--quiet" in args
+    assert kwargs["stdin"] is subprocess.DEVNULL
+    assert env["CLOUDSDK_CONFIG"] == str(profile_dir)
+
+
+def test_adc_login_never_asks_about_google_application_credentials(monkeypatch, tmp_path):
+    """The profile env pins GOOGLE_APPLICATION_CREDENTIALS; gcloud sees it and
+    stops for a Y/n. Both login flavors must run without that variable."""
+    from rich.console import Console
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    profile_dir = ISOLATED.gcloud_config_dir
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "application_default_credentials.json").write_text("{}")
+    monkeypatch.setattr(
+        auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.REAUTH, "session expired")
+    )
+    envs = []
+
+    def run(args, env=None, **kwargs):
+        envs.append(env)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(auth.subprocess, "run", run)
+    env = dict(ISOLATED.env())
+    env["GOOGLE_APPLICATION_CREDENTIALS"] = str(profile_dir / "application_default_credentials.json")
+    auth._ensure_adc(ISOLATED, env, Console())
+    assert len(envs) == 2  # reuse attempt, then the browser fallback
+    assert all("GOOGLE_APPLICATION_CREDENTIALS" not in e for e in envs)
+    assert all(e["CLOUDSDK_CONFIG"] == str(profile_dir) for e in envs)

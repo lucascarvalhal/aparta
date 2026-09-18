@@ -274,7 +274,21 @@ def test_status_blocks_when_a_selected_isolated_adc_file_is_missing(
     result = runner.invoke(app, ["status", "--shell"])
 
     assert result.exit_code == 0, result.output
-    assert "blocked" in result.output
+    assert "reauth needed" in result.output
+    assert "blocked" not in result.output
+
+
+def test_shell_status_speaks_the_saved_language(configured, monkeypatch):
+    """The prompt segment is read by a human; "blocked" told them nothing."""
+    repo, _profile = configured
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(auth, "cached_check", lambda profile, force=False: [])
+    monkeypatch.setenv("APARTA_LANG", "pt")
+
+    result = runner.invoke(app, ["status", "--shell"])
+
+    assert result.exit_code == 0, result.output
+    assert "reautenticar" in result.output
 
 
 def test_shell_status_sanitizes_workspace_name_for_prompt_expansion(configured, monkeypatch):

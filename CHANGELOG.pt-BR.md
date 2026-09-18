@@ -8,6 +8,25 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Mudado
+
+- O segmento do prompt no shell agora mostra `reautenticar` (ou `reauth
+  needed` em inglês) quando uma credencial precisa de você, no lugar de um
+  `blocked` seco que dizia a consequência e não o que fazer.
+- O `aparta login` deriva as credenciais de aplicação do login do gcloud
+  recém-renovado quando o Google aceita, então uma sessão expirada custa
+  uma ida ao navegador em vez de duas. A cópia é sondada como uma biblioteca
+  antes de valer; se não passar, o login interativo do ADC roda como antes.
+
+### Corrigido
+
+- O login do ADC não para mais no "Do you want to continue (Y/n)?". O gcloud
+  perguntava porque o ambiente do perfil fixa GOOGLE_APPLICATION_CREDENTIALS
+  no mesmo arquivo que ele ia escrever; o login agora roda sem essa variável,
+  e o CLOUDSDK_CONFIG sozinho mantém o arquivo dentro do perfil.
+- A suíte de testes limpa as variáveis que o hook zsh do aparta exporta, e
+  por isso passa mesmo rodando de dentro de um workspace registrado.
+
 ## [0.8.1] - 2026-09-02
 
 ### Corrigido

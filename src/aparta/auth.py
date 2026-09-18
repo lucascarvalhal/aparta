@@ -555,7 +555,7 @@ def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False)
         )
         return False
     console.print(
-        _("[yellow]ADC:[/yellow] {detail}; opening the browser to renew the application credentials...", detail=status.detail)
+        _("[yellow]ADC:[/yellow] {detail}; renewing the application credentials...", detail=status.detail)
     )
     return _run_adc_login(profile, env, console, created=False)
 
@@ -584,21 +584,79 @@ def _offer_adc(profile: Profile, env: dict, console) -> bool:
     return _run_adc_login(profile, env, console, created=True)
 
 
+def _adc_login_env(env: dict) -> dict:
+    """The env for an ADC login, without GOOGLE_APPLICATION_CREDENTIALS.
+
+    The profile env pins that variable at the isolated file so libraries
+    find it. gcloud, seeing it set, stops to ask "Do you want to continue
+    (Y/n)?" before writing to the very same path. CLOUDSDK_CONFIG alone
+    already sends the file to the profile's folder, so the variable adds
+    nothing here but the question.
+    """
+    return {k: v for k, v in env.items() if k != "GOOGLE_APPLICATION_CREDENTIALS"}
+
+
+def _adc_from_cli_credential(profile: Profile, env: dict, console) -> bool:
+    """Try to derive the ADC from the CLI credential, with no browser.
+
+    `gcloud auth application-default login ACCOUNT` reuses the credential
+    already in the profile's store when it is valid, so right after a CLI
+    login the ADC can be written without a second trip to the browser.
+    The result is probed like a library before it counts: a copy that
+    still fails the plain refresh is worthless, and the caller falls back
+    to the interactive flow.
+    """
+    if not profile.gcloud_account:
+        return False
+    try:
+        r = subprocess.run(
+            [
+                "gcloud",
+                "auth",
+                "application-default",
+                "login",
+                profile.gcloud_account,
+                "--no-launch-browser",
+                "--quiet",
+            ],
+            env=_adc_login_env(env),
+            capture_output=True,
+            text=True,
+            timeout=PROBE_TIMEOUT * 4,
+            stdin=subprocess.DEVNULL,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    if r.returncode != 0:
+        return False
+    status = check_adc(profile)
+    return status is not None and status.state == OK
+
+
 def _run_adc_login(profile: Profile, env: dict, console, created: bool) -> bool:
     from .backends.gcloud import has_adc
 
-    if profile.gcloud_account:
-        # the ADC flow cannot preselect an account; the human picking the
-        # wrong one would put another identity in this profile's file
+    if _adc_from_cli_credential(profile, env, console):
         console.print(
-            _("[dim]In the browser, pick the account {account}.[/dim]", account=profile.gcloud_account)
+            _("[green]ADC:[/green] application credentials derived from the gcloud login, no browser needed")
         )
-    _flush_stdin()
-    try:
-        r = subprocess.run(["gcloud", "auth", "application-default", "login"], env=env)
-    except FileNotFoundError:
-        console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
-        return False
+        r = subprocess.CompletedProcess([], 0)
+    else:
+        if profile.gcloud_account:
+            # the ADC flow cannot preselect an account; the human picking the
+            # wrong one would put another identity in this profile's file
+            console.print(
+                _("[dim]In the browser, pick the account {account}.[/dim]", account=profile.gcloud_account)
+            )
+        _flush_stdin()
+        try:
+            r = subprocess.run(
+                ["gcloud", "auth", "application-default", "login", "--quiet"],
+                env=_adc_login_env(env),
+            )
+        except FileNotFoundError:
+            console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
+            return False
     if r.returncode != 0 or not has_adc(profile.gcloud_config_dir):
         console.print(
             _("[yellow]The ADC login did not complete; run `aparta login {name}` to try again.[/yellow]", name=profile.name)

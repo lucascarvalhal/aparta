@@ -8,6 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The shell prompt segment now says `reauth needed` (or `reautenticar` in
+  Portuguese) when a credential needs a human, instead of a bare `blocked`
+  that named the consequence rather than the action.
+- `aparta login` derives the application default credentials from the
+  freshly renewed gcloud login when Google accepts it, so one expired
+  session costs one trip to the browser instead of two. The copy is probed
+  like a library first; if it does not pass, the interactive ADC login runs
+  as before.
+
+### Fixed
+
+- The ADC login no longer stops at "Do you want to continue (Y/n)?". gcloud
+  asked because the profile environment pins GOOGLE_APPLICATION_CREDENTIALS
+  at the very file it was about to write; the login now runs without that
+  variable, and CLOUDSDK_CONFIG alone keeps the file inside the profile.
+- The test suite scrubs the variables the aparta zsh hook exports, so it
+  passes from inside a registered workspace.
+
 ## [0.8.1] - 2026-09-02
 
 ### Fixed
