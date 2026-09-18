@@ -84,7 +84,7 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
             all_ok &= _row(rows, "gh", gh_dir.name, ok, detail)
 
     if profile.gcloud_account or profile.gcloud_project:
-        env = {k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))}
+        env = profile.gcloud_env()
         if profile.gcloud_isolated:
             if not profile.gcloud_config_dir.exists():
                 all_ok &= _row(

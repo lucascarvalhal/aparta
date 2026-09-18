@@ -513,7 +513,7 @@ def test_aws_missing_credentials_is_its_own_state(monkeypatch):
 def test_aws_login_renews_sso_in_the_profile_scope(monkeypatch):
     monkeypatch.setattr(auth, "check_aws", lambda p: auth.AuthStatus("aws", auth.REAUTH, "session expired"))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
-    monkeypatch.setattr("aparta.backends.aws.is_sso_profile", lambda name: True)
+    monkeypatch.setattr(auth, "is_sso_profile", lambda name: True)
     calls = []
 
     def run(args, env=None, **kwargs):

@@ -332,5 +332,6 @@
   "Whenever you want to apply: [bold]aparta apply {name}[/bold]": "Quando quiser aplicar, é só rodar: [bold]aparta apply {name}[/bold]",
   "moved:": "movido:",
   "{file} missing": "{file} ausente",
-  "{file} is invalid": "{file} inválido"
+  "{file} is invalid": "{file} inválido",
+  "logged in as {user}, expected {expected}": "logado como {user}, esperado {expected}"
 }

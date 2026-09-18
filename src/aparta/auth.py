@@ -1,17 +1,26 @@
-"""Credential health per profile: silent refresh, honest states, one command."""
+"""Credential health per profile: silent refresh, honest states, one login loop."""
 
 from __future__ import annotations
 
 import json
 import os
 import subprocess
+import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from rich.console import Console
+
+from .backends.aws import aws_sso_expiry, is_sso_profile
+from .backends.gcloud import has_adc
 from .i18n import _
-from .profiles import Profile, config_dir
-from .profiles import clean_environment
+from .profiles import Profile, clean_environment, config_dir
+from .providers import canonical_provider, canonical_providers
 
 OK = "ok"
 REAUTH = "reauth"
@@ -20,16 +29,49 @@ UNKNOWN = "unknown"
 
 CACHE_TTL_SECONDS = 10 * 60
 PROBE_TIMEOUT = 20
+TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 
-_REVOKED = ("invalid_grant", "expired or revoked", "invalid credentials")
-_REAUTH_NEEDED = ("reauthentication", "invalid_rapt", "credentials are invalid")
-_NO_ACCOUNT = (
-    "do not currently have an active account",
-    "does not have any valid credentials",
-    "not logged in",
-    "no active account",
+Rule = tuple[tuple[str, ...], str, Callable[[], str]]
+
+_RULES: tuple[Rule, ...] = (
+    (
+        (
+            "do not currently have an active account",
+            "does not have any valid credentials",
+            "not logged in",
+            "no active account",
+        ),
+        MISSING,
+        lambda: _("no credential stored for this profile"),
+    ),
+    (
+        ("reauthentication", "invalid_rapt", "credentials are invalid"),
+        REAUTH,
+        lambda: _("session expired by your organization's policy"),
+    ),
+    (
+        ("x-github-sso", "saml enforcement", "sso authorization", "sso session", "single sign-on"),
+        REAUTH,
+        lambda: _("the organization requires SSO authorization again"),
+    ),
+    (
+        ("invalid_grant", "expired or revoked", "invalid credentials"),
+        REAUTH,
+        lambda: _("credential revoked or expired"),
+    ),
 )
-_SSO = ("x-github-sso", "saml enforcement", "sso authorization", "sso session", "single sign-on")
+_AWS_RULES: tuple[Rule, ...] = (
+    (
+        ("unable to locate credentials", "could not be found"),
+        MISSING,
+        lambda: _("no credential stored for this profile"),
+    ),
+    (
+        ("token has expired", "expiredtoken", "sso session", "requires re-authentication"),
+        REAUTH,
+        lambda: _("session expired; log in again"),
+    ),
+)
 
 
 @dataclass
@@ -49,31 +91,31 @@ def checks_enabled() -> bool:
     return os.environ.get("APARTA_AUTH_CHECK", "").lower() != "off"
 
 
-def _classify(stderr: str) -> tuple[str, str]:
+def _classify(stderr: str, rules: tuple[Rule, ...] = _RULES) -> tuple[str, str]:
     lowered = stderr.lower()
-    if any(marker in lowered for marker in _NO_ACCOUNT):
-        return MISSING, _("no credential stored for this profile")
-    if any(marker in lowered for marker in _REAUTH_NEEDED):
-        return REAUTH, _("session expired by your organization's policy")
-    if any(marker in lowered for marker in _SSO):
-        return REAUTH, _("the organization requires SSO authorization again")
-    if any(marker in lowered for marker in _REVOKED):
-        return REAUTH, _("credential revoked or expired")
+    for markers, state, detail in rules:
+        if any(marker in lowered for marker in markers):
+            return state, detail()
     return UNKNOWN, stderr.strip().splitlines()[-1] if stderr.strip() else ""
 
 
-def check_gcloud(profile: Profile) -> AuthStatus | None:
-    """Probe the profile's gcloud credential, refreshing it silently."""
-    if not profile.gcloud_account:
-        return None
-    overlay = {
-        k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
-    }
-    overlay["CLOUDSDK_CORE_DISABLE_PROMPTS"] = "1"
-    env = clean_environment(os.environ, overlay)
+def _probe_env(profile: Profile) -> dict[str, str]:
+    return clean_environment(
+        os.environ, {**profile.gcloud_env(), "CLOUDSDK_CORE_DISABLE_PROMPTS": "1"}
+    )
+
+
+def _probe(
+    label: str,
+    args: list[str],
+    env: dict[str, str],
+    rules: tuple[Rule, ...] = _RULES,
+    stdout_required: bool = True,
+) -> AuthStatus:
+    """Run a read-only credential probe and turn its outcome into a status."""
     try:
         r = subprocess.run(
-            ["gcloud", "auth", "print-access-token", "--account", profile.gcloud_account],
+            args,
             env=env,
             capture_output=True,
             text=True,
@@ -81,24 +123,31 @@ def check_gcloud(profile: Profile) -> AuthStatus | None:
             stdin=subprocess.DEVNULL,
         )
     except FileNotFoundError:
-        return AuthStatus("gcloud", UNKNOWN, _("{cmd} not found", cmd="gcloud"))
+        return AuthStatus(label, UNKNOWN, _("{cmd} not found", cmd=args[0]))
     except subprocess.TimeoutExpired:
-        return AuthStatus("gcloud", UNKNOWN, _("check timed out"))
-    if r.returncode == 0 and r.stdout.strip():
+        return AuthStatus(label, UNKNOWN, _("check timed out"))
+    if r.returncode == 0 and (r.stdout.strip() or not stdout_required):
+        return AuthStatus(label, OK, detail=r.stdout.strip())
+    state, detail = _classify(r.stderr, rules)
+    return AuthStatus(label, state, detail)
+
+
+def check_gcloud(profile: Profile) -> AuthStatus | None:
+    """Probe the profile's gcloud credential, refreshing it silently."""
+    if not profile.gcloud_account:
+        return None
+    status = _probe(
+        "gcloud",
+        ["gcloud", "auth", "print-access-token", "--account", profile.gcloud_account],
+        _probe_env(profile),
+    )
+    if status.state == OK:
         return AuthStatus("gcloud", OK, renewable=True)
-    state, detail = _classify(r.stderr)
-    return AuthStatus("gcloud", state, detail)
-
-
-TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+    return status
 
 
 def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
     """Refresh the ADC the way google-auth does, with no help from gcloud."""
-    import urllib.error
-    import urllib.parse
-    import urllib.request
-
     try:
         data = json.loads(adc_path.read_text())
     except (OSError, json.JSONDecodeError):
@@ -123,62 +172,25 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
             err = json.loads(e.read().decode())
         except Exception:
             err = {}
-        text = " ".join(str(v) for v in err.values())
-        state, detail = _classify(text)
-        if state == UNKNOWN:
-            return AuthStatus("ADC", UNKNOWN, detail or str(e))
-        return AuthStatus("ADC", state, detail)
+        state, detail = _classify(" ".join(str(v) for v in err.values()))
+        return AuthStatus("ADC", state, detail or (str(e) if state == UNKNOWN else ""))
     except Exception:
         return AuthStatus("ADC", UNKNOWN, _("check timed out"))
 
 
 def check_adc(profile: Profile) -> AuthStatus | None:
-    """Probe the profile's application default credentials."""
-    if not profile.gcloud_isolated:
+    """Probe the profile's application default credentials, when it has any."""
+    if not profile.gcloud_isolated or not has_adc(profile.gcloud_config_dir):
         return None
-    from .backends.gcloud import has_adc
-
-    if not has_adc(profile.gcloud_config_dir):
-        return None
-    adc_path = profile.gcloud_config_dir / "application_default_credentials.json"
-    status = _refresh_adc_like_a_library(adc_path)
+    status = _refresh_adc_like_a_library(profile.adc_path)
     if status is not None:
         return status
-    overlay = {
-        k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
-    }
-    overlay["CLOUDSDK_CORE_DISABLE_PROMPTS"] = "1"
-    env = clean_environment(os.environ, overlay)
-    try:
-        r = subprocess.run(
-            ["gcloud", "auth", "application-default", "print-access-token"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_TIMEOUT,
-            stdin=subprocess.DEVNULL,
-        )
-    except FileNotFoundError:
-        return AuthStatus("ADC", UNKNOWN, _("{cmd} not found", cmd="gcloud"))
-    except subprocess.TimeoutExpired:
-        return AuthStatus("ADC", UNKNOWN, _("check timed out"))
-    if r.returncode == 0 and r.stdout.strip():
+    status = _probe(
+        "ADC", ["gcloud", "auth", "application-default", "print-access-token"], _probe_env(profile)
+    )
+    if status.state == OK:
         return AuthStatus("ADC", OK, renewable=True)
-    state, detail = _classify(r.stderr)
-    return AuthStatus("ADC", state, detail)
-
-
-_AWS_EXPIRED = ("token has expired", "expiredtoken", "sso session", "requires re-authentication")
-_AWS_MISSING = ("unable to locate credentials", "could not be found")
-
-
-def _classify_aws(stderr: str) -> tuple[str, str]:
-    lowered = stderr.lower()
-    if any(marker in lowered for marker in _AWS_MISSING):
-        return MISSING, _("no credential stored for this profile")
-    if any(marker in lowered for marker in _AWS_EXPIRED):
-        return REAUTH, _("session expired; log in again")
-    return UNKNOWN, stderr.strip().splitlines()[-1] if stderr.strip() else ""
+    return status
 
 
 def check_aws(profile: Profile) -> AuthStatus | None:
@@ -186,49 +198,32 @@ def check_aws(profile: Profile) -> AuthStatus | None:
     if not profile.aws_profile:
         return None
     env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
-    try:
-        r = subprocess.run(
-            ["aws", "sts", "get-caller-identity", "--output", "json"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_TIMEOUT,
-            stdin=subprocess.DEVNULL,
-        )
-    except FileNotFoundError:
-        return AuthStatus("aws", UNKNOWN, _("{cmd} not found", cmd="aws"))
-    except subprocess.TimeoutExpired:
-        return AuthStatus("aws", UNKNOWN, _("check timed out"))
-    if r.returncode == 0:
-        from .backends.aws import aws_sso_expiry
-
+    status = _probe(
+        "aws",
+        ["aws", "sts", "get-caller-identity", "--output", "json"],
+        env,
+        rules=_AWS_RULES,
+        stdout_required=False,
+    )
+    if status.state == OK:
         return AuthStatus("aws", OK, expires_at=aws_sso_expiry(profile.aws_profile))
-    state, detail = _classify_aws(r.stderr)
-    return AuthStatus("aws", state, detail)
+    return status
 
 
 def check_gh(profile: Profile) -> AuthStatus | None:
-    """Probe the profile's GitHub token with a cheap authenticated call."""
+    """Probe the profile's GitHub token and confirm it belongs to the expected user."""
     if not profile.gh_user:
         return None
     env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
-    try:
-        r = subprocess.run(
-            ["gh", "api", "user", "--jq", ".login"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=PROBE_TIMEOUT,
-            stdin=subprocess.DEVNULL,
+    status = _probe("gh", ["gh", "api", "user", "--jq", ".login"], env, stdout_required=False)
+    if status.state != OK:
+        return status
+    login = status.detail
+    if login and login.lower() != profile.gh_user.lower():
+        return AuthStatus(
+            "gh", REAUTH, _("logged in as {user}, expected {expected}", user=login, expected=profile.gh_user)
         )
-    except FileNotFoundError:
-        return AuthStatus("gh", UNKNOWN, _("{cmd} not found", cmd="gh"))
-    except subprocess.TimeoutExpired:
-        return AuthStatus("gh", UNKNOWN, _("check timed out"))
-    if r.returncode == 0:
-        return AuthStatus("gh", OK)
-    state, detail = _classify(r.stderr)
-    return AuthStatus("gh", state, detail)
+    return AuthStatus("gh", OK)
 
 
 def check_profile(profile: Profile) -> list[AuthStatus]:
@@ -259,19 +254,19 @@ def _write_cache(data: dict) -> None:
         pass
 
 
+def _statuses_from(entry: dict) -> list[AuthStatus] | None:
+    try:
+        return [AuthStatus(**status) for status in entry.get("statuses", [])]
+    except (TypeError, ValueError):
+        return None
+
+
 def read_cached_status(profile: Profile) -> list[AuthStatus] | None:
     """Read cached health without probing, for latency-sensitive shell prompts."""
     entry = _read_cache().get(profile.name)
     if not isinstance(entry, dict) or "statuses" not in entry:
         return None
     return _statuses_from(entry)
-
-
-def _statuses_from(entry: dict) -> list[AuthStatus] | None:
-    try:
-        return [AuthStatus(**status) for status in entry.get("statuses", [])]
-    except (TypeError, ValueError):
-        return None
 
 
 def cached_check(profile: Profile, force: bool = False) -> list[AuthStatus]:
@@ -295,18 +290,17 @@ def problems(profiles: list[Profile]) -> list[tuple[str, AuthStatus]]:
     """(profile name, status) for everything that needs a human."""
     if not checks_enabled():
         return []
-    found = []
-    for profile in profiles:
-        for status in cached_check(profile):
-            if status.needs_human:
-                found.append((profile.name, status))
-    return found
+    return [
+        (profile.name, status)
+        for profile in profiles
+        for status in cached_check(profile)
+        if status.needs_human
+    ]
 
 
 def _flush_stdin() -> None:
     """Drop stray bytes pending on stdin before an interactive prompt."""
     try:
-        import sys
         import termios
 
         termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
@@ -314,139 +308,49 @@ def _flush_stdin() -> None:
         pass
 
 
-def login_profile(
-    profile: Profile,
-    provider: str = "",
-    enabled_providers: list[str] | None = None,
-) -> bool:
-    """Run the interactive login for a profile, in the profile's own scope."""
-    from rich.console import Console
+def _interactive(args: list[str], env: dict[str, str], console: Console) -> bool:
+    """Run a login command that owns the terminal; False when it fails or is missing."""
+    _flush_stdin()
+    try:
+        return subprocess.run(args, env=env).returncode == 0
+    except FileNotFoundError:
+        console.print(_("[red]{cmd} not found in PATH.[/red]", cmd=args[0]))
+        return False
 
-    console = Console()
-    ok = True
 
-    from .providers import auth_provider_name, canonical_providers
+def _gcloud_env(profile: Profile) -> dict[str, str]:
+    return clean_environment(os.environ, profile.gcloud_env())
 
-    forced = auth_provider_name(provider) if provider else ""
-    enabled = (
-        set(canonical_providers(enabled_providers))
-        if enabled_providers is not None
-        else {"gcloud", "adc", "github", "aws"}
+
+def _gcloud_login(profile: Profile, console: Console, forced: bool) -> bool:
+    env = _gcloud_env(profile)
+    console.print(
+        _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
     )
-    wants_gcloud = forced == "gcloud" if forced else "gcloud" in enabled
-    wants_adc = forced == "adc" if forced else "adc" in enabled
-    wants_github = forced == "gh" if forced else "github" in enabled
-    wants_aws = forced == "aws" if forced else "aws" in enabled
-
-    if profile.gcloud_account and wants_gcloud:
-        env = _gcloud_env(profile)
-        status = check_gcloud(profile) if not forced else None
-        if status is not None and status.state == OK:
-            console.print(
-                _("[green]gcloud:[/green] '{account}' is still valid; skipping the browser login", account=profile.gcloud_account)
-            )
-            if wants_adc:
-                ok &= _ensure_adc(profile, env, console)
-        elif status is not None and not status.needs_human:
-            console.print(
-                _(
-                    "{provider} in '{name}': {detail}",
-                    provider="gcloud",
-                    name=profile.name,
-                    detail=status.detail,
-                )
-            )
-            ok = False
-        else:
-            console.print(
-                _("Opening the Google login for '{account}' (profile {name})...", account=profile.gcloud_account, name=profile.name)
-            )
-            try:
-                r = subprocess.run(["gcloud", "auth", "login", profile.gcloud_account], env=env)
-            except FileNotFoundError:
-                console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
-                return False
-            if r.returncode == 0:
-                subprocess.run(
-                    ["gcloud", "config", "set", "account", profile.gcloud_account],
-                    env=env,
-                    capture_output=True,
-                    text=True,
-                    timeout=PROBE_TIMEOUT,
-                )
-                console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
-                if wants_adc:
-                    ok &= _ensure_adc(profile, env, console)
-            else:
-                ok = False
-
-    if profile.gcloud_account and wants_adc and not wants_gcloud:
-        env = _gcloud_env(profile)
-        if forced == "adc" and profile.gcloud_isolated:
-            from .backends.gcloud import has_adc
-
-            ok &= _run_adc_login(profile, env, console, created=not has_adc(profile.gcloud_config_dir))
-        else:
-            ok &= _ensure_adc(profile, env, console, announce_ok=True)
-
-    if profile.gh_user and wants_github:
-        env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
-        status = check_gh(profile) if not forced else None
-        if status is not None and status.state == OK:
-            console.print(
-                _(
-                    "[green]gh:[/green] '{user}' is still valid; use `aparta login {name} --provider gh` to force a new login",
-                    user=profile.gh_user,
-                    name=profile.name,
-                )
-            )
-        elif status is not None and not status.needs_human:
-            console.print(
-                _(
-                    "{provider} in '{name}': {detail}",
-                    provider="gh",
-                    name=profile.name,
-                    detail=status.detail,
-                )
-            )
-            ok = False
-        else:
-            console.print(
-                _("Opening the GitHub login for '{user}' (profile {name})...", user=profile.gh_user, name=profile.name)
-            )
-            try:
-                _flush_stdin()
-                r = subprocess.run(["gh", "auth", "login"], env=env)
-            except FileNotFoundError:
-                console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gh"))
-                return False
-            if r.returncode == 0:
-                console.print(_("[green]gh:[/green] '{user}' reauthenticated", user=profile.gh_user))
-            else:
-                ok = False
-
-    if profile.aws_profile and wants_aws:
-        status = check_aws(profile) if not forced else None
-        if status is not None and not status.needs_human:
-            if status.state == OK:
-                console.print(
-                    _("[green]aws:[/green] profile '{name}' is still valid", name=profile.aws_profile)
-                )
-            else:
-                console.print(_("{provider} in '{name}': {detail}", provider="aws", name=profile.aws_profile, detail=status.detail))
-                ok = False
-        else:
-            ok &= _aws_login(profile, console)
-
-    cached_check(profile, force=True)
-    return ok
+    if not _interactive(["gcloud", "auth", "login", profile.gcloud_account], env, console):
+        return False
+    subprocess.run(
+        ["gcloud", "config", "set", "account", profile.gcloud_account],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=PROBE_TIMEOUT,
+    )
+    console.print(_("[green]gcloud:[/green] '{account}' reauthenticated", account=profile.gcloud_account))
+    return True
 
 
-def _aws_login(profile: Profile, console) -> bool:
+def _gh_login(profile: Profile, console: Console, forced: bool) -> bool:
+    env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
+    console.print(_("Opening the GitHub login for '{user}' (profile {name})...", user=profile.gh_user, name=profile.name))
+    if not _interactive(["gh", "auth", "login"], env, console):
+        return False
+    console.print(_("[green]gh:[/green] '{user}' reauthenticated", user=profile.gh_user))
+    return True
+
+
+def _aws_login(profile: Profile, console: Console, forced: bool = False) -> bool:
     """Renew what a browser can renew: the SSO session."""
-    from .backends.aws import is_sso_profile
-
-    env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
     if not is_sso_profile(profile.aws_profile):
         console.print(
             _(
@@ -455,33 +359,113 @@ def _aws_login(profile: Profile, console) -> bool:
             )
         )
         return True
+    env = clean_environment(os.environ, {"AWS_PROFILE": profile.aws_profile})
     console.print(_("Opening the AWS SSO login for profile '{name}'...", name=profile.aws_profile))
-    _flush_stdin()
-    try:
-        r = subprocess.run(["aws", "sso", "login", "--profile", profile.aws_profile], env=env)
-    except FileNotFoundError:
-        console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="aws"))
-        return False
-    if r.returncode != 0:
+    if not _interactive(["aws", "sso", "login", "--profile", profile.aws_profile], env, console):
         return False
     console.print(_("[green]aws:[/green] profile '{name}' reauthenticated", name=profile.aws_profile))
     return True
 
 
-def _gcloud_env(profile: Profile) -> dict:
-    overlay = {
-        k: v for k, v in profile.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_"))
-    }
-    return clean_environment(os.environ, overlay)
+def _adc_step(profile: Profile, console: Console, forced: bool) -> bool:
+    return _ensure_adc(profile, _gcloud_env(profile), console, announce_ok=True, force=forced)
 
 
-def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False) -> bool:
+@dataclass(frozen=True)
+class Credential:
+    """One credential a profile may hold, with its probe and its interactive renewal."""
+
+    provider: str
+    label: str
+    applies: Callable[[Profile], bool]
+    check: Callable[[Profile], AuthStatus | None]
+    login: Callable[[Profile, Console, bool], bool]
+    still_valid: Callable[[Profile], str]
+
+
+CREDENTIALS: tuple[Credential, ...] = (
+    Credential(
+        "gcloud",
+        "gcloud",
+        lambda p: bool(p.gcloud_account),
+        lambda p: check_gcloud(p),
+        lambda p, console, forced: _gcloud_login(p, console, forced),
+        lambda p: _("[green]gcloud:[/green] '{account}' is still valid; skipping the browser login", account=p.gcloud_account),
+    ),
+    Credential(
+        "adc",
+        "ADC",
+        lambda p: bool(p.gcloud_account and p.gcloud_isolated),
+        lambda p: None,
+        lambda p, console, forced: _adc_step(p, console, forced),
+        lambda p: "",
+    ),
+    Credential(
+        "github",
+        "gh",
+        lambda p: bool(p.gh_user),
+        lambda p: check_gh(p),
+        lambda p, console, forced: _gh_login(p, console, forced),
+        lambda p: _(
+            "[green]gh:[/green] '{user}' is still valid; use `aparta login {name} --provider gh` to force a new login",
+            user=p.gh_user,
+            name=p.name,
+        ),
+    ),
+    Credential(
+        "aws",
+        "aws",
+        lambda p: bool(p.aws_profile),
+        lambda p: check_aws(p),
+        lambda p, console, forced: _aws_login(p, console, forced),
+        lambda p: _("[green]aws:[/green] profile '{name}' is still valid", name=p.aws_profile),
+    ),
+)
+
+
+def login_profile(
+    profile: Profile,
+    provider: str = "",
+    enabled_providers: list[str] | None = None,
+) -> bool:
+    """Renew every wanted credential of a profile, in the profile's own scope."""
+    console = Console()
+    forced = canonical_provider(provider) if provider else ""
+    if forced:
+        wanted = {forced}
+    elif enabled_providers is not None:
+        wanted = set(canonical_providers(enabled_providers))
+    else:
+        wanted = {credential.provider for credential in CREDENTIALS}
+    ok = True
+    for credential in CREDENTIALS:
+        if credential.provider not in wanted or not credential.applies(profile):
+            continue
+        status = None if forced else credential.check(profile)
+        if status is not None and status.state == OK:
+            console.print(credential.still_valid(profile))
+            continue
+        if status is not None and not status.needs_human:
+            console.print(
+                _("{provider} in '{name}': {detail}", provider=credential.label, name=profile.name, detail=status.detail)
+            )
+            ok = False
+            continue
+        ok &= credential.login(profile, console, bool(forced))
+    cached_check(profile, force=True)
+    return ok
+
+
+def _ensure_adc(
+    profile: Profile, env: dict, console: Console, announce_ok: bool = False, force: bool = False
+) -> bool:
     """Create or renew the profile's application default credentials."""
-    from .backends.gcloud import has_adc
-
     if not profile.gcloud_isolated:
         return True
-    if not has_adc(profile.gcloud_config_dir):
+    exists = has_adc(profile.gcloud_config_dir)
+    if force:
+        return _run_adc_login(profile, env, console, created=not exists)
+    if not exists:
         return _offer_adc(profile, env, console)
     status = check_adc(profile)
     if status is None or status.state == OK:
@@ -489,25 +473,14 @@ def _ensure_adc(profile: Profile, env: dict, console, announce_ok: bool = False)
             console.print(_("[green]ADC:[/green] the application credentials are still valid"))
         return True
     if status.state == UNKNOWN:
-        console.print(
-            _(
-                "{provider} in '{name}': {detail}",
-                provider="ADC",
-                name=profile.name,
-                detail=status.detail,
-            )
-        )
+        console.print(_("{provider} in '{name}': {detail}", provider="ADC", name=profile.name, detail=status.detail))
         return False
-    console.print(
-        _("[yellow]ADC:[/yellow] {detail}; renewing the application credentials...", detail=status.detail)
-    )
+    console.print(_("[yellow]ADC:[/yellow] {detail}; renewing the application credentials...", detail=status.detail))
     return _run_adc_login(profile, env, console, created=False)
 
 
-def _offer_adc(profile: Profile, env: dict, console) -> bool:
-    """A profile with no ADC yet gets the offer to create one."""
-    import sys
-
+def _offer_adc(profile: Profile, env: dict, console: Console) -> bool:
+    """A profile with no ADC yet gets the offer to create one, inside its own scope."""
     console.print(
         _("[dim]This profile has no application credentials of its own yet; SDKs and Terraform need them.[/dim]")
     )
@@ -522,12 +495,12 @@ def _offer_adc(profile: Profile, env: dict, console) -> bool:
 
 
 def _adc_login_env(env: dict) -> dict:
-    """The env for an ADC login, without GOOGLE_APPLICATION_CREDENTIALS."""
+    """The login env without GOOGLE_APPLICATION_CREDENTIALS, or gcloud stops to ask about it."""
     return {k: v for k, v in env.items() if k != "GOOGLE_APPLICATION_CREDENTIALS"}
 
 
-def _adc_from_cli_credential(profile: Profile, env: dict, console) -> bool:
-    """Try to derive the ADC from the CLI credential, with no browser."""
+def _adc_from_cli_credential(profile: Profile, env: dict) -> bool:
+    """Derive the ADC from the cached gcloud credential, with no browser."""
     if not profile.gcloud_account:
         return False
     try:
@@ -556,29 +529,17 @@ def _adc_from_cli_credential(profile: Profile, env: dict, console) -> bool:
     return status is not None and status.state == OK
 
 
-def _run_adc_login(profile: Profile, env: dict, console, created: bool) -> bool:
-    from .backends.gcloud import has_adc
-
-    if _adc_from_cli_credential(profile, env, console):
-        console.print(
-            _("[green]ADC:[/green] application credentials derived from the gcloud login, no browser needed")
-        )
-        r = subprocess.CompletedProcess([], 0)
+def _run_adc_login(profile: Profile, env: dict, console: Console, created: bool) -> bool:
+    if _adc_from_cli_credential(profile, env):
+        console.print(_("[green]ADC:[/green] application credentials derived from the gcloud login, no browser needed"))
+        succeeded = True
     else:
         if profile.gcloud_account:
-            console.print(
-                _("[dim]In the browser, pick the account {account}.[/dim]", account=profile.gcloud_account)
-            )
-        _flush_stdin()
-        try:
-            r = subprocess.run(
-                ["gcloud", "auth", "application-default", "login", "--quiet"],
-                env=_adc_login_env(env),
-            )
-        except FileNotFoundError:
-            console.print(_("[red]{cmd} not found in PATH.[/red]", cmd="gcloud"))
-            return False
-    if r.returncode != 0 or not has_adc(profile.gcloud_config_dir):
+            console.print(_("[dim]In the browser, pick the account {account}.[/dim]", account=profile.gcloud_account))
+        succeeded = _interactive(
+            ["gcloud", "auth", "application-default", "login", "--quiet"], _adc_login_env(env), console
+        )
+    if not succeeded or not has_adc(profile.gcloud_config_dir):
         console.print(
             _("[yellow]The ADC login did not complete; run `aparta login {name}` to try again.[/yellow]", name=profile.name)
         )

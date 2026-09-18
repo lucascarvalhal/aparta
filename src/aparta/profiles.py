@@ -125,6 +125,14 @@ class Profile:
         return Path(self.root).expanduser()
 
     @property
+    def adc_path(self) -> Path:
+        return self.gcloud_config_dir / "application_default_credentials.json"
+
+    def gcloud_env(self) -> dict[str, str]:
+        """The gcloud and Google library selectors among this profile's variables."""
+        return {k: v for k, v in self.env().items() if k.startswith(("CLOUDSDK_", "GOOGLE_", "GCLOUD_"))}
+
+    @property
     def gh_config_dir(self) -> Path:
         return gh_config_dir(self.name)
 

@@ -83,28 +83,12 @@ def workspace_env(workspace: Workspace, profile: Profile) -> dict[str, str]:
         env["GH_CONFIG_DIR"] = available["GH_CONFIG_DIR"]
 
     if selected.intersection({"gcloud", "adc"}):
-        for key in (
-            "CLOUDSDK_CONFIG",
-            "CLOUDSDK_ACTIVE_CONFIG_NAME",
-            "CLOUDSDK_CORE_ACCOUNT",
-            "CLOUDSDK_CORE_PROJECT",
-            "CLOUDSDK_CORE_DISABLE_FILE_LOGGING",
-            "GOOGLE_CLOUD_PROJECT",
-            "GCLOUD_PROJECT",
-            "GOOGLE_APPLICATION_CREDENTIALS",
-        ):
-            if key in available:
-                env[key] = available[key]
+        env.update(profile.gcloud_env())
 
     if "aws" in selected and "AWS_PROFILE" in available:
         env["AWS_PROFILE"] = available["AWS_PROFILE"]
 
     return env
-
-
-def auth_provider_name(provider: str) -> str:
-    provider = canonical_provider(provider)
-    return "gh" if provider == "github" else provider
 
 
 def status_provider_name(provider: str) -> str:
