@@ -529,7 +529,7 @@ def test_aws_static_keys_get_guidance_not_a_browser(monkeypatch):
     """Static AWS keys cannot be renewed by a login; pointing at aws configure is not a failure."""
     monkeypatch.setattr(auth, "check_aws", lambda p: auth.AuthStatus("aws", auth.REAUTH, "session expired"))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
-    monkeypatch.setattr("aparta.backends.aws.is_sso_profile", lambda name: False)
+    monkeypatch.setattr(auth, "is_sso_profile", lambda name: False)
 
     def explode(*a, **kw):  # pragma: no cover - must not be called
         raise AssertionError("no login command for static keys")
