@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 from aparta import wizard
-from aparta.backends import gh
+from aparta.backends import gcloud as gcloud_backend, gh
 from aparta.fsutil import SafeWriter
 from aparta.profiles import Profile
 
@@ -21,7 +21,7 @@ def test_login_gcloud_dry_run_runs_nothing(monkeypatch):
     def explode(*a, **kw):  # pragma: no cover - must not be called
         raise AssertionError("subprocess não deveria rodar em dry-run")
 
-    monkeypatch.setattr(wizard.subprocess, "run", explode)
+    monkeypatch.setattr(gcloud_backend.subprocess, "run", explode)
     assert wizard.login_new_gcloud_account("novo", dry_run=True) == ""
 
 
@@ -37,7 +37,7 @@ def test_login_gh_creates_profile_dir_and_returns_user(tmp_path, monkeypatch):
             args, 0, stdout="✓ Logged in to github.com account fulano (keyring)", stderr=""
         )
 
-    monkeypatch.setattr(wizard.subprocess, "run", fake_run)
+    monkeypatch.setattr(gh.subprocess, "run", fake_run)
     user = wizard.login_new_gh_account("novo")
     assert user == "fulano"
     dst = str(tmp_path / ".config" / "gh-novo")
@@ -48,7 +48,7 @@ def test_login_gh_creates_profile_dir_and_returns_user(tmp_path, monkeypatch):
 def test_login_gh_failure_returns_empty(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / ".config"))
     monkeypatch.setattr(
-        wizard.subprocess,
+        gh.subprocess,
         "run",
         lambda args, **kw: subprocess.CompletedProcess(args, 1, stdout="", stderr=""),
     )
@@ -63,9 +63,7 @@ def test_login_gcloud_uses_named_config(monkeypatch):
         out = "nova@conta.com\n" if args[-1] == "account" else ""
         return subprocess.CompletedProcess(args, 0, stdout=out, stderr="")
 
-    monkeypatch.setattr(wizard.subprocess, "run", fake_run)
-    from aparta.backends import gcloud as gcloud_backend
-
+    monkeypatch.setattr(gcloud_backend.subprocess, "run", fake_run)
     monkeypatch.setattr(gcloud_backend, "configuration_exists", lambda name: False)
     assert wizard.login_new_gcloud_account("novo") == "nova@conta.com"
     assert calls[0][0][:4] == ["gcloud", "config", "configurations", "create"]

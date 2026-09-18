@@ -1,39 +1,63 @@
-"""aparta doctor: validate git, gh, gcloud and agents per profile."""
+"""aparta doctor: validate git, gh, gcloud, aws, credentials and agents per profile."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
+from typing import NamedTuple
 
 from rich.console import Console
 from rich.table import Table
 
 from .agents import get_adapters
+from . import auth
+from .backends.aws import aws_profile_exists
+from .backends.gcloud import apply_gcloud, has_adc
+from .backends.gh import apply_gh
+from .backends.git import reconcile_workspace_git
+from .fsutil import SafeWriter
 from .i18n import _
-from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles
+from .profiles import MANAGED_ENV_KEYS, Profile, clean_environment, load_profiles
 from .providers import workspace_env
-from .profiles import clean_environment
 from .workspaces import implicit_workspace, load_workspaces, profile_repos, workspace_for_path
 
 console = Console()
 
-GIT = "git"
-GH_DIR = "gh_dir"
-GCLOUD_DIR = "gcloud_dir"
-GCLOUD_ACCOUNT = "gcloud_account"
-GCLOUD_PROJECT = "gcloud_project"
-ENV = "env"
-HUMAN = "human"
-AWS = "aws"
+
+class IssueKind(str, Enum):
+    GIT = "git"
+    GH_DIR = "gh_dir"
+    GCLOUD_DIR = "gcloud_dir"
+    GCLOUD_ACCOUNT = "gcloud_account"
+    GCLOUD_PROJECT = "gcloud_project"
+    ENV = "env"
+    HUMAN = "human"
+    AWS = "aws"
+
+    @property
+    def manual(self) -> bool:
+        """Whether only the user can resolve it."""
+        return self in (IssueKind.HUMAN, IssueKind.AWS)
 
 
 @dataclass
 class Issue:
-    kind: str
+    kind: IssueKind
     detail: str = ""
     repo: Path | None = None
+
+
+class Row(NamedTuple):
+    area: str
+    item: str
+    ok: bool | None
+    detail: str
+
+
+Findings = tuple[list[Row], list[Issue]]
 
 
 def _run(args: list[str], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
@@ -46,146 +70,143 @@ def _run(args: list[str], extra_env: dict[str, str] | None = None) -> subprocess
         return subprocess.CompletedProcess(args, 1, "", "timeout")
 
 
-def _row(rows: list[tuple[str, str, bool | None, str]], area: str, item: str, ok: bool | None, detail: str) -> bool:
-    rows.append((area, item, ok, detail))
-    return bool(ok)
-
-
-def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]], bool, list[Issue]]:
-    """Read-only inspection: (table rows, everything ok, issues found)."""
-    rows: list[tuple[str, str, bool | None, str]] = []
+def _check_git(profile: Profile, repos: list[Path]) -> Findings:
+    rows: list[Row] = []
     issues: list[Issue] = []
-    all_ok = True
-    all_profiles = load_profiles()
-    all_profiles.setdefault(profile.name, profile)
-    repos = profile_repos(profile, all_profiles)
-
     if not repos:
-        all_ok &= _row(rows, "git", str(profile.root_path), None, _("no repository found"))
+        rows.append(Row("git", str(profile.root_path), False, _("no repository found")))
     for repo in repos:
-        r = _run(["git", "-C", str(repo), "config", "user.email"])
-        email = r.stdout.strip()
+        email = _run(["git", "-C", str(repo), "config", "user.email"]).stdout.strip()
         ok = email == profile.git_email
-        all_ok &= _row(rows, "git", repo.name, ok, email or _("user.email not resolved"))
+        rows.append(Row("git", repo.name, ok, email or _("user.email not resolved")))
         if not ok:
-            issues.append(Issue(GIT, repo.name, repo))
+            issues.append(Issue(IssueKind.GIT, repo.name, repo))
+    return rows, issues
 
-    if profile.gh_user:
-        gh_dir = profile.gh_config_dir
-        if not gh_dir.exists():
-            all_ok &= _row(rows, "gh", str(gh_dir), False, _("config dir missing, run `aparta apply`"))
-            issues.append(Issue(GH_DIR, str(gh_dir)))
+
+def _check_gh(profile: Profile) -> Findings:
+    if not profile.gh_user:
+        return [], []
+    gh_dir = profile.gh_config_dir
+    if not gh_dir.exists():
+        row = Row("gh", str(gh_dir), False, _("config dir missing, run `aparta apply`"))
+        return [row], [Issue(IssueKind.GH_DIR, str(gh_dir))]
+    r = _run(["gh", "auth", "status"], {"GH_CONFIG_DIR": str(gh_dir)})
+    output = r.stdout + r.stderr
+    ok = r.returncode == 0 and profile.gh_user in output
+    detail = _("logged in as {user}", user=profile.gh_user) if ok else (output.strip().splitlines() or [_("failed")])[-1]
+    return [Row("gh", gh_dir.name, ok, detail)], []
+
+
+def _check_gcloud(profile: Profile) -> Findings:
+    rows: list[Row] = []
+    issues: list[Issue] = []
+    if not (profile.gcloud_account or profile.gcloud_project):
+        return rows, issues
+    env = profile.gcloud_env()
+    if profile.gcloud_isolated and not profile.gcloud_config_dir.exists():
+        rows.append(Row("gcloud", str(profile.gcloud_config_dir), False, _("config dir missing, run `aparta apply`")))
+        issues.append(Issue(IssueKind.GCLOUD_DIR, str(profile.gcloud_config_dir)))
+    for key, expected, kind in (
+        ("account", profile.gcloud_account, IssueKind.GCLOUD_ACCOUNT),
+        ("project", profile.gcloud_project, IssueKind.GCLOUD_PROJECT),
+    ):
+        if not expected:
+            continue
+        r = _run(["gcloud", "config", "get", key], env)
+        value = r.stdout.strip()
+        ok = value == expected
+        rows.append(Row("gcloud", key, ok, value or r.stderr.strip()))
+        if not ok:
+            issues.append(Issue(kind, value))
+    if profile.gcloud_isolated and profile.gcloud_config_dir.exists() and not has_adc(profile.gcloud_config_dir):
+        rows.append(
+            Row("gcloud", "ADC", None, _("none yet; `aparta login {name}` offers to create them", name=profile.name))
+        )
+    return rows, issues
+
+
+def _check_aws(profile: Profile) -> Findings:
+    if not profile.aws_profile:
+        return [], []
+    ok = aws_profile_exists(profile.aws_profile)
+    detail = (
+        _("profile found in ~/.aws")
+        if ok
+        else _("profile missing, run `aws configure --profile {name}`", name=profile.aws_profile)
+    )
+    issues = [] if ok else [Issue(IssueKind.AWS, profile.aws_profile)]
+    return [Row("aws", profile.aws_profile, ok, detail)], issues
+
+
+def _check_credentials(profile: Profile) -> Findings:
+    rows: list[Row] = []
+    issues: list[Issue] = []
+    if not auth.checks_enabled():
+        return rows, issues
+    for status in auth.cached_check(profile):
+        if status.state == auth.OK:
+            rows.append(Row(status.label, _("credential"), True, _("valid")))
+        elif status.state == auth.UNKNOWN:
+            rows.append(Row(status.label, _("credential"), None, status.detail))
         else:
-            r = _run(["gh", "auth", "status"], {"GH_CONFIG_DIR": str(gh_dir)})
-            output = r.stdout + r.stderr
-            ok = r.returncode == 0 and profile.gh_user in output
-            detail = _("logged in as {user}", user=profile.gh_user) if ok else (output.strip().splitlines() or [_("failed")])[-1]
-            all_ok &= _row(rows, "gh", gh_dir.name, ok, detail)
+            detail = _("{detail}, run `aparta login {name}`", detail=status.detail, name=profile.name)
+            rows.append(Row(status.label, _("credential"), False, detail))
+            issues.append(Issue(IssueKind.HUMAN, status.label))
+    return rows, issues
 
-    if profile.gcloud_account or profile.gcloud_project:
-        env = profile.gcloud_env()
-        if profile.gcloud_isolated:
-            if not profile.gcloud_config_dir.exists():
-                all_ok &= _row(
-                    rows,
-                    "gcloud",
-                    str(profile.gcloud_config_dir),
-                    False,
-                    _("config dir missing, run `aparta apply`"),
-                )
-                issues.append(Issue(GCLOUD_DIR, str(profile.gcloud_config_dir)))
-        if profile.gcloud_account:
-            r = _run(["gcloud", "config", "get", "account"], env)
-            account = r.stdout.strip()
-            ok = account == profile.gcloud_account
-            all_ok &= _row(rows, "gcloud", "account", ok, account or r.stderr.strip())
-            if not ok:
-                issues.append(Issue(GCLOUD_ACCOUNT, account))
-        if profile.gcloud_project:
-            r = _run(["gcloud", "config", "get", "project"], env)
-            project = r.stdout.strip()
-            ok = project == profile.gcloud_project
-            all_ok &= _row(rows, "gcloud", "project", ok, project or r.stderr.strip())
-            if not ok:
-                issues.append(Issue(GCLOUD_PROJECT, project))
 
-    if profile.gcloud_isolated and profile.gcloud_config_dir.exists():
-        from .backends.gcloud import has_adc
-
-        if not has_adc(profile.gcloud_config_dir):
-            _row(
-                rows,
-                "gcloud",
-                "ADC",
-                None,
-                _("none yet; `aparta login {name}` offers to create them", name=profile.name),
-            )
-
-    if profile.aws_profile:
-        from .backends.aws import aws_profile_exists
-
-        ok = aws_profile_exists(profile.aws_profile)
-        detail = _("profile found in ~/.aws") if ok else _("profile missing, run `aws configure --profile {name}`", name=profile.aws_profile)
-        all_ok &= _row(rows, "aws", profile.aws_profile, ok, detail)
-        if not ok:
-            issues.append(Issue(AWS, profile.aws_profile))
-
-    from .auth import OK as AUTH_OK, UNKNOWN as AUTH_UNKNOWN, checks_enabled, cached_check
-
-    if checks_enabled():
-        for status in cached_check(profile):
-            if status.state == AUTH_OK:
-                all_ok &= _row(rows, status.label, _("credential"), True, _("valid"))
-            elif status.state == AUTH_UNKNOWN:
-                _row(rows, status.label, _("credential"), None, status.detail)
-            else:
-                all_ok &= _row(
-                    rows,
-                    status.label,
-                    _("credential"),
-                    False,
-                    _("{detail}, run `aparta login {name}`", detail=status.detail, name=profile.name),
-                )
-                issues.append(Issue(HUMAN, status.label))
-
+def _check_agents(profile: Profile, repos: list[Path], profiles: dict[str, Profile]) -> Findings:
+    rows: list[Row] = []
+    issues: list[Issue] = []
     saved_workspaces = load_workspaces()
     for adapter in get_adapters(profile.agents):
         for repo in repos:
-            workspace = workspace_for_path(repo, all_profiles, saved_workspaces)
-            if workspace is None:
-                workspace = implicit_workspace(repo.resolve(), profile)
-            expected_env = (
-                workspace_env(workspace, profile)
-                if workspace.profile == profile.name
-                else profile.env()
-            )
-            unexpected = [
-                key
-                for key in MANAGED_ENV_KEYS
-                if key not in expected_env and key in adapter.read_env(repo)
-            ]
+            workspace = workspace_for_path(repo, profiles, saved_workspaces) or implicit_workspace(repo.resolve(), profile)
+            expected_env = workspace_env(workspace, profile) if workspace.profile == profile.name else profile.env()
+            current = adapter.read_env(repo)
+            unexpected = [key for key in MANAGED_ENV_KEYS if key not in expected_env and key in current]
             if not expected_env and not unexpected:
                 continue
             if unexpected:
                 ok, msg = False, _("env mismatch: {keys}", keys=", ".join(unexpected))
             else:
                 ok, msg = adapter.validate(repo, expected_env)
-            all_ok &= _row(rows, adapter.name, repo.name, ok, msg)
+            rows.append(Row(adapter.name, repo.name, ok, msg))
             if not ok:
-                issues.append(Issue(ENV, f"{adapter.name}: {repo.name}", repo))
+                issues.append(Issue(IssueKind.ENV, f"{adapter.name}: {repo.name}", repo))
+    return rows, issues
 
-    return rows, bool(all_ok), issues
+
+def _diagnose(profile: Profile) -> tuple[list[Row], bool, list[Issue]]:
+    """Read-only inspection: (table rows, everything ok, issues found)."""
+    profiles = load_profiles()
+    profiles.setdefault(profile.name, profile)
+    repos = profile_repos(profile, profiles)
+    rows: list[Row] = []
+    issues: list[Issue] = []
+    for found_rows, found_issues in (
+        _check_git(profile, repos),
+        _check_gh(profile),
+        _check_gcloud(profile),
+        _check_aws(profile),
+        _check_credentials(profile),
+        _check_agents(profile, repos, profiles),
+    ):
+        rows += found_rows
+        issues += found_issues
+    return rows, all(row.ok is not False for row in rows), issues
 
 
-def _render(profile: Profile, rows: list[tuple[str, str, bool | None, str]]) -> None:
+def _render(profile: Profile, rows: list[Row]) -> None:
     table = Table(title=_("doctor: profile '{name}'", name=profile.name), show_lines=False)
     table.add_column(_("Area"), style="bold")
     table.add_column(_("Item"))
     table.add_column("OK", justify="center")
     table.add_column(_("Detail"), overflow="fold")
-    for area, item, ok, detail in rows:
-        icon = {True: "[green]✔[/green]", False: "[red]✘[/red]", None: "[yellow]—[/yellow]"}[ok]
-        table.add_row(area, item, icon, detail)
+    icons = {True: "[green]✔[/green]", False: "[red]✘[/red]", None: "[yellow]—[/yellow]"}
+    for row in rows:
+        table.add_row(row.area, row.item, icons[row.ok], row.detail)
     console.print(table)
 
 
@@ -195,78 +216,55 @@ def check_profile(profile: Profile, fix: bool = False, dry_run: bool = False, ve
     _render(profile, rows)
     if not fix:
         return all_ok
-    return fix_profile(profile, issues, dry_run=dry_run, verbose=verbose, was_ok=all_ok)
+    fixed = fix_profile(profile, issues, SafeWriter(dry_run=dry_run, verbose=verbose))
+    return all_ok if fixed is None else fixed
 
 
-def fix_profile(
-    profile: Profile,
-    issues: list[Issue],
-    dry_run: bool = False,
-    verbose: bool = False,
-    was_ok: bool = False,
-) -> bool:
-    """Repair the deterministic issues; return whether the profile ends healthy."""
-    from .fsutil import SafeWriter
-
+def fix_profile(profile: Profile, issues: list[Issue], writer: SafeWriter) -> bool | None:
+    """Repair the deterministic issues; None when nothing was attempted, else whether it ends healthy."""
     kinds = {issue.kind for issue in issues}
-    fixable = kinds - {HUMAN, AWS}
-    manual = [issue for issue in issues if issue.kind in (HUMAN, AWS)]
-
+    manual = [issue for issue in issues if issue.kind.manual]
+    fixable = {kind for kind in kinds if not kind.manual}
     if not fixable:
-        if not manual:
+        if manual:
+            _report_manual(profile, manual)
+        else:
             console.print(_("[green]doctor --fix: nothing to repair.[/green]"))
-            return was_ok
-        _report_manual(profile, manual)
-        return was_ok
+        return None
 
-    writer = SafeWriter(dry_run=dry_run, verbose=verbose)
     console.print(_("[bold]doctor --fix: repairing profile '{name}'[/bold]", name=profile.name))
     done: list[str] = []
-
-    if GIT in kinds:
-        from .backends.git import reconcile_workspace_git
-
+    if IssueKind.GIT in kinds:
         profiles = load_profiles()
         profiles.setdefault(profile.name, profile)
         reconcile_workspace_git(profiles, load_workspaces(), writer)
         done.append(_("git: workspace identities reapplied"))
-
-    if GH_DIR in kinds:
-        from .backends.gh import apply_gh
-
-        _print_notes(apply_gh(profile, writer), verbose)
+    if IssueKind.GH_DIR in kinds:
+        _print_notes(apply_gh(profile, writer), writer.verbose)
         done.append(_("gh: config dir reapplied"))
-
-    if kinds & {GCLOUD_DIR, GCLOUD_ACCOUNT, GCLOUD_PROJECT}:
-        from .backends.gcloud import apply_gcloud
-
-        _print_notes(apply_gcloud(profile, writer), verbose)
+    if kinds & {IssueKind.GCLOUD_DIR, IssueKind.GCLOUD_ACCOUNT, IssueKind.GCLOUD_PROJECT}:
+        _print_notes(apply_gcloud(profile, writer), writer.verbose)
         done.append(_("gcloud: account and project reasserted"))
-
-    env_repos = sorted({issue.repo for issue in issues if issue.kind == ENV and issue.repo})
+    env_repos = sorted({issue.repo for issue in issues if issue.kind == IssueKind.ENV and issue.repo})
     if env_repos:
         touched = _reinject_env(profile, env_repos, writer)
         done.append(_("agents: env reinjected into {n} config file(s)", n=touched))
-
     for line in done:
-        console.print(_("  [green]fixed[/green] {what}", what=line))
-
-    if dry_run:
+        console.print(f"  [green]OK[/green] {line}")
+    if writer.dry_run:
         console.print(_("[yellow]--dry-run: nothing was changed; run without --dry-run to repair.[/yellow]"))
-        if manual:
-            _report_manual(profile, manual)
-        return was_ok
+        return None
 
     _rows, all_ok, remaining = _diagnose(profile)
-    manual = [issue for issue in remaining if issue.kind in (HUMAN, AWS)]
-    still_broken = [issue for issue in remaining if issue.kind not in (HUMAN, AWS)]
+    manual = [issue for issue in remaining if issue.kind.manual]
+    still_broken = sorted({issue.kind.value for issue in remaining if not issue.kind.manual})
     if manual:
         _report_manual(profile, manual)
     if still_broken:
         console.print(
             _(
                 "[yellow]Still failing after the fix: {items}. Run `aparta doctor {name}` for the detail.[/yellow]",
-                items=", ".join(sorted({i.kind for i in still_broken})),
+                items=", ".join(still_broken),
                 name=profile.name,
             )
         )
@@ -281,7 +279,7 @@ def _print_notes(notes, verbose: bool) -> None:
             console.print(note.text)
 
 
-def _reinject_env(profile: Profile, repos: list[Path], writer) -> int:
+def _reinject_env(profile: Profile, repos: list[Path], writer: SafeWriter) -> int:
     """Re-inject each exact workspace env into the given repos, as apply does."""
     from .apply import apply_workspace_agents
 
@@ -290,9 +288,7 @@ def _reinject_env(profile: Profile, repos: list[Path], writer) -> int:
     profiles.setdefault(profile.name, profile)
     before = len(writer.changes)
     for repo in repos:
-        workspace = workspace_for_path(repo, profiles, saved_workspaces)
-        if workspace is None:
-            workspace = implicit_workspace(repo.resolve(), profile)
+        workspace = workspace_for_path(repo, profiles, saved_workspaces) or implicit_workspace(repo.resolve(), profile)
         if workspace.profile == profile.name:
             apply_workspace_agents(profile, workspace, writer)
     return len(set(writer.changes[before:]))
@@ -302,7 +298,7 @@ def _report_manual(profile: Profile, manual: list[Issue]) -> None:
     """Print what aparta will not do on the user's behalf."""
     console.print(_("[bold]Still needs you:[/bold]"))
     for issue in manual:
-        if issue.kind == HUMAN:
+        if issue.kind == IssueKind.HUMAN:
             console.print(
                 _(
                     "  [yellow]{provider}[/yellow] credential: run `aparta login {name}` (aparta never reauthenticates for you)",
@@ -311,6 +307,4 @@ def _report_manual(profile: Profile, manual: list[Issue]) -> None:
                 )
             )
         else:
-            console.print(
-                _("  [yellow]aws[/yellow]: run `aws configure --profile {name}`", name=issue.detail)
-            )
+            console.print(_("  [yellow]aws[/yellow]: run `aws configure --profile {name}`", name=issue.detail))

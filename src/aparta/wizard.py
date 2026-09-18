@@ -3,22 +3,30 @@
 from __future__ import annotations
 
 import os
-import re
-import subprocess
 from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from .agents import ADAPTERS
-from .discovery import ContextSuggestion, discover
-from .fsutil import SafeWriter
-from .i18n import _
 from . import prompts
+from .agents import ADAPTERS
+from .apply import apply_profile
+from .backends import gcloud as gcloud_backend
+from .backends import gh as gh_backend
+from .backends import ssh
+from .backends.aws import list_aws_profiles
+from .backends.gcloud import list_gcloud_accounts
+from .backends.gh import list_gh_accounts
+from .backends.git import global_user_name
+from .backends.ssh import list_ssh_host_aliases, list_ssh_keys
 from .config import gh_config_dir
+from .discovery import ContextSuggestion, discover, loose_repos
+from .fsutil import SafeWriter
+from .i18n import _, saved_language, set_language
 from .profiles import Profile, load_profiles, profiles_path, save_profiles
 from .prompts import SKIP
+from .updates import set_update_mode, update_mode_saved
 
 console = Console()
 
@@ -34,171 +42,52 @@ PROVIDERS = [
 ]
 
 
-def list_ssh_keys(ssh_dir: Path | None = None) -> list[str]:
-    """Private keys in ~/.ssh (files with a matching .pub)."""
-    ssh_dir = ssh_dir or Path.home() / ".ssh"
-    if not ssh_dir.exists():
-        return []
-    keys = []
-    for pub in sorted(ssh_dir.glob("*.pub")):
-        private = pub.with_suffix("")
-        if private.exists():
-            keys.append(str(private))
-    return keys
-
-
-def list_ssh_host_aliases(config: Path | None = None) -> list[dict[str, str]]:
-    """Host aliases from ~/.ssh/config: [{alias, hostname, identity}]."""
-    config = config or Path.home() / ".ssh" / "config"
-    if not config.exists():
-        return []
-    aliases: list[dict[str, str]] = []
-    current: dict[str, str] | None = None
-    for raw in config.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        m = re.match(r"(?i)^Host\s+(.+)", line)
-        if m:
-            name = m.group(1).split()[0]
-            current = None
-            if "*" not in name and "?" not in name:
-                current = {"alias": name, "hostname": "", "identity": ""}
-                aliases.append(current)
-            continue
-        if current is None:
-            continue
-        m = re.match(r"(?i)^HostName\s+(\S+)", line)
-        if m:
-            current["hostname"] = m.group(1)
-            continue
-        m = re.match(r"(?i)^IdentityFile\s+(\S+)", line)
-        if m:
-            current["identity"] = m.group(1)
-    return [a for a in aliases if a["hostname"] and a["alias"] != a["hostname"]]
-
-
-def parse_gh_accounts(status_output: str) -> list[str]:
-    """Logged-in users from `gh auth status` output (every account)."""
-    return list(dict.fromkeys(re.findall(r"Logged in to \S+ account (\S+)", status_output)))
-
-
-def list_gh_accounts() -> list[str]:
-    try:
-        r = subprocess.run(
-            ["gh", "auth", "status"], capture_output=True, text=True, timeout=30
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return []
-    return parse_gh_accounts(r.stdout + r.stderr)
-
-
-def list_gcloud_accounts() -> list[str]:
-    try:
-        r = subprocess.run(
-            ["gcloud", "auth", "list", "--format=value(account)"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return []
-    if r.returncode != 0:
-        return []
-    return [line.strip() for line in r.stdout.splitlines() if line.strip()]
+def _dry_run(command: str) -> None:
+    console.print(f"[yellow]--dry-run[/yellow] {command}")
 
 
 def login_new_gh_account(profile_name: str, dry_run: bool = False) -> str:
     """Interactive `gh auth login` inside ~/.config/gh-<profile>."""
     dst = gh_config_dir(profile_name)
     if dry_run:
-        console.print(f"[yellow]--dry-run[/yellow] GH_CONFIG_DIR={dst} gh auth login")
+        _dry_run(f"GH_CONFIG_DIR={dst} gh auth login")
         return ""
-    dst.mkdir(parents=True, exist_ok=True)
-    env = dict(os.environ, GH_CONFIG_DIR=str(dst))
-    try:
-        prompts.flush_stdin()
-        r = subprocess.run(["gh", "auth", "login"], env=env)
-    except FileNotFoundError:
-        console.print(_("[red]gh not found in PATH.[/red]"))
-        return ""
-    if r.returncode != 0:
-        console.print(_("[yellow]Login cancelled or failed; skipping gh.[/yellow]"))
-        return ""
-    status = subprocess.run(
-        ["gh", "auth", "status"], env=env, capture_output=True, text=True, timeout=30
-    )
-    accounts = parse_gh_accounts(status.stdout + status.stderr)
-    if accounts:
-        console.print(_("[green]gh:[/green] '{user}' logged in at {dst}", user=accounts[0], dst=dst))
-        return accounts[0]
-    return ""
+    prompts.flush_stdin()
+    user, error = gh_backend.login_gh(dst)
+    if error:
+        console.print(error)
+    elif user:
+        console.print(_("[green]gh:[/green] '{user}' logged in at {dst}", user=user, dst=dst))
+    return user
 
 
 def login_new_gcloud_account(profile_name: str, dry_run: bool = False) -> str:
-    """Interactive `gcloud auth login` inside the profile's named config."""
+    """Interactive `gcloud auth login` inside the profile's named configuration."""
     if dry_run:
+        _dry_run(f"CLOUDSDK_ACTIVE_CONFIG_NAME={profile_name} gcloud auth login")
+        return ""
+    account, error = gcloud_backend.login_gcloud(profile_name)
+    if error:
+        console.print(error)
+    elif account:
         console.print(
-            f"[yellow]--dry-run[/yellow] CLOUDSDK_ACTIVE_CONFIG_NAME={profile_name} gcloud auth login"
+            _("[green]gcloud:[/green] '{account}' in configuration '{name}'", account=account, name=profile_name)
         )
-        return ""
-    from .backends.gcloud import configuration_exists
-
-    try:
-        if not configuration_exists(profile_name):
-            create = subprocess.run(
-                ["gcloud", "config", "configurations", "create", profile_name, "--no-activate"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if create.returncode != 0:
-                console.print(_("[red]gcloud configurations create failed:[/red] {error}", error=create.stderr.strip()))
-                return ""
-        env = dict(os.environ, CLOUDSDK_ACTIVE_CONFIG_NAME=profile_name)
-        r = subprocess.run(["gcloud", "auth", "login"], env=env)
-        if r.returncode != 0:
-            console.print(_("[yellow]Login cancelled or failed; skipping gcloud.[/yellow]"))
-            return ""
-        active = subprocess.run(
-            ["gcloud", "config", "get", "account"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except FileNotFoundError:
-        console.print(_("[red]gcloud not found in PATH.[/red]"))
-        return ""
-    account = active.stdout.strip()
-    if account:
-        console.print(_("[green]gcloud:[/green] '{account}' in configuration '{name}'", account=account, name=profile_name))
     return account
 
 
 def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
     """Generate ~/.ssh/id_ed25519_<profile> (no passphrase) and show the public key."""
-    key = Path.home() / ".ssh" / f"id_ed25519_{profile_name}"
+    key = ssh.key_path(profile_name)
     if dry_run:
-        console.print(f"[yellow]--dry-run[/yellow] ssh-keygen -t ed25519 -f {key}")
+        _dry_run(f"ssh-keygen -t ed25519 -f {key}")
         return ""
     if key.exists():
         console.print(_("[dim]{key} already exists; using it.[/dim]", key=key))
         return str(key)
-    key.parent.mkdir(mode=0o700, exist_ok=True)
-    try:
-        r = subprocess.run(
-            ["ssh-keygen", "-t", "ed25519", "-f", str(key), "-N", "",
-             "-C", f"{profile_name} (generated by aparta)"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-    except FileNotFoundError:
-        console.print(_("[red]ssh-keygen not found.[/red]"))
-        return ""
-    if r.returncode != 0:
-        console.print(_("[red]ssh-keygen failed:[/red] {error}", error=r.stderr.strip()))
+    error = ssh.create_key(key, f"{profile_name} (generated by aparta)")
+    if error:
+        console.print(error)
         return ""
     console.print(_("[green]key created:[/green] {key}", key=key))
     console.print(Panel(key.with_suffix(".pub").read_text().strip(), title=_("Public key")))
@@ -208,31 +97,18 @@ def generate_ssh_key(profile_name: str, dry_run: bool = False) -> str:
 def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
     """Offer to upload the freshly created public key via `gh ssh-key add`."""
     if not prompts.confirm(
-        _("Upload this key to the GitHub account '{user}' now? (gh ssh-key add)", user=gh_user),
-        default=True,
+        _("Upload this key to the GitHub account '{user}' now? (gh ssh-key add)", user=gh_user), default=True
     ):
-        console.print(
-            _("[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]", key=ssh_key, name=profile_name)
-        )
+        console.print(_("[dim]Later: gh ssh-key add {key}.pub --title {name}[/dim]", key=ssh_key, name=profile_name))
         return
-    env = dict(os.environ)
-    profile_gh_dir = gh_config_dir(profile_name)
-    if profile_gh_dir.exists():
-        env["GH_CONFIG_DIR"] = str(profile_gh_dir)
-    r = subprocess.run(
-        ["gh", "ssh-key", "add", f"{ssh_key}.pub", "--title", f"{profile_name}-aparta"],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if r.returncode != 0:
+    error = ssh.upload_key(ssh_key, f"{profile_name}-aparta", gh_config_dir(profile_name))
+    if error:
         console.print(
             _(
                 "[yellow]Could not upload ({error}).[/yellow]\n"
                 "[dim]Manual: gh ssh-key add {key}.pub --title {name} "
                 "(the token needs the admin:public_key scope, gh auth refresh -s admin:public_key)[/dim]",
-                error=r.stderr.strip().splitlines()[-1] if r.stderr.strip() else _("failed"),
+                error=error,
                 key=ssh_key,
                 name=profile_name,
             )
@@ -243,138 +119,74 @@ def offer_upload_ssh_key(ssh_key: str, gh_user: str, profile_name: str) -> None:
 
 def _ask_ssh_alias(ssh_key: str, suggested: str = "") -> str:
     """Ask for the remotes SSH alias, listing ~/.ssh/config hosts."""
-    import questionary
-
-    no_alias = _("(do not use, connect directly with the chosen key)")
     aliases = list_ssh_host_aliases()
     if not aliases:
-        return (
-            questionary.text(
-                _("Remotes SSH shortcut (a Host from ~/.ssh/config; empty = use the key directly):"),
-                default=suggested,
-                qmark="",
-            ).ask()
-            or ""
-        ).strip()
-
+        return prompts.text(
+            _("Remotes SSH shortcut (a Host from ~/.ssh/config; empty = use the key directly):"), default=suggested
+        )
     key_resolved = str(Path(ssh_key).expanduser())
     default = suggested or next(
-        (
-            a["alias"]
-            for a in aliases
-            if a["identity"] and str(Path(a["identity"]).expanduser()) == key_resolved
-        ),
-        "",
+        (h.alias for h in aliases if h.identity and str(Path(h.identity).expanduser()) == key_resolved), ""
     )
     choices = [
-        questionary.Choice(
-            f"{a['alias']}  (→ {a['hostname']}"
-            + (_(", key {key}", key=Path(a["identity"]).name) if a["identity"] else "")
-            + ")",
-            value=a["alias"],
+        (
+            f"{h.alias}  (→ {h.hostname}" + (_(", key {key}", key=Path(h.identity).name) if h.identity else "") + ")",
+            h.alias,
         )
-        for a in aliases
-    ] + [questionary.Choice(no_alias, value="")]
-    default_choice = next((c for c in choices if c.value == default and default), None)
-    answer = questionary.select(
+        for h in aliases
+    ] + [(_("(do not use, connect directly with the chosen key)"), "")]
+    return prompts.select(
         _("SSH shortcut for this profile's remotes (rewrites GitHub URLs to use the right key):"),
-        choices=choices,
-        default=default_choice,
-        qmark="",
-    ).ask()
-    if answer is None:
-        raise KeyboardInterrupt
-    return answer
-
-
-def global_git_name() -> str:
-    """user.name from the global git config, used as a sensible default."""
-    try:
-        r = subprocess.run(
-            ["git", "config", "--global", "user.name"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return ""
-    return r.stdout.strip()
+        choices,
+        default=default or None,
+    )
 
 
 def _ask_identity(
-    existing_names: list[str], suggestion: ContextSuggestion | None
-) -> tuple[str, str, str, str] | None:
-    """Profile name, root folder, git e-mail and commit name; None if cancelled."""
-    import questionary
-
-    name = questionary.text(
+    existing_names: list[str], suggestion: ContextSuggestion | None, agents: list[str]
+) -> Profile | None:
+    """Name, root folder, git e-mail and commit name; None when an overwrite is declined."""
+    name = prompts.text(
         _("Profile name for {root}:", root=suggestion.root)
         if suggestion
         else _("New profile name (e.g. personal, work, client-x):"),
         default=suggestion.name if suggestion else "",
         validate=lambda v: bool(v.strip()) or _("required"),
-        qmark="",
-    ).ask()
-    if name is None:
+    )
+    if name in existing_names and not prompts.confirm(_("'{name}' already exists. Overwrite?", name=name)):
         return None
-    name = name.strip()
-    if name in existing_names:
-        if not prompts.confirm(_("'{name}' already exists. Overwrite?", name=name)):
-            return None
-
-    root = questionary.path(
-        _("Root folder of this profile's projects:"),
-        default=suggestion.root if suggestion else f"~/{name}",
-        qmark="",
-    ).ask()
-    if root is None:
-        return None
-
-    git_email = questionary.text(
+    root = prompts.path(
+        _("Root folder of this profile's projects:"), default=suggestion.root if suggestion else f"~/{name}"
+    )
+    git_email = prompts.text(
         _("git e-mail for these repositories:"),
         default=suggestion.git_email if suggestion else "",
         validate=lambda v: "@" in v or _("enter a valid e-mail"),
-        qmark="",
-    ).ask()
-    if git_email is None:
-        return None
-
-    git_name = questionary.text(
-        _("Name shown on commits (empty = keep whatever git already uses):"),
-        default=(suggestion.git_name if suggestion and suggestion.git_name else global_git_name()),
-        qmark="",
-    ).ask()
-    if git_name is None:
-        return None
-    return name, root.strip(), git_email.strip(), git_name.strip()
-
-
-def _ask_ssh(
-    name: str, suggestion: ContextSuggestion | None, dry_run: bool
-) -> tuple[str, str, bool]:
-    """(ssh_key, ssh_alias, key_was_generated)."""
-    suggested_key = (
-        str(Path(suggestion.ssh_key).expanduser())
-        if suggestion and suggestion.ssh_key
-        else ""
     )
+    git_name = prompts.text(
+        _("Name shown on commits (empty = keep whatever git already uses):"),
+        default=(suggestion.git_name if suggestion and suggestion.git_name else global_user_name()),
+    )
+    return Profile(name=name, root=root, git_email=git_email, git_name=git_name, agents=agents)
+
+
+def _ask_ssh(profile: Profile, suggestion: ContextSuggestion | None, dry_run: bool) -> bool:
+    """Set the SSH key and alias; True when a key was generated just now."""
+    suggested_key = str(Path(suggestion.ssh_key).expanduser()) if suggestion and suggestion.ssh_key else ""
     ssh_key = prompts.choose(
-        _("Dedicated SSH key for this profile:"),
-        list_ssh_keys(),
-        sentinels=(NEW_SSH_KEY, SKIP),
-        default=suggested_key,
+        _("Dedicated SSH key for this profile:"), list_ssh_keys(), sentinels=(NEW_SSH_KEY, SKIP), default=suggested_key
     )
     generated = False
     if ssh_key == NEW_SSH_KEY:
-        ssh_key = generate_ssh_key(name, dry_run=dry_run)
+        ssh_key = generate_ssh_key(profile.name, dry_run=dry_run)
         generated = bool(ssh_key)
-    ssh_alias = ""
+    profile.ssh_key = ssh_key
     if ssh_key:
-        ssh_alias = _ask_ssh_alias(ssh_key, suggestion.ssh_alias if suggestion else "")
-    return ssh_key, ssh_alias, generated
+        profile.ssh_alias = _ask_ssh_alias(ssh_key, suggestion.ssh_alias if suggestion else "")
+    return generated
 
 
-def _ask_gh(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> str:
+def _ask_gh(profile: Profile, suggestion: ContextSuggestion | None, dry_run: bool) -> None:
     accounts = list_gh_accounts()
     if not accounts:
         console.print(_("[dim]No gh account logged in yet (gh auth status).[/dim]"))
@@ -385,40 +197,40 @@ def _ask_gh(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> s
         default=suggestion.gh_user if suggestion else "",
     )
     if gh_user == NEW_GH_LOGIN:
-        gh_user = login_new_gh_account(name, dry_run=dry_run)
-    return gh_user
+        gh_user = login_new_gh_account(profile.name, dry_run=dry_run)
+    profile.gh_user = gh_user
 
 
-def _ask_aws(name: str, suggestion: ContextSuggestion | None, dry_run: bool) -> str:
-    from .backends.aws import list_aws_profiles
-
-    profiles = list_aws_profiles()
-    if not profiles:
+def _ask_aws(profile: Profile, suggestion: ContextSuggestion | None, dry_run: bool) -> None:
+    available = list_aws_profiles()
+    if not available:
         console.print(_("[dim]No AWS profile found yet (~/.aws/config).[/dim]"))
     chosen = prompts.choose(
         _("AWS profile for this profile:"),
-        profiles,
+        available,
         sentinels=(NEW_AWS_PROFILE, SKIP),
         default=suggestion.aws_profile if suggestion else "",
     )
     if chosen == NEW_AWS_PROFILE:
-        if dry_run:
-            console.print(f"[yellow]--dry-run[/yellow] aws configure --profile {name}")
-            return ""
-        try:
-            r = subprocess.run(["aws", "configure", "--profile", name])
-        except FileNotFoundError:
-            console.print(_("[red]aws not found in PATH.[/red]"))
-            return ""
-        return name if r.returncode == 0 else ""
-    return chosen
+        chosen = _configure_new_aws_profile(profile.name, dry_run)
+    profile.aws_profile = chosen
 
 
-def _ask_gcloud(
-    name: str, suggestion: ContextSuggestion | None, dry_run: bool
-) -> tuple[str, str, bool]:
-    import questionary
+def _configure_new_aws_profile(name: str, dry_run: bool) -> str:
+    import subprocess
 
+    if dry_run:
+        _dry_run(f"aws configure --profile {name}")
+        return ""
+    try:
+        r = subprocess.run(["aws", "configure", "--profile", name])
+    except FileNotFoundError:
+        console.print(_("[red]aws not found in PATH.[/red]"))
+        return ""
+    return name if r.returncode == 0 else ""
+
+
+def _ask_gcloud(profile: Profile, suggestion: ContextSuggestion | None, dry_run: bool) -> None:
     accounts = list_gcloud_accounts()
     if not accounts:
         console.print(_("[dim]No gcloud account logged in yet (gcloud auth list).[/dim]"))
@@ -429,36 +241,21 @@ def _ask_gcloud(
         default=suggestion.gcloud_account if suggestion else "",
     )
     if account == NEW_GCLOUD_LOGIN:
-        account = login_new_gcloud_account(name, dry_run=dry_run)
-    project = ""
-    isolated = False
-    if account:
-        project = (
-            questionary.text(
-                _("GCP project id for this profile (e.g. my-project-123; empty = set later):"),
-                default=suggestion.gcloud_project if suggestion else "",
-                qmark="",
-            ).ask()
-            or ""
-        ).strip()
-        mode = questionary.select(
-            _("How should gcloud be separated for this profile?"),
-            choices=[
-                questionary.Choice(
-                    _("Isolated (recommended): own credentials, so SDKs and Terraform follow it too"),
-                    value=True,
-                ),
-                questionary.Choice(
-                    _("Light: only switches the active configuration, SDKs stay on the global one"),
-                    value=False,
-                ),
-            ],
-            qmark="",
-        ).ask()
-        if mode is None:
-            raise KeyboardInterrupt
-        isolated = mode
-    return account, project, isolated
+        account = login_new_gcloud_account(profile.name, dry_run=dry_run)
+    profile.gcloud_account = account
+    if not account:
+        return
+    profile.gcloud_project = prompts.text(
+        _("GCP project id for this profile (e.g. my-project-123; empty = set later):"),
+        default=suggestion.gcloud_project if suggestion else "",
+    )
+    profile.gcloud_isolated = prompts.select(
+        _("How should gcloud be separated for this profile?"),
+        [
+            (_("Isolated (recommended): own credentials, so SDKs and Terraform follow it too"), True),
+            (_("Light: only switches the active configuration, SDKs stay on the global one"), False),
+        ],
+    )
 
 
 def _ask_context(
@@ -470,38 +267,19 @@ def _ask_context(
 ) -> Profile | None:
     """One profile end to end: identity, SSH, then the selected providers."""
     providers = providers if providers is not None else [key for key, _label in PROVIDERS]
-    identity = _ask_identity(existing_names, suggestion)
-    if identity is None:
+    profile = _ask_identity(existing_names, suggestion, agents)
+    if profile is None:
         return None
-    name, root, git_email, git_name = identity
-
-    ssh_key, ssh_alias, generated_key = _ask_ssh(name, suggestion, dry_run)
-    gh_user = ""
+    generated_key = _ask_ssh(profile, suggestion, dry_run)
     if "gh" in providers:
-        gh_user = _ask_gh(name, suggestion, dry_run)
-        if gh_user and generated_key:
-            offer_upload_ssh_key(ssh_key, gh_user, name)
-    gcloud_account, gcloud_project, gcloud_isolated = ("", "", False)
+        _ask_gh(profile, suggestion, dry_run)
+        if profile.gh_user and generated_key:
+            offer_upload_ssh_key(profile.ssh_key, profile.gh_user, profile.name)
     if "gcloud" in providers:
-        gcloud_account, gcloud_project, gcloud_isolated = _ask_gcloud(name, suggestion, dry_run)
-    aws_profile = ""
+        _ask_gcloud(profile, suggestion, dry_run)
     if "aws" in providers:
-        aws_profile = _ask_aws(name, suggestion, dry_run)
-
-    return Profile(
-        name=name,
-        root=root,
-        git_email=git_email,
-        git_name=git_name,
-        ssh_key=ssh_key,
-        ssh_alias=ssh_alias,
-        gh_user=gh_user,
-        gcloud_account=gcloud_account,
-        gcloud_project=gcloud_project,
-        gcloud_isolated=gcloud_isolated,
-        aws_profile=aws_profile,
-        agents=agents,
-    )
+        _ask_aws(profile, suggestion, dry_run)
+    return profile
 
 
 def _suggestion_label(s: ContextSuggestion) -> str:
@@ -521,10 +299,6 @@ def _suggestion_label(s: ContextSuggestion) -> str:
 
 def _adopt_loose_repos(all_profiles: list[Profile]) -> None:
     """Offer repos outside every profile root for adoption (local identity, no folder moves)."""
-    import questionary
-
-    from .discovery import loose_repos
-
     already = {r for p in all_profiles for r in p.adopted_repos}
     loose = [r for r in loose_repos([p.root for p in all_profiles]) if str(r) not in already]
     if not loose:
@@ -542,15 +316,50 @@ def _adopt_loose_repos(all_profiles: list[Profile]) -> None:
     for p in all_profiles:
         if not remaining:
             break
-        chosen = questionary.checkbox(
+        chosen = prompts.checkbox(
             _("Which of these belong to '{name}'? (Enter = none)", name=p.name),
-            choices=remaining,
-            qmark="",
-        ).ask()
-        if chosen is None:
-            return
+            [(r, r, False) for r in remaining],
+        )
         p.adopted_repos.extend(chosen)
         remaining = [r for r in remaining if r not in chosen]
+
+
+def _actions(p: Profile) -> list[str]:
+    actions = [_("git: {email} in every repo under {root}", email=p.git_email, root=p.root)]
+    if p.git_name:
+        actions.append(_("git: commits signed as {name}", name=p.git_name))
+    if p.ssh_key:
+        actions.append(_("ssh: dedicated key {key}", key=p.ssh_key))
+    if p.ssh_alias:
+        actions.append(_("git: rewrite https remotes through the git@{alias}: shortcut", alias=p.ssh_alias))
+    if p.adopted_repos:
+        actions.append(
+            _("git: adopt {n} repo(s) outside the root (local include.path, no moves): ", n=len(p.adopted_repos))
+            + ", ".join(Path(r).name for r in p.adopted_repos)
+        )
+    if p.gh_user:
+        actions.append(_("gh: copy ~/.config/gh to ~/.config/gh-{name} and activate '{user}'", name=p.name, user=p.gh_user))
+    if p.gcloud_account:
+        if p.gcloud_project:
+            actions.append(
+                _(
+                    "gcloud: configuration '{name}' with {account} (project {project})",
+                    name=p.name,
+                    account=p.gcloud_account,
+                    project=p.gcloud_project,
+                )
+            )
+        else:
+            actions.append(_("gcloud: configuration '{name}' with {account}", name=p.name, account=p.gcloud_account))
+        if p.gcloud_isolated:
+            actions.append(_("gcloud: isolated config dir ~/.config/gcloud-{name} (own credentials and ADC)", name=p.name))
+    if p.aws_profile:
+        actions.append(_("aws: select profile '{name}' via AWS_PROFILE", name=p.aws_profile))
+    env = p.env()
+    if env and p.agents:
+        names = ", ".join(ADAPTERS[a].display_name for a in p.agents if a in ADAPTERS)
+        actions.append(_("agents ({names}): inject {vars} into the repos of {root}", names=names, vars=", ".join(env), root=p.root))
+    return actions
 
 
 def _summary(new_profiles: list[Profile]) -> None:
@@ -558,36 +367,7 @@ def _summary(new_profiles: list[Profile]) -> None:
     table.add_column(_("Profile"), style="bold")
     table.add_column(_("Actions"), overflow="fold")
     for p in new_profiles:
-        actions = [
-            _("git: create ~/.gitconfig-{name} (email {email}", name=p.name, email=p.git_email)
-            + (_(", name {git_name}", git_name=p.git_name) if p.git_name else "")
-            + (_(", key {key}", key=p.ssh_key) if p.ssh_key else "")
-            + _(") and add an includeIf for ")
-            + p.root,
-        ]
-        if p.ssh_alias:
-            actions.append(_("git: rewrite https remotes through the git@{alias}: shortcut", alias=p.ssh_alias))
-        if p.adopted_repos:
-            actions.append(
-                _("git: adopt {n} repo(s) outside the root (local include.path, no moves): ", n=len(p.adopted_repos))
-                + ", ".join(Path(r).name for r in p.adopted_repos)
-            )
-        if p.gh_user:
-            actions.append(
-                _("gh: copy ~/.config/gh to ~/.config/gh-{name} and activate '{user}'", name=p.name, user=p.gh_user)
-            )
-        if p.gcloud_account:
-            proj = _(" (project {project})", project=p.gcloud_project) if p.gcloud_project else ""
-            actions.append(_("gcloud: configuration '{name}' with {account}{proj}", name=p.name, account=p.gcloud_account, proj=proj))
-            if p.gcloud_isolated:
-                actions.append(_("gcloud: isolated config dir ~/.config/gcloud-{name} (own credentials and ADC)", name=p.name))
-        if p.aws_profile:
-            actions.append(_("aws: select profile '{name}' via AWS_PROFILE", name=p.aws_profile))
-        env = p.env()
-        if env and p.agents:
-            names = ", ".join(ADAPTERS[a].display_name for a in p.agents if a in ADAPTERS)
-            actions.append(_("agents ({names}): inject {vars} into the repos of {root}", names=names, vars=", ".join(env), root=p.root))
-        table.add_row(p.name, "\n".join(actions))
+        table.add_row(p.name, "\n".join(_actions(p)))
     console.print(table)
     console.print(
         Panel(
@@ -602,212 +382,162 @@ def _summary(new_profiles: list[Profile]) -> None:
 
 
 def _ask_language() -> bool:
-    """First-run language question; False when the user cancelled."""
-    import questionary
-
-    from .i18n import saved_language, set_language
-
+    """First-run language question; True when already answered or answered now."""
     if os.environ.get("APARTA_LANG") or saved_language():
         return True
-    choice = questionary.select(
-        "Language / Idioma:",
-        choices=[
-            questionary.Choice("English", value="en"),
-            questionary.Choice("Português (Brasil)", value="pt"),
-        ],
-        qmark="",
-    ).ask()
-    if choice is None:
-        return False
-    set_language(choice)
+    set_language(prompts.select("Language / Idioma:", [("English", "en"), ("Português (Brasil)", "pt")]))
     return True
 
 
 def _ask_update_mode() -> bool:
-    """First-run choice between automatic and manual updates; False = cancelled."""
-    import os
-
-    import questionary
-
-    from .updates import set_update_mode, update_mode_saved
-
+    """First-run choice between automatic and manual updates."""
     if os.environ.get("APARTA_UPDATES") or update_mode_saved():
         return True
-    choice = questionary.select(
-        _("How do you want to receive aparta updates?"),
-        choices=[
-            questionary.Choice(_("Automatic: update by itself when a new version is out"), value="auto"),
-            questionary.Choice(_("Manual: just remind me to run `aparta update`"), value="manual"),
-        ],
-        qmark="",
-    ).ask()
-    if choice is None:
-        return False
-    set_update_mode(choice)
+    set_update_mode(
+        prompts.select(
+            _("How do you want to receive aparta updates?"),
+            [
+                (_("Automatic: update by itself when a new version is out"), "auto"),
+                (_("Manual: just remind me to run `aparta update`"), "manual"),
+            ],
+        )
+    )
     return True
 
 
-def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
-    """Full wizard. Raises KeyboardInterrupt/returns early when cancelled."""
-    import questionary
-
-    if not _ask_language():
-        return
-    if not _ask_update_mode():
-        return
-
-    console.print(
-        Panel(
-            _(
-                "Welcome to [bold]aparta[/bold]! Let's isolate your development "
-                "accounts per project folder."
-            ),
-            border_style="cyan",
-        )
+def _ask_agents() -> list[str]:
+    return prompts.checkbox(
+        _("Which AI agents should receive the environment variables?"),
+        [(cls.display_name, name, name == "claude-code") for name, cls in sorted(ADAPTERS.items())],
     )
 
-    agents = questionary.checkbox(
-        _("Which AI agents should receive the environment variables?"),
-        choices=[
-            questionary.Choice(cls.display_name, value=name, checked=(name == "claude-code"))
-            for name, cls in sorted(ADAPTERS.items())
-        ],
-        qmark="",
-    ).ask()
-    if agents is None:
-        return
 
-    provider_selection = questionary.checkbox(
+def _ask_providers() -> list[str]:
+    return prompts.checkbox(
         _("Which providers do you want to configure? (git and SSH are always on; keep all selected for a full sweep)"),
-        choices=[
-            questionary.Choice(label, value=key, checked=True)
-            for key, label in PROVIDERS
-        ],
-        qmark="",
-    ).ask()
-    if provider_selection is None:
-        return
-    providers = provider_selection
+        [(label, key, True) for key, label in PROVIDERS],
+    )
 
-    mode = questionary.select(
+
+def _ask_start_mode() -> str:
+    return prompts.select(
         _("How do you want to start?"),
-        choices=[
-            questionary.Choice(
-                _("Detect what I already use: scans logged-in accounts, keys and existing projects"),
-                value="scan",
-            ),
-            questionary.Choice(
-                _("Start from scratch: connect accounts and create keys step by step"),
-                value="zero",
-            ),
+        [
+            (_("Detect what I already use: scans logged-in accounts, keys and existing projects"), "scan"),
+            (_("Start from scratch: connect accounts and create keys step by step"), "zero"),
         ],
-        qmark="",
-    ).ask()
-    if mode is None:
-        return
+    )
 
-    profiles = load_profiles()
-    new_profiles: list[Profile] = []
 
-    suggestions: list[ContextSuggestion] = []
-    if mode == "scan":
-        console.print(
-            _("[dim]Scanning your home for git repositories (read-only)...[/dim]")
-        )
-        suggestions = [s for s in discover() if s.name not in profiles]
-        extra = ""
-        if prompts.confirm(_("Scan an extra folder outside your home?")):
-            extra = (questionary.path(_("Which folder?"), default="", qmark="").ask() or "").strip()
+def _collect_suggestions(profiles: dict[str, Profile]) -> list[ContextSuggestion]:
+    console.print(_("[dim]Scanning your home for git repositories (read-only)...[/dim]"))
+    suggestions = [s for s in discover() if s.name not in profiles]
+    if prompts.confirm(_("Scan an extra folder outside your home?")):
+        extra = prompts.path(_("Which folder?"))
         if extra:
             known_roots = {s.root for s in suggestions}
             suggestions += [
-                s
-                for s in discover(scan_roots=[extra])
-                if s.name not in profiles and s.root not in known_roots
+                s for s in discover(scan_roots=[extra]) if s.name not in profiles and s.root not in known_roots
             ]
-        if not suggestions:
-            console.print(
-                _("[yellow]Nothing detected, let's create your first profile from scratch.[/yellow]")
-            )
-    if suggestions:
+    if not suggestions:
+        console.print(_("[yellow]Nothing detected, let's create your first profile from scratch.[/yellow]"))
+    return suggestions
+
+
+def _profiles_from_suggestions(
+    suggestions: list[ContextSuggestion],
+    agents: list[str],
+    providers: list[str],
+    taken: list[str],
+    dry_run: bool,
+) -> list[Profile]:
+    console.print(_("Found [bold]{n}[/bold] project group(s) already in use:", n=len(suggestions)))
+    chosen = prompts.checkbox(
+        _("Which should become profiles? (answers come pre-filled)"),
+        [(_suggestion_label(s), s, True) for s in suggestions],
+    )
+    created: list[Profile] = []
+    for i, s in enumerate(chosen, start=1):
         console.print(
-            _("Found [bold]{n}[/bold] project group(s) already in use:", n=len(suggestions))
-        )
-        chosen = questionary.checkbox(
-            _("Which should become profiles? (answers come pre-filled)"),
-            choices=[
-                questionary.Choice(_suggestion_label(s), value=s, checked=True)
-                for s in suggestions
-            ],
-            qmark="",
-        ).ask()
-        for i, s in enumerate(chosen or [], start=1):
-            console.print(
-                Panel(
-                    _suggestion_label(s)
-                    + "\n" + _("[dim]Enter accepts the suggested values; edit whatever you want.[/dim]"),
-                    title=_("Group {i}/{n}: {root}", i=i, n=len(chosen), root=s.root),
-                    border_style="cyan",
-                )
+            Panel(
+                _suggestion_label(s) + "\n" + _("[dim]Enter accepts the suggested values; edit whatever you want.[/dim]"),
+                title=_("Group {i}/{n}: {root}", i=i, n=len(chosen), root=s.root),
+                border_style="cyan",
             )
-            profile = _ask_context(
-                agents,
-                list(profiles) + [p.name for p in new_profiles],
-                suggestion=s,
-                dry_run=dry_run,
-                providers=providers,
-            )
-            if profile is not None:
-                new_profiles.append(profile)
-
-    while True:
-        if new_profiles and not prompts.confirm(_("Configure another profile?")):
-            break
-        profile = _ask_context(
-            agents,
-            list(profiles) + [p.name for p in new_profiles],
-            dry_run=dry_run,
-            providers=providers,
         )
+        profile = _ask_context(agents, taken + [p.name for p in created], suggestion=s, dry_run=dry_run, providers=providers)
         if profile is not None:
-            new_profiles.append(profile)
-        elif new_profiles:
-            break
-        elif not prompts.confirm(_("Try again?"), default=True):
-            break
+            created.append(profile)
+    return created
 
-    if not new_profiles:
-        console.print(_("[yellow]No profile configured.[/yellow]"))
-        return
 
-    if mode == "scan":
-        _adopt_loose_repos(list(profiles.values()) + new_profiles)
+def _ask_manual_profiles(
+    agents: list[str], providers: list[str], taken: list[str], created: list[Profile], dry_run: bool
+) -> None:
+    """Keep asking for profiles until the user has enough; appends to `created`."""
+    while True:
+        if created and not prompts.confirm(_("Configure another profile?")):
+            return
+        profile = _ask_context(agents, taken + [p.name for p in created], dry_run=dry_run, providers=providers)
+        if profile is not None:
+            created.append(profile)
+        elif created or not prompts.confirm(_("Try again?"), default=True):
+            return
 
+
+def _save_and_apply(
+    profiles: dict[str, Profile], new_profiles: list[Profile], dry_run: bool, verbose: bool
+) -> None:
     _summary(new_profiles)
-    action = questionary.select(
+    action = prompts.select(
         _("How to proceed?"),
-        choices=[
-            questionary.Choice(_("Save and apply now"), value="apply"),
-            questionary.Choice(_("Just save the profiles (apply later with `aparta apply`)"), value="save"),
-            questionary.Choice(_("Cancel"), value="cancel"),
+        [
+            (_("Save and apply now"), "apply"),
+            (_("Just save the profiles (apply later with `aparta apply`)"), "save"),
+            (_("Cancel"), "cancel"),
         ],
-        qmark="",
-    ).ask()
-    if action in (None, "cancel"):
+    )
+    if action == "cancel":
         console.print(_("[yellow]Cancelled; nothing was saved.[/yellow]"))
         return
-
     writer = SafeWriter(dry_run=dry_run, verbose=verbose)
     for p in new_profiles:
         profiles[p.name] = p
     save_profiles(profiles, writer)
     if not dry_run:
         console.print(_("[green]Profiles saved to {path}.[/green]", path=profiles_path()))
-
     if action == "apply":
-        from .apply import apply_profile
-
         for p in new_profiles:
             apply_profile(p, writer, siblings=profiles)
     else:
         console.print(_("Whenever you want to apply: [bold]aparta apply {name}[/bold]", name=new_profiles[0].name))
+
+
+def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
+    """Full wizard; every prompt raises KeyboardInterrupt when the user cancels."""
+    _ask_language()
+    _ask_update_mode()
+    console.print(
+        Panel(
+            _("Welcome to [bold]aparta[/bold]! Let's isolate your development accounts per project folder."),
+            border_style="cyan",
+        )
+    )
+    agents = _ask_agents()
+    providers = _ask_providers()
+    mode = _ask_start_mode()
+
+    profiles = load_profiles()
+    taken = list(profiles)
+    new_profiles: list[Profile] = []
+    if mode == "scan":
+        suggestions = _collect_suggestions(profiles)
+        if suggestions:
+            new_profiles += _profiles_from_suggestions(suggestions, agents, providers, taken, dry_run)
+    _ask_manual_profiles(agents, providers, taken, new_profiles, dry_run)
+    if not new_profiles:
+        console.print(_("[yellow]No profile configured.[/yellow]"))
+        return
+    if mode == "scan":
+        _adopt_loose_repos(list(profiles.values()) + new_profiles)
+    _save_and_apply(profiles, new_profiles, dry_run, verbose)

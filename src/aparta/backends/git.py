@@ -213,3 +213,12 @@ def reconcile_workspace_git(
     if merged != existing:
         writer.write_text(gitconfig, merged)
     remove_legacy_local_includes(list(candidates), profiles, writer, home)
+
+
+def global_user_name() -> str:
+    """user.name from the global git config, a sensible default for new profiles."""
+    try:
+        r = subprocess.run(["git", "config", "--global", "user.name"], capture_output=True, text=True, timeout=10)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
+    return r.stdout.strip()

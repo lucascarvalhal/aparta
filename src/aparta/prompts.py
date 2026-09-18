@@ -49,3 +49,39 @@ def choose(
     if answer is None:
         raise KeyboardInterrupt
     return "" if answer == SKIP else answer
+
+
+def _answer(prompt):
+    answer = prompt.ask()
+    if answer is None:
+        raise KeyboardInterrupt
+    return answer
+
+
+def text(question: str, default: str = "", validate=None) -> str:
+    import questionary
+
+    return _answer(questionary.text(question, default=default, validate=validate, qmark="")).strip()
+
+
+def path(question: str, default: str = "") -> str:
+    import questionary
+
+    return _answer(questionary.path(question, default=default, qmark="")).strip()
+
+
+def select(question: str, choices: list[tuple[str, object]], default: object = None):
+    """Pick one value from (label, value) pairs."""
+    import questionary
+
+    options = [questionary.Choice(label, value=value) for label, value in choices]
+    default_choice = next((c for c in options if default is not None and c.value == default), None)
+    return _answer(questionary.select(question, choices=options, default=default_choice, qmark=""))
+
+
+def checkbox(question: str, choices: list[tuple[str, object, bool]]) -> list:
+    """Pick any number of values from (label, value, checked) triples."""
+    import questionary
+
+    options = [questionary.Choice(label, value=value, checked=checked) for label, value, checked in choices]
+    return _answer(questionary.checkbox(question, choices=options, qmark=""))

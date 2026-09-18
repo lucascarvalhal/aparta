@@ -172,3 +172,29 @@ def _apply_isolated(profile: Profile, writer: SafeWriter) -> list[Note]:
             notes.append(Note("error", _("[red]{cmd} failed:[/red] {error}", cmd=" ".join(args), error=r.stderr.strip())))
     notes.append(Note("info", _("[green]gcloud:[/green] isolated config dir ready for '{name}'", name=profile.name)))
     return notes
+
+
+def list_gcloud_accounts() -> list[str]:
+    try:
+        r = _run(["gcloud", "auth", "list", "--format=value(account)"])
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    if r.returncode != 0:
+        return []
+    return [line.strip() for line in r.stdout.splitlines() if line.strip()]
+
+
+def login_gcloud(name: str) -> tuple[str, str]:
+    """Interactive `gcloud auth login` inside the named configuration: (account, error)."""
+    try:
+        if not configuration_exists(name):
+            create = _run(["gcloud", "config", "configurations", "create", name, "--no-activate"])
+            if create.returncode != 0:
+                return "", _("[red]gcloud configurations create failed:[/red] {error}", error=create.stderr.strip())
+        env = clean_environment(os.environ, {"CLOUDSDK_ACTIVE_CONFIG_NAME": name})
+        if subprocess.run(["gcloud", "auth", "login"], env=env).returncode != 0:
+            return "", _("[yellow]Login cancelled or failed; skipping gcloud.[/yellow]")
+        active = _run(["gcloud", "config", "get", "account"], config_name=name)
+    except FileNotFoundError:
+        return "", _("[red]gcloud not found in PATH.[/red]")
+    return active.stdout.strip(), ""

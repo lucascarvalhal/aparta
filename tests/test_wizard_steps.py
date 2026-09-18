@@ -5,6 +5,11 @@ from __future__ import annotations
 from aparta import prompts, wizard
 from aparta.backends import Note
 from aparta.discovery import ContextSuggestion
+from aparta.profiles import Profile
+
+
+def _profile() -> Profile:
+    return Profile(name="acme", root="~/acme", git_email="a@b.c")
 
 
 def test_ask_ssh_uses_suggested_key(monkeypatch):
@@ -19,9 +24,10 @@ def test_ask_ssh_uses_suggested_key(monkeypatch):
     monkeypatch.setattr(wizard, "_ask_ssh_alias", lambda key, suggested: "github.com-acme")
 
     s = ContextSuggestion(name="acme", root="~/acme", ssh_key="/k/b")
-    key, alias, generated = wizard._ask_ssh("acme", s, dry_run=False)
+    profile = _profile()
+    generated = wizard._ask_ssh(profile, s, dry_run=False)
     assert captured["default"] == "/k/b"
-    assert (key, alias, generated) == ("/k/b", "github.com-acme", False)
+    assert (profile.ssh_key, profile.ssh_alias, generated) == ("/k/b", "github.com-acme", False)
 
 
 def test_ask_ssh_generates_new_key(monkeypatch):
@@ -30,22 +36,26 @@ def test_ask_ssh_generates_new_key(monkeypatch):
     monkeypatch.setattr(wizard, "generate_ssh_key", lambda name, dry_run: "/new/key")
     monkeypatch.setattr(wizard, "_ask_ssh_alias", lambda key, suggested: "")
 
-    key, alias, generated = wizard._ask_ssh("acme", None, dry_run=False)
-    assert (key, generated) == ("/new/key", True)
+    profile = _profile()
+    generated = wizard._ask_ssh(profile, None, dry_run=False)
+    assert (profile.ssh_key, generated) == ("/new/key", True)
 
 
 def test_ask_gh_triggers_login_on_sentinel(monkeypatch):
     monkeypatch.setattr(wizard, "list_gh_accounts", lambda: [])
     monkeypatch.setattr(prompts, "choose", lambda *a, **kw: wizard.NEW_GH_LOGIN)
     monkeypatch.setattr(wizard, "login_new_gh_account", lambda name, dry_run: "new-user")
-    assert wizard._ask_gh("acme", None, dry_run=False) == "new-user"
+    profile = _profile()
+    wizard._ask_gh(profile, None, dry_run=False)
+    assert profile.gh_user == "new-user"
 
 
 def test_ask_gcloud_skip_means_no_project_prompt(monkeypatch):
     monkeypatch.setattr(wizard, "list_gcloud_accounts", lambda: ["a@b.c"])
     monkeypatch.setattr(prompts, "choose", lambda *a, **kw: "")
-    account, project, isolated = wizard._ask_gcloud("acme", None, dry_run=False)
-    assert (account, project, isolated) == ("", "", False)
+    profile = _profile()
+    wizard._ask_gcloud(profile, None, dry_run=False)
+    assert (profile.gcloud_account, profile.gcloud_project, profile.gcloud_isolated) == ("", "", False)
 
 
 def test_ask_gcloud_offers_isolation_when_an_account_is_chosen(monkeypatch):
@@ -71,8 +81,9 @@ def test_ask_gcloud_offers_isolation_when_an_account_is_chosen(monkeypatch):
 
     monkeypatch.setattr(q, "text", FakeText)
     monkeypatch.setattr(q, "select", FakeSelect)
-    account, project, isolated = wizard._ask_gcloud("acme", None, dry_run=False)
-    assert (account, project, isolated) == ("a@b.c", "acme-prod", True)
+    profile = _profile()
+    wizard._ask_gcloud(profile, None, dry_run=False)
+    assert (profile.gcloud_account, profile.gcloud_project, profile.gcloud_isolated) == ("a@b.c", "acme-prod", True)
 
 
 def test_backends_return_notes_instead_of_printing(tmp_path, monkeypatch):

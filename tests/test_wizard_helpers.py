@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from aparta.wizard import list_ssh_host_aliases, list_ssh_keys, parse_gh_accounts
+from aparta.backends.gh import parse_gh_accounts
+from aparta.backends.ssh import SshHost, list_ssh_host_aliases, list_ssh_keys
 
 SSH_CONFIG = """\
 Host *
@@ -29,14 +30,9 @@ def test_list_ssh_host_aliases(tmp_path: Path):
     config = tmp_path / "config"
     config.write_text(SSH_CONFIG)
     aliases = list_ssh_host_aliases(config)
-    assert [a["alias"] for a in aliases] == [
-        "github.com-pessoal",
-        "github.com-acme",
-        "meu-servidor",
-    ]
-    assert aliases[0]["hostname"] == "github.com"
-    assert aliases[0]["identity"] == "~/.ssh/github_pessoal"
-    assert aliases[2]["identity"] == ""
+    assert [a.alias for a in aliases] == ["github.com-pessoal", "github.com-acme", "meu-servidor"]
+    assert aliases[0] == SshHost("github.com-pessoal", "github.com", "~/.ssh/github_pessoal")
+    assert aliases[2].identity == ""
 
 
 def test_list_ssh_host_aliases_without_config(tmp_path: Path):
