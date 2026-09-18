@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .config import config_dir, load_table, save_table
 from .fsutil import SafeWriter
-from .profiles import Profile
+from .profiles import Profile, clean_environment
 
 IGNORED_DIRS = {
     "node_modules",
@@ -93,8 +93,8 @@ def save_workspaces(
 
 
 def git_env() -> dict[str, str]:
-    """The caller's environment without any redirection of which repository git sees."""
-    env = dict(os.environ)
+    """The environment for inspecting a repository as it is, with no redirection or injected identity."""
+    env = clean_environment(os.environ, {})
     for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR"):
         env.pop(key, None)
     return env

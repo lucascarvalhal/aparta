@@ -127,3 +127,19 @@ def test_resolve_workspace_rejects_ambiguous_implicit_repo_names(tmp_path):
 
     assert str(left_repo.resolve()) in str(exc.value)
     assert str(right_repo.resolve()) in str(exc.value)
+
+
+def test_git_output_ignores_the_identity_injected_into_the_current_shell(tmp_path, monkeypatch):
+    """The zsh hook exports GIT_CONFIG_* for the current folder; inspecting other repos must not inherit it."""
+    from aparta.workspaces import git_output
+
+    include = tmp_path / "injected.gitconfig"
+    include.write_text("[user]\n\temail = injected@example.com\n")
+    repo = _git_init(tmp_path / "repo")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "include.path")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", str(include))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+
+    assert git_output("config", "user.email", repo=repo) in (None, "")
