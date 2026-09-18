@@ -40,7 +40,13 @@ adheres to [Semantic Versioning](https://semver.org/).
   `prompts.py`; repository enumeration in `workspaces.py`.
 - The wizard's subprocess helpers moved to the backends (`ssh.py` is new),
   and doctor's diagnosis is one function per area.
-- A test now fails when a string passed to `_()` has no catalog entry.
+- `aparta help` is generated from the registered commands, so it cannot
+  drift from `aparta <command> --help`; both are localized.
+- Credential states are an enum, the gcloud isolated directory is written
+  through SafeWriter, git is invoked through one helper, and the
+  profile-to-provider mapping has a single source in `Profile.provider_env`.
+- Tests fail when a string passed to `_()` has no catalog entry or when the
+  catalog carries an entry nothing uses.
 
 ## [0.8.2] - 2026-09-17
 

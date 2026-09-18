@@ -40,8 +40,13 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
   `prompts.py`; enumeração de repositórios no `workspaces.py`.
 - Os helpers de subprocesso do wizard foram para os backends (`ssh.py` é
   novo), e o diagnóstico do doctor é uma função por área.
-- Um teste passa a falhar quando uma string passada ao `_()` não tem entrada
-  no catálogo.
+- O `aparta help` é gerado dos comandos registrados, então não descola mais
+  do `aparta <comando> --help`; os dois são localizados.
+- Estados de credencial viraram enum, a pasta isolada do gcloud é escrita pelo
+  SafeWriter, o git é chamado por um helper só, e o mapeamento perfil para
+  provedor tem uma fonte única em `Profile.provider_env`.
+- Os testes falham quando uma string passada ao `_()` não tem entrada no
+  catálogo ou quando o catálogo carrega uma entrada que ninguém usa.
 
 ## [0.8.2] - 2026-09-17
 
