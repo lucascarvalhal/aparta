@@ -77,3 +77,17 @@ def test_every_catalog_entry_keeps_its_placeholders():
 
 def test_unknown_language_has_an_empty_catalog():
     assert i18n.catalog("klingon") == {}
+
+
+def test_every_source_string_has_a_translation():
+    import ast
+    from pathlib import Path
+
+    missing = set()
+    for path in Path("src/aparta").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text())):
+            is_call = isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_"
+            if is_call and node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                if node.args[0].value not in i18n.catalog("pt"):
+                    missing.add(node.args[0].value)
+    assert not missing, sorted(missing)
