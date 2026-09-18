@@ -135,18 +135,18 @@ def _diagnose(profile: Profile) -> tuple[list[tuple[str, str, bool | None, str]]
     if checks_enabled():
         for status in cached_check(profile):
             if status.state == AUTH_OK:
-                all_ok &= _row(rows, status.provider, _("credential"), True, _("valid"))
+                all_ok &= _row(rows, status.label, _("credential"), True, _("valid"))
             elif status.state == AUTH_UNKNOWN:
-                _row(rows, status.provider, _("credential"), None, status.detail)
+                _row(rows, status.label, _("credential"), None, status.detail)
             else:
                 all_ok &= _row(
                     rows,
-                    status.provider,
+                    status.label,
                     _("credential"),
                     False,
                     _("{detail}, run `aparta login {name}`", detail=status.detail, name=profile.name),
                 )
-                issues.append(Issue(HUMAN, status.provider))
+                issues.append(Issue(HUMAN, status.label))
 
     saved_workspaces = load_workspaces()
     for adapter in get_adapters(profile.agents):

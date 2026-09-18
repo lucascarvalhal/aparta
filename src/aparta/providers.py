@@ -21,6 +21,14 @@ KNOWN_PROVIDERS = {
 }
 
 
+PROVIDER_LABELS = {"gcloud": "gcloud", "adc": "ADC", "github": "gh", "aws": "aws"}
+
+
+def provider_label(provider: str) -> str:
+    """How a provider is written in messages and tables."""
+    return PROVIDER_LABELS.get(provider, provider)
+
+
 class ProviderError(ValueError):
     """An unknown or unsafe provider selection."""
 
@@ -87,8 +95,3 @@ def workspace_env(workspace: Workspace, profile: Profile) -> dict[str, str]:
         env["AWS_PROFILE"] = available["AWS_PROFILE"]
 
     return env
-
-
-def status_provider_name(provider: str) -> str:
-    lowered = provider.lower()
-    return "github" if lowered == "gh" else lowered

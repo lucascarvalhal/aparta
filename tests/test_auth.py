@@ -195,7 +195,7 @@ def test_checks_can_be_turned_off(monkeypatch):
 def test_problems_lists_only_what_needs_a_human(monkeypatch):
     monkeypatch.setattr(auth, "check_profile", lambda p: [
         auth.AuthStatus("gcloud", auth.REAUTH, "session expired"),
-        auth.AuthStatus("gh", auth.OK),
+        auth.AuthStatus("github", auth.OK),
     ])
     found = auth.problems([PROFILE])
     assert [(name, s.provider) for name, s in found] == [("acme", "gcloud")]
@@ -204,7 +204,7 @@ def test_problems_lists_only_what_needs_a_human(monkeypatch):
 def test_login_skips_providers_whose_credential_is_still_valid(monkeypatch, capsys):
     """A login for a profile must not open the browser for credentials that are still good."""
     monkeypatch.setattr(auth, "check_gcloud", lambda p: auth.AuthStatus("gcloud", auth.OK))
-    monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
+    monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("github", auth.OK))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
     monkeypatch.setattr(auth, "_ensure_adc", lambda *a, **k: True)
 
@@ -238,7 +238,7 @@ def test_login_does_not_open_a_browser_for_unknown_provider_health(monkeypatch):
     monkeypatch.setattr(
         auth,
         "check_gh",
-        lambda p: auth.AuthStatus("gh", auth.UNKNOWN, "check timed out"),
+        lambda p: auth.AuthStatus("github", auth.UNKNOWN, "check timed out"),
     )
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
 
@@ -251,7 +251,7 @@ def test_login_does_not_open_a_browser_for_unknown_provider_health(monkeypatch):
 
 
 def test_explicit_provider_forces_the_login_even_when_valid(monkeypatch):
-    monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("gh", auth.OK))
+    monkeypatch.setattr(auth, "check_gh", lambda p: auth.AuthStatus("github", auth.OK))
     monkeypatch.setattr(auth, "cached_check", lambda p, force=False: [])
     calls = []
 
@@ -324,7 +324,7 @@ def test_valid_adc_is_left_alone(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     ISOLATED.gcloud_config_dir.mkdir(parents=True)
     (ISOLATED.gcloud_config_dir / "application_default_credentials.json").write_text("{}")
-    monkeypatch.setattr(auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.OK))
+    monkeypatch.setattr(auth, "check_adc", lambda p: auth.AuthStatus("adc", auth.OK))
 
     def explode(*a, **kw):  # pragma: no cover - must not be called
         raise AssertionError("nothing to do when the ADC is valid")
@@ -342,7 +342,7 @@ def test_unknown_adc_health_does_not_open_a_browser(monkeypatch, tmp_path):
     monkeypatch.setattr(
         auth,
         "check_adc",
-        lambda p: auth.AuthStatus("ADC", auth.UNKNOWN, "check timed out"),
+        lambda p: auth.AuthStatus("adc", auth.UNKNOWN, "check timed out"),
     )
 
     def explode(*a, **kw):
@@ -362,7 +362,7 @@ def test_expired_adc_is_a_second_credential_and_gets_renewed(monkeypatch, tmp_pa
     profile_dir.mkdir(parents=True)
     (profile_dir / "application_default_credentials.json").write_text("{}")
     monkeypatch.setattr(
-        auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.REAUTH, "session expired")
+        auth, "check_adc", lambda p: auth.AuthStatus("adc", auth.REAUTH, "session expired")
     )
     seen = {}
 
@@ -387,7 +387,7 @@ def test_check_adc_reports_the_expired_second_credential(monkeypatch, tmp_path):
         _result(1, stderr="reauth related error (invalid_rapt)"),
     )
     status = auth.check_adc(ISOLATED)
-    assert status.provider == "ADC"
+    assert status.provider == "adc"
     assert status.state == auth.REAUTH
     assert status.needs_human is True
 
@@ -568,7 +568,7 @@ def test_adc_is_derived_from_the_cli_credential_without_a_browser(monkeypatch, t
     profile_dir = ISOLATED.gcloud_config_dir
     profile_dir.mkdir(parents=True)
     (profile_dir / "application_default_credentials.json").write_text("{}")
-    probes = iter([auth.AuthStatus("ADC", auth.REAUTH, "session expired"), auth.AuthStatus("ADC", auth.OK)])
+    probes = iter([auth.AuthStatus("adc", auth.REAUTH, "session expired"), auth.AuthStatus("adc", auth.OK)])
     monkeypatch.setattr(auth, "check_adc", lambda p: next(probes))
     calls = []
 
@@ -595,7 +595,7 @@ def test_adc_login_never_asks_about_google_application_credentials(monkeypatch, 
     profile_dir.mkdir(parents=True)
     (profile_dir / "application_default_credentials.json").write_text("{}")
     monkeypatch.setattr(
-        auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.REAUTH, "session expired")
+        auth, "check_adc", lambda p: auth.AuthStatus("adc", auth.REAUTH, "session expired")
     )
     envs = []
 
@@ -618,7 +618,7 @@ def test_forcing_the_adc_provider_renews_it_even_when_valid(monkeypatch, tmp_pat
     profile_dir = ISOLATED.gcloud_config_dir
     profile_dir.mkdir(parents=True)
     (profile_dir / "application_default_credentials.json").write_text("{}")
-    monkeypatch.setattr(auth, "check_adc", lambda p: auth.AuthStatus("ADC", auth.OK))
+    monkeypatch.setattr(auth, "check_adc", lambda p: auth.AuthStatus("adc", auth.OK))
     calls = []
 
     def run(args, env=None, **kwargs):

@@ -811,7 +811,3 @@ def run_wizard(dry_run: bool = False, verbose: bool = False) -> None:
             apply_profile(p, writer, siblings=profiles)
     else:
         console.print(_("Whenever you want to apply: [bold]aparta apply {name}[/bold]", name=new_profiles[0].name))
-
-    from .shell import install_for_current_shell
-
-    install_for_current_shell(writer)

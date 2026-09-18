@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import json
+import math
+import os
+import re
+import subprocess
+import time
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from . import __version__
@@ -14,6 +22,19 @@ from .doctor import check_profile
 from .fsutil import SafeWriter
 from .i18n import _
 from .profiles import load_profiles, profiles_path
+from .providers import ProviderError, canonical_provider, canonical_providers, validate_provider, workspace_env
+from .workspaces import (
+    WorkspaceResolutionError,
+    default_providers,
+    enable_provider,
+    load_workspaces,
+    profile_for_path,
+    resolve_target,
+    save_workspaces,
+    workspace_for_path,
+)
+
+QUIET_COMMANDS = frozenset({"update", "login", "check", "run", "env", "status", "hook"})
 
 app = typer.Typer(
     name="aparta",
@@ -23,6 +44,27 @@ app = typer.Typer(
     ),
 )
 console = Console()
+
+
+err = Console(stderr=True)
+
+
+def _fail(message: str, code: int = 1) -> NoReturn:
+    """Print an already formatted error to stderr and exit."""
+    err.print(message)
+    raise typer.Exit(code)
+
+
+def _writer(ctx: typer.Context) -> SafeWriter:
+    options = ctx.obj or {}
+    return SafeWriter(dry_run=options.get("dry_run", False), verbose=options.get("verbose", False))
+
+
+def _profile_or_fail(profiles: dict, name: str):
+    profile = profiles.get(name)
+    if profile is None:
+        _fail(_("[red]Profile '{name}' not found.[/red]", name=name))
+    return profile
 
 
 def default_action(profiles_file: Path | None = None) -> str:
@@ -46,7 +88,7 @@ def main(
         console.print(f"aparta {__version__}")
         raise typer.Exit()
     ctx.obj = {"dry_run": dry_run, "verbose": verbose}
-    if ctx.invoked_subcommand not in ("update", "login", "check", "run", "env", "status", "hook"):
+    if ctx.invoked_subcommand not in QUIET_COMMANDS:
         from .updates import notify_or_autoupdate
 
         notify_or_autoupdate()
@@ -72,7 +114,7 @@ def _warn_about_stale_profiles() -> None:
                     names=", ".join(names),
                 )
             )
-    except Exception:
+    except (OSError, ValueError):
         pass
 
 
@@ -85,12 +127,12 @@ def _warn_about_credentials() -> None:
             console.print(
                 _(
                     "[yellow]{provider} of profile '{name}': {detail}. Run [bold]aparta login {name}[/bold].[/yellow]",
-                    provider=status.provider,
+                    provider=status.label,
                     name=name,
                     detail=status.detail,
                 )
             )
-    except Exception:
+    except (OSError, ValueError, subprocess.SubprocessError):
         pass
 
 
@@ -133,7 +175,7 @@ def _run_menu(dry_run: bool, verbose: bool = False) -> None:
                 apply_profile(profiles[name], SafeWriter(dry_run=dry_run, verbose=verbose))
         elif choice == "doctor":
             for p in load_profiles().values():
-                check_profile(p)
+                check_profile(p, verbose=verbose)
         elif choice == "list":
             _print_profiles()
 
@@ -150,16 +192,8 @@ def apply(
     profile_name: str = typer.Argument(..., help=_("Name of the profile to apply.")),
 ) -> None:
     """Apply a profile: gitconfigs, gh config dir, gcloud config and repo env."""
-    profiles = load_profiles()
-    profile = profiles.get(profile_name)
-    if not profile:
-        console.print(_("[red]Profile '{name}' not found.[/red] Run `aparta init`.", name=profile_name))
-        raise typer.Exit(1)
-    writer = SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"])
-    apply_profile(profile, writer)
-    from .shell import install_for_current_shell
-
-    install_for_current_shell(writer)
+    profile = _profile_or_fail(load_profiles(), profile_name)
+    apply_profile(profile, _writer(ctx))
 
 
 @app.command()
@@ -180,20 +214,11 @@ def doctor(
     if not profiles:
         console.print(_("[yellow]No profile configured. Run `aparta init`.[/yellow]"))
         raise typer.Exit(1)
-    if profile_name and profile_name not in profiles:
-        console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
-        raise typer.Exit(1)
-    selected = [profiles[profile_name]] if profile_name else list(profiles.values())
-
+    selected = [_profile_or_fail(profiles, profile_name)] if profile_name else list(profiles.values())
     options = ctx.obj or {}
     ok = all(
         [
-            check_profile(
-                p,
-                fix=fix,
-                dry_run=options.get("dry_run", False),
-                verbose=options.get("verbose", False),
-            )
+            check_profile(p, fix=fix, dry_run=options.get("dry_run", False), verbose=options.get("verbose", False))
             for p in selected
         ]
     )
@@ -265,10 +290,7 @@ def remove(
     from .remove import remove_profile
 
     profiles = load_profiles()
-    profile = profiles.get(profile_name)
-    if not profile:
-        console.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
-        raise typer.Exit(1)
+    profile = _profile_or_fail(profiles, profile_name)
     if not yes:
         from . import prompts
 
@@ -278,9 +300,9 @@ def remove(
         if not confirmed:
             console.print(_("[yellow]Cancelled.[/yellow]"))
             raise typer.Exit(0)
-    writer = SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"])
+    writer = _writer(ctx)
     remove_profile(profile, writer)
-    if not ctx.obj["dry_run"]:
+    if not writer.dry_run:
         del profiles[profile_name]
         save_profiles(profiles, writer)
 
@@ -300,9 +322,8 @@ def fallback(
     from . import fallback as fallback_mod
 
     if secure and restore:
-        console.print(_("[red]Use --secure or --restore, not both.[/red]"))
-        raise typer.Exit(1)
-    writer = SafeWriter(dry_run=ctx.obj["dry_run"], verbose=ctx.obj["verbose"])
+        _fail(_("[red]Use --secure or --restore, not both.[/red]"))
+    writer = _writer(ctx)
     if secure:
         if not fallback_mod.make_secure(writer, assume_yes=yes):
             raise typer.Exit(1)
@@ -316,7 +337,6 @@ def fallback(
 @app.command()
 def update() -> None:
     """Update aparta to the latest release."""
-    from . import __version__
     from .updates import check_for_update, run_update
 
     latest = check_for_update(force=True)
@@ -334,102 +354,40 @@ def add(
     values: list[str] = typer.Argument(..., help=_("[workspace] provider to enable.")),
 ) -> None:
     """Enable a provider in the current or explicitly named workspace."""
-
-    from .providers import ProviderError, canonical_provider, validate_provider
-    from .workspaces import (
-        Workspace,
-        WorkspaceResolutionError,
-        load_workspaces,
-        resolve_workspace,
-        save_workspaces,
-    )
-
     if len(values) == 1:
         selector, raw_provider = "", values[0]
     elif len(values) == 2:
         selector, raw_provider = values
     else:
-        console.print(_("[red]Usage: aparta add [workspace] <provider>[/red]"))
-        raise typer.Exit(2)
+        _fail(_("[red]Usage: aparta add [workspace] <provider>[/red]"), code=2)
 
     profiles = load_profiles()
     workspaces = load_workspaces()
     try:
-        workspace = resolve_workspace(selector, Path.cwd(), profiles, workspaces)
-        profile = profiles[workspace.profile]
+        profile, workspace = resolve_target(selector, Path.cwd(), profiles, workspaces)
+        if workspace is None:
+            raise WorkspaceResolutionError(f"'{selector}' is a profile; name a workspace or run inside one")
         provider = canonical_provider(raw_provider)
         validate_provider(profile, provider)
-    except (WorkspaceResolutionError, ProviderError, KeyError) as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+    except (WorkspaceResolutionError, ProviderError) as exc:
+        _fail(f"[red]{escape(str(exc))}[/red]")
 
-    existing_same_path = next(
-        (name for name, saved in workspaces.items() if saved.root_path == workspace.root_path),
-        "",
-    )
-    if existing_same_path and provider in workspace.providers:
+    record, already = enable_provider(workspaces, workspace, provider)
+    if already:
         console.print(
-            _(
-                "[green]{provider}[/green] is already enabled in workspace '{workspace}'.",
-                provider=provider,
-                workspace=workspace.name,
-            )
+            _("[green]{provider}[/green] is already enabled in workspace '{workspace}'.", provider=provider, workspace=record.name)
         )
         return
-
-    if not existing_same_path:
-        workspace.providers = ["git"]
-    workspace.providers = list(dict.fromkeys([*workspace.providers, provider]))
-    if existing_same_path:
-        workspace.name = existing_same_path
-    elif workspace.name in workspaces and workspaces[workspace.name].root_path != workspace.root_path:
-        base = f"{workspace.profile}-{workspace.name}"
-        name = base
-        suffix = 2
-        while name in workspaces:
-            name = f"{base}-{suffix}"
-            suffix += 1
-        workspace.name = name
-    workspaces[workspace.name] = Workspace(
-        workspace.name,
-        str(workspace.root_path),
-        workspace.profile,
-        workspace.providers,
-    )
-    options = ctx.obj or {}
-    writer = SafeWriter(
-        dry_run=options.get("dry_run", False),
-        verbose=options.get("verbose", False),
-    )
-    save_workspaces(
-        workspaces,
-        writer,
-    )
+    writer = _writer(ctx)
+    save_workspaces(workspaces, writer)
+    from .apply import apply_workspace_agents
     from .backends.git import reconcile_workspace_git
+    from .shell import install_for_current_shell
 
     reconcile_workspace_git(profiles, workspaces, writer)
-    from .apply import apply_workspace_agents
-
-    apply_workspace_agents(profile, workspaces[workspace.name], writer)
-    console.print(
-        _(
-            "[green]{provider}[/green] enabled in workspace '{workspace}'.",
-            provider=provider,
-            workspace=workspace.name,
-        )
-    )
-
-
-def _login_target(selector: str):
-    """Resolve a direct profile or an exact workspace for authentication."""
-
-    from .workspaces import load_workspaces, resolve_workspace
-
-    profiles = load_profiles()
-    if selector and selector in profiles:
-        return profiles[selector], None
-    workspace = resolve_workspace(selector, Path.cwd(), profiles, load_workspaces())
-    return profiles[workspace.profile], workspace
+    apply_workspace_agents(profile, record, writer)
+    install_for_current_shell(writer)
+    console.print(_("[green]{provider}[/green] enabled in workspace '{workspace}'.", provider=provider, workspace=record.name))
 
 
 @app.command()
@@ -439,23 +397,18 @@ def login(
 ) -> None:
     """Reauthenticate the current workspace or an explicit target."""
     from .auth import login_profile
-    from .providers import ProviderError, canonical_provider
-    from .workspaces import WorkspaceResolutionError
 
     try:
-        profile, workspace = _login_target(profile_name)
+        profile, workspace = resolve_target(profile_name, Path.cwd(), load_profiles(), load_workspaces())
         selected_provider = canonical_provider(provider) if provider else ""
-    except (WorkspaceResolutionError, ProviderError, KeyError) as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+    except (WorkspaceResolutionError, ProviderError) as exc:
+        _fail(f"[red]{escape(str(exc))}[/red]")
     enabled = workspace.providers if workspace is not None else None
     if not login_profile(profile, selected_provider, enabled_providers=enabled):
         raise typer.Exit(1)
 
 
 def _expiry_warning_minutes() -> int:
-    import os
-
     try:
         return max(0, int(os.environ.get("APARTA_EXPIRY_WARNING_MINUTES", "30")))
     except ValueError:
@@ -468,45 +421,18 @@ def status(
     shell: bool = typer.Option(False, "--shell", help=_("Print a compact prompt status.")),
 ) -> None:
     """Show the current workspace, provider health, and known expiry warning."""
-    import math
-    import time
+    from .auth import OK, cached_check, read_cached_status, workspace_statuses
 
-    from .auth import AuthStatus, MISSING, OK, cached_check, read_cached_status
-    from .providers import canonical_providers, status_provider_name
-    from .workspaces import (
-        WorkspaceResolutionError,
-        default_providers,
-        load_workspaces,
-        resolve_workspace,
-    )
-
-    profiles = load_profiles()
-    workspace = None
     try:
-        if selector and selector in profiles:
-            profile = profiles[selector]
-            providers = default_providers(profile)
-        else:
-            workspace = resolve_workspace(selector, Path.cwd(), profiles, load_workspaces())
-            profile = profiles[workspace.profile]
-            providers = canonical_providers(workspace.providers)
-    except (WorkspaceResolutionError, KeyError) as exc:
-        console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
-
-    source_statuses = read_cached_status(profile) if shell else cached_check(profile)
-    statuses = [
-        item
-        for item in (source_statuses or [])
-        if status_provider_name(item.provider) in providers
-    ]
-    known = {status_provider_name(item.provider) for item in statuses}
-    adc_path = profile.gcloud_config_dir / "application_default_credentials.json"
-    if "adc" in providers and "adc" not in known and not adc_path.is_file():
-        statuses.append(
-            AuthStatus("ADC", MISSING, _("no credential stored for this profile"))
-        )
-        known.add("adc")
+        profile, workspace = resolve_target(selector, Path.cwd(), load_profiles(), load_workspaces())
+    except WorkspaceResolutionError as exc:
+        _fail(f"[red]{escape(str(exc))}[/red]")
+    providers = (
+        canonical_providers(workspace.providers) if workspace is not None else default_providers(profile)
+    )
+    source = read_cached_status(profile) if shell else cached_check(profile)
+    statuses = workspace_statuses(profile, set(providers), source)
+    known = {item.provider for item in statuses}
     expected_auth = set(providers).intersection({"gcloud", "adc", "github", "aws"})
     blocked = any(item.needs_human for item in statuses)
     unknown = bool(expected_auth - known) or any(
@@ -531,8 +457,6 @@ def status(
     workspace_name = workspace.name if workspace is not None else profile.name
 
     if shell:
-        import re
-
         prompt_name = re.sub(r"[^A-Za-z0-9._/-]", "?", workspace_name)
         extras = f" {countdown}" if countdown else ""
         print(f"[aparta:{prompt_name} {state}{extras}]")
@@ -547,39 +471,27 @@ def status(
         console.print(_("Credential is renewable automatically."))
     for item in statuses:
         detail = f": {item.detail}" if item.detail else ""
-        console.print(f"{item.provider}: {item.state}{detail}")
+        console.print(f"{item.label}: {item.state}{detail}")
 
 
 def _resolve_profile(profile_name: str):
     """The named profile, or the one owning the current folder."""
-
-    from .workspaces import profile_for_path
-
-    err = Console(stderr=True)
     profiles = load_profiles()
     if profile_name:
-        profile = profiles.get(profile_name)
-        if not profile:
-            err.print(_("[red]Profile '{name}' not found.[/red]", name=profile_name))
-            raise typer.Exit(1)
-        return profile
+        return _profile_or_fail(profiles, profile_name)
     profile = profile_for_path(Path.cwd(), profiles)
-    if not profile:
-        err.print(
-            _("[red]This folder belongs to no profile.[/red] Use --profile <name> or run from a configured folder.")
-        )
-        raise typer.Exit(1)
+    if profile is None:
+        _fail(_("[red]This folder belongs to no profile.[/red] Use --profile <name> or run from a configured folder."))
     return profile
 
 
-def _resolve_workspace_context(selector: str = ""):
-    """Return the exact workspace and owning profile for a CLI command."""
-
-    from .workspaces import load_workspaces, resolve_workspace
-
-    profiles = load_profiles()
-    workspace = resolve_workspace(selector, Path.cwd(), profiles, load_workspaces())
-    return workspace, profiles[workspace.profile]
+def _current_workspace():
+    """The exact workspace of the current folder and its profile."""
+    try:
+        profile, workspace = resolve_target("", Path.cwd(), load_profiles(), load_workspaces())
+    except WorkspaceResolutionError as exc:
+        _fail(f"[red]{escape(str(exc))}[/red]")
+    return workspace, profile
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -601,17 +513,11 @@ def run(
     if command and command[0] == "--":
         command = command[1:]
     if not command:
-        Console(stderr=True).print(_("[red]Nothing to run.[/red] Usage: aparta run -- <command> [args...]"))
-        raise typer.Exit(2)
+        _fail(_("[red]Nothing to run.[/red] Usage: aparta run -- <command> [args...]"), code=2)
     if profile_name:
-        profile = _resolve_profile(profile_name)
-        code = run_in_profile(profile, command, with_gh_token)
+        code = run_in_profile(_resolve_profile(profile_name), command, with_gh_token)
     else:
-        try:
-            workspace, profile = _resolve_workspace_context()
-        except (ValueError, KeyError) as exc:
-            Console(stderr=True).print(f"[red]{exc}[/red]")
-            raise typer.Exit(1)
+        workspace, profile = _current_workspace()
         code = run_in_workspace(profile, workspace, command, with_gh_token)
     raise typer.Exit(code)
 
@@ -634,11 +540,10 @@ def env(
 ) -> None:
     """Print export lines for scripts: eval "$(aparta env)"."""
 
-    from .runner import export_lines, gh_token, profile_env
+    from .runner import export_lines, profile_env, with_github_token
 
     if activate:
         from .shell import activation_lines
-        from .workspaces import load_workspaces, workspace_for_path
 
         profiles = load_profiles()
         workspace = workspace_for_path(Path.cwd(), profiles, load_workspaces())
@@ -647,21 +552,12 @@ def env(
         return
 
     if profile_name:
-        profile = _resolve_profile(profile_name)
-        selected = profile_env(profile, with_gh_token)
+        selected = profile_env(_resolve_profile(profile_name), with_gh_token)
     else:
-        from .providers import workspace_env
-
-        try:
-            workspace, profile = _resolve_workspace_context()
-        except (ValueError, KeyError) as exc:
-            Console(stderr=True).print(f"[red]{exc}[/red]")
-            raise typer.Exit(1)
+        workspace, profile = _current_workspace()
         selected = workspace_env(workspace, profile)
-        if with_gh_token and "github" in workspace.providers and profile.gh_user:
-            token = gh_token(profile)
-            if token:
-                selected["GITHUB_TOKEN"] = token
+        if with_gh_token and "github" in workspace.providers:
+            with_github_token(selected, profile)
     lines = export_lines(selected)
     if lines:
         print(lines)
@@ -671,8 +567,7 @@ def env(
 def hook(shell: str = typer.Argument("zsh")) -> None:
     """Print the integration code evaluated by a supported shell."""
     if shell != "zsh":
-        Console(stderr=True).print(_("[red]Unsupported shell: {shell}[/red]", shell=shell))
-        raise typer.Exit(1)
+        _fail(_("[red]Unsupported shell: {shell}[/red]", shell=shell))
     from .shell import render_zsh_hook
 
     print(render_zsh_hook(), end="")
@@ -683,12 +578,7 @@ def shell_install(ctx: typer.Context) -> None:
     """Install automatic zsh workspace activation in the user's startup file."""
     from .shell import install_zsh_hook
 
-    options = ctx.obj or {}
-    writer = SafeWriter(
-        dry_run=options.get("dry_run", False),
-        verbose=options.get("verbose", False),
-    )
-    changed = install_zsh_hook(writer)
+    changed = install_zsh_hook(_writer(ctx))
     if changed:
         console.print(_("[green]Automatic zsh workspace activation installed.[/green]"))
     else:
@@ -705,9 +595,7 @@ def check(
     ),
 ) -> None:
     """Check the credentials of every profile, quiet when all is well."""
-    import json as jsonlib
-
-    from .auth import cached_check, OK
+    from .auth import OK, cached_check
 
     profiles = load_profiles()
     if not profiles:
@@ -724,13 +612,13 @@ def check(
             if status.state == OK:
                 continue
             lines.append(
-                _("{provider} in '{name}': {detail}", provider=status.provider, name=profile.name, detail=status.detail)
+                _("{provider} in '{name}': {detail}", provider=status.label, name=profile.name, detail=status.detail)
             )
             if status.needs_human:
                 lines.append(_("  run `aparta login {name}`", name=profile.name))
 
     if as_json:
-        print(jsonlib.dumps({"systemMessage": "\n".join(lines)} if lines else {}))
+        print(json.dumps({"systemMessage": "\n".join(lines)} if lines else {}))
         return
     for line in lines:
         console.print(f"[yellow]{line}[/yellow]" if not line.startswith("  ") else line)

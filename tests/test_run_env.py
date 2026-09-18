@@ -197,13 +197,13 @@ def test_workspace_run_blocks_a_cached_expired_selected_provider(tmp_path, monke
     monkeypatch.setattr(
         auth,
         "read_cached_status",
-        lambda selected: [auth.AuthStatus("ADC", auth.REAUTH, "session expired")],
+        lambda selected: [auth.AuthStatus("adc", auth.REAUTH, "session expired")],
     )
     monkeypatch.setattr(
         auth,
         "cached_check",
         lambda selected, force=False: [
-            auth.AuthStatus("ADC", auth.REAUTH, "session expired")
+            auth.AuthStatus("adc", auth.REAUTH, "session expired")
         ],
     )
 
@@ -257,7 +257,7 @@ def test_workspace_run_ignores_an_expired_provider_not_enabled_here(tmp_path, mo
     monkeypatch.setattr(
         auth,
         "read_cached_status",
-        lambda selected: [auth.AuthStatus("ADC", auth.REAUTH, "session expired")],
+        lambda selected: [auth.AuthStatus("adc", auth.REAUTH, "session expired")],
     )
     called = {}
 

@@ -16,6 +16,7 @@ from .i18n import _
 from . import __version__
 from .profiles import MANAGED_ENV_KEYS, Profile, load_profiles, save_profiles
 from .providers import workspace_env
+from .shell import install_for_current_shell
 from .workspaces import Workspace, load_workspaces, nested_profile_roots, profile_repos, workspace_for_path
 
 console = Console()
@@ -149,6 +150,8 @@ def apply_profile(
     else:
         console.print(_("[green]Done: {n} file(s) updated (backups kept).[/green]", n=len(writer.changes)))
     console.print()
+    install_for_current_shell(writer)
+
 
 
 def _stamp_version(profile: Profile, writer: SafeWriter) -> None:

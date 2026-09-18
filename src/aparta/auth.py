@@ -22,7 +22,7 @@ from .i18n import _
 from . import prompts
 from .config import read_json, write_json
 from .profiles import Profile, clean_environment
-from .providers import canonical_provider, canonical_providers
+from .providers import canonical_provider, canonical_providers, provider_label
 
 OK = "ok"
 REAUTH = "reauth"
@@ -87,6 +87,10 @@ class AuthStatus:
     @property
     def needs_human(self) -> bool:
         return self.state in (REAUTH, MISSING)
+
+    @property
+    def label(self) -> str:
+        return provider_label(self.provider)
 
 
 def checks_enabled() -> bool:
@@ -168,16 +172,16 @@ def _refresh_adc_like_a_library(adc_path: Path) -> AuthStatus | None:
         with urllib.request.urlopen(
             urllib.request.Request(TOKEN_ENDPOINT, data=body), timeout=PROBE_TIMEOUT
         ):
-            return AuthStatus("ADC", OK, renewable=True)
+            return AuthStatus("adc", OK, renewable=True)
     except urllib.error.HTTPError as e:
         try:
             err = json.loads(e.read().decode())
         except Exception:
             err = {}
         state, detail = _classify(" ".join(str(v) for v in err.values()))
-        return AuthStatus("ADC", state, detail or (str(e) if state == UNKNOWN else ""))
+        return AuthStatus("adc", state, detail or (str(e) if state == UNKNOWN else ""))
     except Exception:
-        return AuthStatus("ADC", UNKNOWN, _("check timed out"))
+        return AuthStatus("adc", UNKNOWN, _("check timed out"))
 
 
 def check_adc(profile: Profile) -> AuthStatus | None:
@@ -188,10 +192,10 @@ def check_adc(profile: Profile) -> AuthStatus | None:
     if status is not None:
         return status
     status = _probe(
-        "ADC", ["gcloud", "auth", "application-default", "print-access-token"], _probe_env(profile)
+        "adc", ["gcloud", "auth", "application-default", "print-access-token"], _probe_env(profile)
     )
     if status.state == OK:
-        return AuthStatus("ADC", OK, renewable=True)
+        return AuthStatus("adc", OK, renewable=True)
     return status
 
 
@@ -217,7 +221,7 @@ def check_gh(profile: Profile) -> AuthStatus | None:
     if not profile.gh_user:
         return None
     env = clean_environment(os.environ, {"GH_CONFIG_DIR": str(profile.gh_config_dir)})
-    status = _probe("gh", ["gh", "api", "user", "--jq", ".login"], env, stdout_required=False)
+    status = _probe("github", ["gh", "api", "user", "--jq", ".login"], env, stdout_required=False)
     if status.state != OK:
         return status
     login = status.detail
@@ -225,7 +229,7 @@ def check_gh(profile: Profile) -> AuthStatus | None:
         return AuthStatus(
             "gh", REAUTH, _("logged in as {user}, expected {expected}", user=login, expected=profile.gh_user)
         )
-    return AuthStatus("gh", OK)
+    return AuthStatus("github", OK)
 
 
 def check_profile(profile: Profile) -> list[AuthStatus]:
@@ -247,11 +251,17 @@ def _write_cache(data: dict) -> None:
     write_json(CACHE_FILE, data)
 
 
+_LEGACY_PROVIDER_NAMES = {"ADC": "adc", "gh": "github"}
+
+
 def _statuses_from(entry: dict) -> list[AuthStatus] | None:
     try:
-        return [AuthStatus(**status) for status in entry.get("statuses", [])]
+        statuses = [AuthStatus(**status) for status in entry.get("statuses", [])]
     except (TypeError, ValueError):
         return None
+    for status in statuses:
+        status.provider = _LEGACY_PROVIDER_NAMES.get(status.provider, status.provider)
+    return statuses
 
 
 def read_cached_status(profile: Profile) -> list[AuthStatus] | None:
@@ -276,6 +286,24 @@ def cached_check(profile: Profile, force: bool = False) -> list[AuthStatus]:
         "statuses": [s.__dict__ for s in statuses],
     }
     _write_cache(cache)
+    return statuses
+
+
+def missing_adc(profile: Profile, providers: set[str]) -> AuthStatus | None:
+    """A workspace that enables the ADC is blocked until the isolated file exists."""
+    if "adc" in providers and not profile.adc_path.is_file():
+        return AuthStatus("adc", MISSING, _("no credential stored for this profile"))
+    return None
+
+
+def workspace_statuses(
+    profile: Profile, providers: set[str], source: list[AuthStatus] | None
+) -> list[AuthStatus]:
+    """The statuses that matter to a workspace, with a selected but absent ADC counted as missing."""
+    statuses = [status for status in (source or []) if status.provider in providers]
+    adc = missing_adc(profile, providers)
+    if adc is not None and not any(status.provider == "adc" for status in statuses):
+        statuses.append(adc)
     return statuses
 
 
@@ -359,7 +387,6 @@ class Credential:
     """One credential a profile may hold, with its probe and its interactive renewal."""
 
     provider: str
-    label: str
     applies: Callable[[Profile], bool]
     check: Callable[[Profile], AuthStatus | None]
     login: Callable[[Profile, Console, bool], bool]
@@ -369,7 +396,6 @@ class Credential:
 CREDENTIALS: tuple[Credential, ...] = (
     Credential(
         "gcloud",
-        "gcloud",
         lambda p: bool(p.gcloud_account),
         lambda p: check_gcloud(p),
         lambda p, console, forced: _gcloud_login(p, console, forced),
@@ -377,7 +403,6 @@ CREDENTIALS: tuple[Credential, ...] = (
     ),
     Credential(
         "adc",
-        "ADC",
         lambda p: bool(p.gcloud_account and p.gcloud_isolated),
         lambda p: None,
         lambda p, console, forced: _adc_step(p, console, forced),
@@ -385,7 +410,6 @@ CREDENTIALS: tuple[Credential, ...] = (
     ),
     Credential(
         "github",
-        "gh",
         lambda p: bool(p.gh_user),
         lambda p: check_gh(p),
         lambda p, console, forced: _gh_login(p, console, forced),
@@ -396,7 +420,6 @@ CREDENTIALS: tuple[Credential, ...] = (
         ),
     ),
     Credential(
-        "aws",
         "aws",
         lambda p: bool(p.aws_profile),
         lambda p: check_aws(p),
@@ -430,7 +453,7 @@ def login_profile(
             continue
         if status is not None and not status.needs_human:
             console.print(
-                _("{provider} in '{name}': {detail}", provider=credential.label, name=profile.name, detail=status.detail)
+                _("{provider} in '{name}': {detail}", provider=provider_label(credential.provider), name=profile.name, detail=status.detail)
             )
             ok = False
             continue
@@ -456,7 +479,7 @@ def _ensure_adc(
             console.print(_("[green]ADC:[/green] the application credentials are still valid"))
         return True
     if status.state == UNKNOWN:
-        console.print(_("{provider} in '{name}': {detail}", provider="ADC", name=profile.name, detail=status.detail))
+        console.print(_("{provider} in '{name}': {detail}", provider=status.label, name=profile.name, detail=status.detail))
         return False
     console.print(_("[yellow]ADC:[/yellow] {detail}; renewing the application credentials...", detail=status.detail))
     return _run_adc_login(profile, env, console, created=False)

@@ -296,3 +296,53 @@ def resolve_workspace(
             raise WorkspaceResolutionError(f"profile has multiple workspaces: {names}")
 
     raise WorkspaceResolutionError(f"workspace '{selector}' not found")
+
+
+def resolve_target(
+    selector: str,
+    cwd: Path,
+    profiles: dict[str, Profile],
+    workspaces: dict[str, Workspace],
+) -> tuple[Profile, Workspace | None]:
+    """A profile named outright, or the workspace a selector resolves to and its profile."""
+    if selector and selector in profiles:
+        return profiles[selector], None
+    workspace = resolve_workspace(selector, cwd, profiles, workspaces)
+    profile = profiles.get(workspace.profile)
+    if profile is None:
+        raise WorkspaceResolutionError(
+            f"workspace '{workspace.name}' points to unknown profile '{workspace.profile}'"
+        )
+    return profile, workspace
+
+
+def enable_provider(
+    workspaces: dict[str, Workspace], workspace: Workspace, provider: str
+) -> tuple[Workspace, bool]:
+    """Record a provider on the exact checkout; a first record starts from git alone."""
+    existing = next(
+        (name for name, saved in workspaces.items() if saved.root_path == workspace.root_path), ""
+    )
+    if existing and provider in workspace.providers:
+        return workspaces[existing], True
+    base_providers = workspace.providers if existing else ["git"]
+    record = Workspace(
+        existing or _unique_name(workspaces, workspace),
+        str(workspace.root_path),
+        workspace.profile,
+        list(dict.fromkeys([*base_providers, provider])),
+    )
+    workspaces[record.name] = record
+    return record, False
+
+
+def _unique_name(workspaces: dict[str, Workspace], workspace: Workspace) -> str:
+    taken = workspace.name in workspaces and workspaces[workspace.name].root_path != workspace.root_path
+    if not taken:
+        return workspace.name
+    base = f"{workspace.profile}-{workspace.name}"
+    name, suffix = base, 2
+    while name in workspaces:
+        name = f"{base}-{suffix}"
+        suffix += 1
+    return name

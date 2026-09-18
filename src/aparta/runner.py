@@ -34,10 +34,14 @@ def gh_token(profile: Profile) -> str:
 def profile_env(profile: Profile, with_gh_token: bool = False) -> dict[str, str]:
     """The variables this profile stands for, optionally with GITHUB_TOKEN."""
     env = profile.env()
-    if with_gh_token and profile.gh_user:
-        token = gh_token(profile)
-        if token:
-            env["GITHUB_TOKEN"] = token
+    return with_github_token(env, profile) if with_gh_token else env
+
+
+def with_github_token(env: dict[str, str], profile: Profile) -> dict[str, str]:
+    """Add GITHUB_TOKEN from the profile's gh when the profile has a GitHub user."""
+    token = gh_token(profile) if profile.gh_user else ""
+    if token:
+        env["GITHUB_TOKEN"] = token
     return env
 
 
@@ -62,38 +66,26 @@ def run_in_workspace(
 ) -> int:
     """Execute with only the providers enabled for the exact workspace."""
     from . import auth
-    from .providers import canonical_providers, status_provider_name, workspace_env
+    from .providers import canonical_providers, workspace_env
 
     selected = set(canonical_providers(workspace.providers))
 
-    def relevant_problem(statuses: list[auth.AuthStatus]) -> auth.AuthStatus | None:
-        return next(
-            (
-                status
-                for status in statuses
-                if status.needs_human and status_provider_name(status.provider) in selected
-            ),
-            None,
-        )
+    def blocker(source: list[auth.AuthStatus] | None) -> auth.AuthStatus | None:
+        statuses = auth.workspace_statuses(profile, selected, source)
+        return next((status for status in statuses if status.needs_human), None)
 
-    adc_path = profile.gcloud_config_dir / "application_default_credentials.json"
-    problem = (
-        auth.AuthStatus("ADC", auth.MISSING, _("no credential stored for this profile"))
-        if "adc" in selected and not adc_path.is_file()
-        else None
-    )
+    problem = auth.missing_adc(profile, selected)
     if problem is None and auth.checks_enabled():
-        cached = auth.read_cached_status(profile) or []
-        problem = relevant_problem(cached)
+        problem = blocker(auth.read_cached_status(profile))
         if problem is not None:
-            problem = relevant_problem(auth.cached_check(profile, force=True))
+            problem = blocker(auth.cached_check(profile, force=True))
     if problem is not None:
         from rich.console import Console
 
         Console(stderr=True).print(
             _(
                 "[red]{provider} credential for workspace '{workspace}' requires login: {detail}.[/red] Run [bold]aparta login[/bold] in that workspace.",
-                provider=problem.provider,
+                provider=problem.label,
                 workspace=workspace.name,
                 detail=problem.detail,
             )
@@ -101,10 +93,8 @@ def run_in_workspace(
         return 1
 
     overlay = workspace_env(workspace, profile)
-    if with_gh_token and "github" in workspace.providers and profile.gh_user:
-        token = gh_token(profile)
-        if token:
-            overlay["GITHUB_TOKEN"] = token
+    if with_gh_token and "github" in workspace.providers:
+        with_github_token(overlay, profile)
     env = clean_environment(os.environ, overlay)
     try:
         return subprocess.run(command, env=env).returncode
