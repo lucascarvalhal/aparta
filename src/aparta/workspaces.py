@@ -93,24 +93,23 @@ def git_env() -> dict[str, str]:
     return env
 
 
+def git_output(*args: str, repo: Path | None = None, timeout: int = 30) -> str | None:
+    """Stdout of a git command run without repository redirection; None when git fails or is missing."""
+    command = ["git", *(("-C", str(repo)) if repo is not None else ()), *args]
+    try:
+        result = subprocess.run(command, env=git_env(), capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
 def git_workspace_root(path: Path) -> Path | None:
     """Return Git's exact top-level for a directory, including linked worktrees."""
     candidate = path.expanduser()
     if not candidate.exists():
         return None
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(candidate), "rev-parse", "--show-toplevel"],
-            env=git_env(),
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0 or not result.stdout.strip():
-        return None
-    return Path(result.stdout.strip()).expanduser().resolve()
+    top = git_output("rev-parse", "--show-toplevel", repo=candidate, timeout=10)
+    return Path(top).expanduser().resolve() if top else None
 
 
 def find_repos(root: Path, max_depth: int = 3) -> list[Path]:

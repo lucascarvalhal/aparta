@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
 from .fsutil import tilde
 from .config import config_home, gh_config_dir as gh_config_path
-from .workspaces import find_repos
+from .backends.git import parse_sections
+from .workspaces import find_repos, git_output
 
 DEFAULT_SCAN_DEPTH = 4
 
@@ -36,21 +36,11 @@ class ContextSuggestion:
 def parse_includeifs(gitconfig_text: str) -> list[tuple[str, str]]:
     """Extract (gitdir, path) pairs from [includeIf "gitdir:..."] blocks."""
     pairs: list[tuple[str, str]] = []
-    current_gitdir: str | None = None
-    for line in gitconfig_text.splitlines():
-        line = line.strip()
-        m = re.match(r'\[includeIf\s+"gitdir:(.+?)"\]', line)
-        if m:
-            current_gitdir = m.group(1)
-            continue
-        if line.startswith("["):
-            current_gitdir = None
-            continue
-        if current_gitdir:
-            m = re.match(r"path\s*=\s*(.+)", line)
-            if m:
-                pairs.append((current_gitdir, m.group(1).strip()))
-                current_gitdir = None
+    for header, body in parse_sections(gitconfig_text):
+        gitdir = re.match(r'\s*\[includeIf\s+"gitdir:(.+?)"\]', header or "")
+        path = next((m.group(1).strip() for line in body if (m := re.match(r"\s*path\s*=\s*(.+)", line))), "")
+        if gitdir and path:
+            pairs.append((gitdir.group(1), path))
     return pairs
 
 
@@ -107,16 +97,7 @@ def find_all_repos(
 
 def repo_git_email(repo: Path) -> str:
     """Effective repo e-mail (local > includeIf > global)."""
-    try:
-        r = subprocess.run(
-            ["git", "-C", str(repo), "config", "user.email"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return ""
-    return r.stdout.strip()
+    return git_output("config", "user.email", repo=repo, timeout=10) or ""
 
 
 def read_agent_env(repo: Path) -> dict[str, str]:

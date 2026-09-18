@@ -4,20 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import re
-import subprocess
 from pathlib import Path
 
 from ..fsutil import SafeWriter, tilde
 from ..config import config_dir
 from ..profiles import Profile
-from ..workspaces import Workspace, git_env, known_workspaces
+from ..workspaces import Workspace, git_output, known_workspaces
 
 
 def context_gitconfig_path(profile: Profile, home: Path) -> Path:
     return home / f".gitconfig-{profile.name}"
 
 
-def _parse_sections(text: str) -> list[tuple[str | None, list[str]]]:
+def parse_sections(text: str) -> list[tuple[str | None, list[str]]]:
     """Split a gitconfig into (header, body lines), preserving raw text."""
     sections: list[tuple[str | None, list[str]]] = []
     header: str | None = None
@@ -96,17 +95,7 @@ def render_workspace_gitconfig(profile: Profile, workspace: Workspace) -> str:
 
 
 def _absolute_gitdir(repo: Path) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--absolute-git-dir"],
-            env=git_env(),
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout.strip() if result.returncode == 0 else None
+    return git_output("rev-parse", "--absolute-git-dir", repo=repo)
 
 
 def _without_managed_includes(
@@ -122,7 +111,7 @@ def _without_managed_includes(
     generated_dir = config_dir() / "git"
     generated_roots = {str(generated_dir.resolve()), tilde(generated_dir)}
     kept: list[tuple[str | None, list[str]]] = []
-    for header, body in _parse_sections(text):
+    for header, body in parse_sections(text):
         is_include = bool(header and header.lstrip().lower().startswith("[includeif "))
         paths = []
         if is_include:
@@ -152,29 +141,12 @@ def remove_legacy_local_includes(
     """Remove Aparta's old shared local includes from adopted repositories."""
     managed = {str(context_gitconfig_path(profile, home)) for profile in profiles.values()}
     for repo in repos:
-        try:
-            current = subprocess.run(
-                ["git", "-C", str(repo), "config", "--local", "--get-all", "include.path"],
-                env=git_env(),
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-        except (OSError, subprocess.SubprocessError):
-            continue
-        for value in set(current.stdout.splitlines()).intersection(managed):
+        current = git_output("config", "--local", "--get-all", "include.path", repo=repo) or ""
+        for value in set(current.splitlines()).intersection(managed):
             if writer.dry_run:
-                writer.changes.append(
-                    f"[dry-run] git -C {repo} config --local --unset-all include.path {value}"
-                )
+                writer.changes.append(f"[dry-run] git -C {repo} config --local --unset-all include.path {value}")
                 continue
-            subprocess.run(
-                ["git", "-C", str(repo), "config", "--local", "--unset-all", "include.path", value],
-                env=git_env(),
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
+            git_output("config", "--local", "--unset-all", "include.path", value, repo=repo)
 
 
 def reconcile_workspace_git(
@@ -217,8 +189,4 @@ def reconcile_workspace_git(
 
 def global_user_name() -> str:
     """user.name from the global git config, a sensible default for new profiles."""
-    try:
-        r = subprocess.run(["git", "config", "--global", "user.name"], capture_output=True, text=True, timeout=10)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return ""
-    return r.stdout.strip()
+    return git_output("config", "--global", "user.name", timeout=10) or ""

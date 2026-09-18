@@ -23,7 +23,7 @@ from .fsutil import SafeWriter
 from .i18n import _
 from .profiles import MANAGED_ENV_KEYS, Profile, clean_environment, load_profiles
 from .providers import workspace_env
-from .workspaces import implicit_workspace, load_workspaces, profile_repos, workspace_for_path
+from .workspaces import git_output, implicit_workspace, load_workspaces, profile_repos, workspace_for_path
 
 console = Console()
 
@@ -77,7 +77,7 @@ def _check_git(profile: Profile, repos: list[Path]) -> Findings:
     if not repos:
         rows.append(Row("git", str(profile.root_path), False, _("no repository found")))
     for repo in repos:
-        email = _run(["git", "-C", str(repo), "config", "user.email"]).stdout.strip()
+        email = git_output("config", "user.email", repo=repo) or ""
         ok = email == profile.git_email
         rows.append(Row("git", repo.name, ok, email or _("user.email not resolved")))
         if not ok:
