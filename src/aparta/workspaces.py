@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from collections.abc import Mapping
@@ -55,6 +56,12 @@ class Workspace:
     @property
     def root_path(self) -> Path:
         return Path(self.path).expanduser().resolve()
+
+    @property
+    def gitconfig_path(self) -> Path:
+        """The private generated Git config for this exact checkout."""
+        digest = hashlib.sha256(str(self.root_path).encode()).hexdigest()[:20]
+        return config_dir() / "git" / f"workspace-{digest}.gitconfig"
 
 
 def workspaces_path() -> Path:
@@ -179,28 +186,12 @@ def profile_for_path(path: Path, profiles: dict[str, Profile]) -> Profile | None
     return best
 
 
-def default_providers(profile: Profile) -> list[str]:
-    """Providers represented by a legacy profile before workspace records existed."""
-    providers = ["git"]
-    if profile.ssh_key or profile.ssh_alias:
-        providers.append("ssh")
-    if profile.gh_user:
-        providers.append("github")
-    if profile.gcloud_account or profile.gcloud_project:
-        providers.append("gcloud")
-        if profile.gcloud_isolated:
-            providers.append("adc")
-    if profile.aws_profile:
-        providers.append("aws")
-    return providers
-
-
 def implicit_workspace(root: Path, profile: Profile) -> Workspace:
     return Workspace(
         name=root.name,
         path=str(root.resolve()),
         profile=profile.name,
-        providers=default_providers(profile),
+        providers=profile.providers,
     )
 
 

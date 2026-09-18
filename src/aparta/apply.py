@@ -34,13 +34,13 @@ def apply_workspace_agents(
     writer: SafeWriter,
 ) -> int:
     """Reconcile selected agent files for one exact workspace."""
-    from .backends.git import render_workspace_gitconfig, workspace_gitconfig_path
+    from .backends.git import render_workspace_gitconfig
 
     env = workspace_env(workspace, profile)
     before = len(writer.changes)
     if set(workspace.providers).intersection({"git", "ssh"}):
         writer.write_text(
-            workspace_gitconfig_path(workspace),
+            workspace.gitconfig_path,
             render_workspace_gitconfig(profile, workspace),
         )
     for adapter in get_adapters(profile.agents):

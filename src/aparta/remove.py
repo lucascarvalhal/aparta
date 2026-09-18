@@ -15,7 +15,6 @@ from .backends.git import (
     reconcile_workspace_git,
     remove_includeif,
     remove_legacy_local_includes,
-    workspace_gitconfig_path,
 )
 from .fsutil import SafeWriter
 from .i18n import _
@@ -65,7 +64,7 @@ def remove_profile(profile: Profile, writer: SafeWriter, home: Path | None = Non
     roots = [root for root in (git_workspace_root(repo) for repo in repos) if root is not None]
     implicit_removed = [implicit_workspace(root, profile) for root in roots]
     for workspace in [*removed_workspaces, *implicit_removed]:
-        writer.remove_file(workspace_gitconfig_path(workspace))
+        writer.remove_file(workspace.gitconfig_path)
     remove_legacy_local_includes(repos, {profile.name: profile}, writer, home)
 
     gitconfig = home / ".gitconfig"

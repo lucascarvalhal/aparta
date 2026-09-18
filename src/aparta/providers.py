@@ -42,22 +42,23 @@ def canonical_provider(value: str) -> str:
     return provider
 
 
+_MISSING = {
+    "ssh": "has no SSH identity configured",
+    "github": "has no GitHub account configured",
+    "gcloud": "has no gcloud account configured",
+    "adc": "has no gcloud account configured",
+    "aws": "has no AWS profile configured",
+}
+
+
 def validate_provider(profile: Profile, provider: str) -> None:
-    """Reject a provider that cannot be isolated by the selected profile."""
+    """Reject a provider the profile cannot isolate."""
     provider = canonical_provider(provider)
-    if provider == "ssh" and not (profile.ssh_key or profile.ssh_alias):
-        raise ProviderError(f"profile '{profile.name}' has no SSH identity configured")
-    if provider == "github" and not profile.gh_user:
-        raise ProviderError(f"profile '{profile.name}' has no GitHub account configured")
-    if provider in {"gcloud", "adc"}:
-        if not (profile.gcloud_account or profile.gcloud_project):
-            raise ProviderError(f"profile '{profile.name}' has no gcloud account configured")
-        if not profile.gcloud_isolated:
-            raise ProviderError(
-                f"profile '{profile.name}' must use isolated gcloud mode before enabling {provider}"
-            )
-    if provider == "aws" and not profile.aws_profile:
-        raise ProviderError(f"profile '{profile.name}' has no AWS profile configured")
+    configured = profile.provider_env()
+    if provider in {"gcloud", "adc"} and "gcloud" in configured and not profile.gcloud_isolated:
+        raise ProviderError(f"profile '{profile.name}' must use isolated gcloud mode before enabling {provider}")
+    if provider not in configured:
+        raise ProviderError(f"profile '{profile.name}' {_MISSING.get(provider, 'cannot enable ' + provider)}")
 
 
 def canonical_providers(values: list[str]) -> list[str]:
@@ -65,33 +66,19 @@ def canonical_providers(values: list[str]) -> list[str]:
 
 
 def workspace_env(workspace: Workspace, profile: Profile) -> dict[str, str]:
-    """Return only the profile selectors enabled for this exact workspace."""
+    """Only the variables of the providers enabled for this exact workspace."""
     selected = set(canonical_providers(workspace.providers))
-    available = profile.env()
+    configured = profile.provider_env()
     env: dict[str, str] = {}
-
     if selected.intersection({"git", "ssh"}):
-        from .backends.git import workspace_gitconfig_path
-
         env.update(
             {
                 "GIT_CONFIG_COUNT": "1",
                 "GIT_CONFIG_KEY_0": "include.path",
-                "GIT_CONFIG_VALUE_0": str(workspace_gitconfig_path(workspace)),
+                "GIT_CONFIG_VALUE_0": str(workspace.gitconfig_path),
             }
         )
-    if "ssh" in selected and profile.ssh_key:
-        env["GIT_SSH_COMMAND"] = (
-            f"ssh -i {profile.ssh_key} -o IdentitiesOnly=yes"
-        )
-
-    if "github" in selected and "GH_CONFIG_DIR" in available:
-        env["GH_CONFIG_DIR"] = available["GH_CONFIG_DIR"]
-
-    if selected.intersection({"gcloud", "adc"}):
-        env.update(profile.gcloud_env())
-
-    if "aws" in selected and "AWS_PROFILE" in available:
-        env["AWS_PROFILE"] = available["AWS_PROFILE"]
-
+    for provider in ("ssh", "github", "gcloud", "adc", "aws"):
+        if provider in selected:
+            env.update(configured.get(provider, {}))
     return env

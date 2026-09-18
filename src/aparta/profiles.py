@@ -112,28 +112,42 @@ class Profile:
     def gcloud_config_dir(self) -> Path:
         return gcloud_config_dir(self.name)
 
+    def provider_env(self) -> dict[str, dict[str, str]]:
+        """The variables each configured provider stands for; a provider absent here is not configured."""
+        providers: dict[str, dict[str, str]] = {"git": {}}
+        if self.ssh_key or self.ssh_alias:
+            providers["ssh"] = {"GIT_SSH_COMMAND": f"ssh -i {self.ssh_key} -o IdentitiesOnly=yes"} if self.ssh_key else {}
+        if self.gh_user:
+            providers["github"] = {"GH_CONFIG_DIR": str(self.gh_config_dir)}
+        if self.gcloud_account or self.gcloud_project:
+            gcloud = {"CLOUDSDK_ACTIVE_CONFIG_NAME": self.name}
+            if self.gcloud_account:
+                gcloud["CLOUDSDK_CORE_ACCOUNT"] = self.gcloud_account
+            if self.gcloud_project:
+                gcloud["CLOUDSDK_CORE_PROJECT"] = self.gcloud_project
+                gcloud["GOOGLE_CLOUD_PROJECT"] = self.gcloud_project
+                gcloud["GCLOUD_PROJECT"] = self.gcloud_project
+            if self.gcloud_isolated:
+                gcloud["CLOUDSDK_CONFIG"] = str(self.gcloud_config_dir)
+                gcloud["CLOUDSDK_CORE_DISABLE_FILE_LOGGING"] = "1"
+                gcloud["GOOGLE_APPLICATION_CREDENTIALS"] = str(self.adc_path)
+                providers["adc"] = gcloud
+            providers["gcloud"] = gcloud
+        if self.aws_profile:
+            providers["aws"] = {"AWS_PROFILE": self.aws_profile}
+        return providers
+
+    @property
+    def providers(self) -> list[str]:
+        """Every provider this profile can isolate, in a stable order."""
+        return list(self.provider_env())
+
     def env(self) -> dict[str, str]:
         """Environment variables this profile injects into agents."""
         env: dict[str, str] = {}
-        if self.gh_user:
-            env["GH_CONFIG_DIR"] = str(self.gh_config_dir)
-        if self.gcloud_account or self.gcloud_project:
-            if self.gcloud_account:
-                env["CLOUDSDK_CORE_ACCOUNT"] = self.gcloud_account
-            if self.gcloud_project:
-                env["CLOUDSDK_CORE_PROJECT"] = self.gcloud_project
-                env["GOOGLE_CLOUD_PROJECT"] = self.gcloud_project
-                env["GCLOUD_PROJECT"] = self.gcloud_project
-            if self.gcloud_isolated:
-                env["CLOUDSDK_CONFIG"] = str(self.gcloud_config_dir)
-                env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
-                adc = self.gcloud_config_dir / "application_default_credentials.json"
-                env["GOOGLE_APPLICATION_CREDENTIALS"] = str(adc)
-                env["CLOUDSDK_CORE_DISABLE_FILE_LOGGING"] = "1"
-            else:
-                env["CLOUDSDK_ACTIVE_CONFIG_NAME"] = self.name
-        if self.aws_profile:
-            env["AWS_PROFILE"] = self.aws_profile
+        for variables in self.provider_env().values():
+            env.update(variables)
+        env.pop("GIT_SSH_COMMAND", None)
         return env
 
 

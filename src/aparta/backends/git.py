@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 from pathlib import Path
 
@@ -59,12 +58,6 @@ def remove_includeif(gitconfig_text: str, gitdir: str) -> str:
         re.IGNORECASE,
     )
     return pattern.sub("", gitconfig_text)
-
-
-def workspace_gitconfig_path(workspace: Workspace) -> Path:
-    """Private generated Git config for one canonical checkout path."""
-    digest = hashlib.sha256(str(workspace.root_path).encode()).hexdigest()[:20]
-    return config_dir() / "git" / f"workspace-{digest}.gitconfig"
 
 
 def render_workspace_gitconfig(profile: Profile, workspace: Workspace) -> str:
@@ -168,7 +161,7 @@ def reconcile_workspace_git(
         if not selected.intersection({"git", "ssh"}):
             continue
         profile = profiles[workspace.profile]
-        generated = workspace_gitconfig_path(workspace)
+        generated = workspace.gitconfig_path
         writer.write_text(generated, render_workspace_gitconfig(profile, workspace))
         gitdir = _absolute_gitdir(repo)
         if gitdir:

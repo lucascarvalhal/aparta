@@ -25,7 +25,6 @@ from .profiles import load_profiles, profiles_path
 from .providers import ProviderError, canonical_provider, canonical_providers, validate_provider, workspace_env
 from .workspaces import (
     WorkspaceResolutionError,
-    default_providers,
     enable_provider,
     load_workspaces,
     profile_for_path,
@@ -431,7 +430,7 @@ def status(
     except WorkspaceResolutionError as exc:
         _fail(f"[red]{escape(str(exc))}[/red]")
     providers = (
-        canonical_providers(workspace.providers) if workspace is not None else default_providers(profile)
+        canonical_providers(workspace.providers) if workspace is not None else profile.providers
     )
     source = read_cached_status(profile) if shell else cached_check(profile)
     statuses = workspace_statuses(profile, set(providers), source)
