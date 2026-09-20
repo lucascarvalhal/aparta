@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Read-only commands stay read-only. Profiles applied by an older version
+  are reapplied by `aparta update`, `init`, `add` and `doctor --fix`; `list`,
+  `scan`, `doctor` and the other inspection commands only print a one-line
+  notice that a write is pending. This keeps their side-effect-free promise
+  for tools that gate agent commands, such as HOL Guard.
+
 ## [0.9.2] - 2026-09-18
 
 ### Changed

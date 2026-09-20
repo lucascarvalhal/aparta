@@ -36,6 +36,7 @@ from .workspaces import (
 )
 
 QUIET_COMMANDS = frozenset({"update", "login", "check", "run", "env", "status", "hook"})
+WRITING_COMMANDS = frozenset({"apply", "add", "init", "doctor", "remove"})
 
 app = typer.Typer(
     name="aparta",
@@ -94,8 +95,8 @@ def main(
 
         notify_or_autoupdate()
         _warn_about_credentials()
-        if ctx.invoked_subcommand != "apply":
-            _reapply_stale_profiles()
+        if ctx.invoked_subcommand not in WRITING_COMMANDS:
+            _notice_stale_profiles()
     if ctx.invoked_subcommand is None:
         if default_action() == "wizard":
             _run_wizard(dry_run, verbose)
@@ -104,13 +105,30 @@ def main(
 
 
 def _reapply_stale_profiles() -> None:
-    """A new version's behaviour lives in the applied files, so stale profiles are reapplied on sight."""
+    """Commands that write anyway bring profiles applied by an older version up to date first."""
     from .apply import reapply_stale_profiles
 
     try:
         reapply_stale_profiles()
     except (OSError, ValueError) as exc:
         console.print(_("[yellow]Could not reapply the profiles ({error}); run `aparta apply --all`.[/yellow]", error=exc))
+
+
+def _notice_stale_profiles() -> None:
+    """Read-only commands stay read-only: they only say that a write is pending."""
+    from .apply import stale_profiles
+
+    try:
+        names = stale_profiles()
+    except (OSError, ValueError):
+        return
+    if names:
+        console.print(
+            _(
+                "[dim]Profiles applied by an older aparta: {names}. They update on the next `aparta apply --all` or `aparta update`.[/dim]",
+                names=", ".join(names),
+            )
+        )
 
 
 def _warn_about_credentials() -> None:
@@ -180,6 +198,8 @@ def _run_menu(dry_run: bool, verbose: bool = False) -> None:
 
 @app.command(help=_("Guided wizard: pick agents, detect or create profiles, apply."))
 def init(ctx: typer.Context) -> None:
+    if not ctx.obj["dry_run"]:
+        _reapply_stale_profiles()
     _run_wizard(ctx.obj["dry_run"], ctx.obj["verbose"])
 
 
@@ -217,6 +237,12 @@ def doctor(
         raise typer.Exit(1)
     selected = [_profile_or_fail(profiles, profile_name)] if profile_name else list(profiles.values())
     options = ctx.obj or {}
+    if fix and not options.get("dry_run"):
+        _reapply_stale_profiles()
+        profiles = load_profiles()
+        selected = [profiles[p.name] for p in selected]
+    else:
+        _notice_stale_profiles()
     ok = all(
         [
             check_profile(p, fix=fix, dry_run=options.get("dry_run", False), verbose=options.get("verbose", False))
@@ -289,6 +315,7 @@ def remove(
 
     profiles = load_profiles()
     profile = _profile_or_fail(profiles, profile_name)
+    _notice_stale_profiles()
     if not yes:
         from . import prompts
 
@@ -358,6 +385,8 @@ def add(
     else:
         _fail(_("[red]Usage: aparta add [workspace] <provider>[/red]"), code=2)
 
+    if not (ctx.obj or {}).get("dry_run"):
+        _reapply_stale_profiles()
     profiles = load_profiles()
     workspaces = load_workspaces()
     try:

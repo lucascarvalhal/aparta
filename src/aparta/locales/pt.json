@@ -333,5 +333,6 @@
   "[yellow]Could not reapply the profiles; run `aparta apply --all`.[/yellow]": "[yellow]Não consegui reaplicar os perfis; rode `aparta apply --all`.[/yellow]",
   "[yellow]Could not reapply the profiles ({error}); run `aparta apply --all`.[/yellow]": "[yellow]Não consegui reaplicar os perfis ({error}); rode `aparta apply --all`.[/yellow]",
   "Apply every profile.": "Aplica todos os perfis.",
-  "[red]Name a profile or pass --all.[/red]": "[red]Informe um perfil ou use --all.[/red]"
+  "[red]Name a profile or pass --all.[/red]": "[red]Informe um perfil ou use --all.[/red]",
+  "[dim]Profiles applied by an older aparta: {names}. They update on the next `aparta apply --all` or `aparta update`.[/dim]": "[dim]Perfis aplicados por um aparta anterior: {names}. Eles atualizam no próximo `aparta apply --all` ou `aparta update`.[/dim]"
 }

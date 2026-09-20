@@ -8,6 +8,15 @@ projeto adota o [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ## [Não lançado]
 
+### Mudado
+
+- Comandos de leitura continuam só de leitura. Perfis aplicados por uma
+  versão anterior são reaplicados pelo `aparta update`, `init`, `add` e
+  `doctor --fix`; `list`, `scan`, `doctor` e os outros comandos de inspeção
+  só imprimem uma linha avisando que há uma escrita pendente. Isso mantém a
+  promessa de não ter efeito colateral para ferramentas que filtram comandos
+  de agentes, como o HOL Guard.
+
 ## [0.9.2] - 2026-09-18
 
 ### Mudado

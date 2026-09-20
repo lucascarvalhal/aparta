@@ -197,8 +197,8 @@ def test_startup_warning_is_scoped_to_the_profile_owning_the_folder(tmp_path, mo
     assert "profile 'client'" not in result.output
 
 
-def test_profiles_applied_by_an_older_version_are_reapplied_at_startup(tmp_path, monkeypatch):
-    """The new behaviour lives in applied files, so a version change must reapply without being asked."""
+def test_read_only_commands_notice_stale_profiles_and_writing_commands_reapply_them(tmp_path, monkeypatch):
+    """A version change must reapply without being asked, but never from a command that promises not to write."""
     from typer.testing import CliRunner
 
     from aparta import auth
@@ -217,10 +217,17 @@ def test_profiles_applied_by_an_older_version_are_reapplied_at_startup(tmp_path,
         SafeWriter(),
     )
 
-    result = CliRunner().invoke(app, ["list"])
+    listed = CliRunner().invoke(app, ["list"])
 
-    assert result.exit_code == 0, result.output
-    assert "updating 1 profile(s)" in result.output
+    assert listed.exit_code == 0, listed.output
+    assert "updating" not in listed.output
+    assert "applied by an older aparta" in listed.output
+    assert load_profiles()["personal"].applied_with == "0.4.0"
+
+    fixed = CliRunner().invoke(app, ["doctor", "--fix"])
+
+    assert fixed.exit_code in (0, 1), fixed.output
+    assert "updating 1 profile(s)" in fixed.output
     from aparta import __version__
 
     assert load_profiles()["personal"].applied_with == __version__
