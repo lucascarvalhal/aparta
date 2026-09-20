@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-20
+
 ### Changed
 
 - Read-only commands stay read-only. Profiles applied by an older version
@@ -470,7 +472,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Agent adapters: Claude Code, Codex CLI, Gemini CLI, Antigravity, direnv.
 - SafeWriter: timestamped backups, merges, dry-run diffs.
 
-[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/lucascarvalhal/aparta/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/lucascarvalhal/aparta/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/lucascarvalhal/aparta/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/lucascarvalhal/aparta/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/lucascarvalhal/aparta/compare/v0.8.2...v0.9.0

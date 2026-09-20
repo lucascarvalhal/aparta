@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/aparta/"><img src="https://img.shields.io/badge/pypi-v0.9.2-orange?logo=pypi&logoColor=white" alt="PyPI"></a>
+  <a href="https://pypi.org/project/aparta/"><img src="https://img.shields.io/badge/pypi-v0.9.3-orange?logo=pypi&logoColor=white" alt="PyPI"></a>
   <img src="https://img.shields.io/pypi/pyversions/aparta" alt="Python">
   <img src="https://img.shields.io/badge/license-MIT-yellow" alt="Licença: MIT">
   <a href="https://github.com/lucascarvalhal/aparta/actions/workflows/ci.yml"><img src="https://github.com/lucascarvalhal/aparta/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
